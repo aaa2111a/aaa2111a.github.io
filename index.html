@@ -1,0 +1,1400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ubk</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect x='3' y='3' width='10' height='10' fill='%23ff003b'/></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #000;
+      --fg: #e8e4dc;
+      --muted: #777;
+      --accent: #e8e4dc;
+      --border: #1a1a1a;
+      --hover-bg: #0a0a0a;
+      --box-bg: #30302e;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: #30302e;
+      color: var(--fg);
+      font-family: 'DM Mono', monospace;
+      font-weight: 300;
+      font-size: 13px;
+      line-height: 1.6;
+      min-height: 100vh;
+      cursor: crosshair;
+    }
+
+
+
+
+    .page-body {
+      background: #000;
+      width: 100%;
+    }
+
+    body {
+      background: #000;
+    }
+
+    .site-wrapper {
+      max-width: 1300px;
+      margin: 0 auto;
+      padding: 0 32px;
+    }
+
+    /* ── Header ── */
+    header {
+      padding: 32px 32px calc(48px + 40px);
+      display: flex;
+      justify-content: flex-end;
+      align-items: flex-start;
+      opacity: 0;
+      animation: fadeUp 0.8s ease forwards;
+      width: 100%;
+      background: #30302e;
+      position: relative;
+      overflow: hidden;
+      border: 40px solid #000;
+      clip-path: polygon(0 0, calc(100% - 40px) 0, calc(100% - 40px) 40px, 100% 40px, 100% 100%, 0 100%);
+    }
+
+    /* remove old ::after corner hack */
+    header::after { display: none; }
+    header::before { display: none; }
+
+    #corner-cut {
+      position: absolute;
+      top: 0;
+      right: 0;
+      width: 40px;
+      height: 40px;
+      background: #30302e;
+      z-index: 100;
+      pointer-events: none;
+    }
+
+    #header-canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .name, .header-right {
+      position: relative;
+      z-index: 1;
+    }
+
+    .name {
+      position: absolute !important;
+      bottom: 40px;
+      right: 32px;
+      margin: 0 !important;
+      align-self: unset !important;
+    }
+
+    .name {
+      font-family: 'DM Mono', monospace;
+      font-size: clamp(9px, 1.5vw, 16px);
+      line-height: 1;
+      letter-spacing: -0.02em;
+      color: var(--fg);
+      font-style: normal;
+      user-select: none;
+      align-self: flex-start;
+      margin-right: auto;
+    }
+
+    .header-right {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 14px;
+      padding-bottom: 6px;
+    }
+
+    .bio {
+      max-width: 240px;
+      color: var(--muted);
+      font-size: 12px;
+      text-align: right;
+      line-height: 1.7;
+    }
+
+    .bio a {
+      color: var(--fg);
+      text-decoration: none;
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .bio a:hover { opacity: 0.7; }
+
+    /* ── Section label ── */
+    .nav-square {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      background: #30302e;
+      border: 1px solid #30302e;
+      flex-shrink: 0;
+      cursor: pointer;
+      position: relative;
+      transition: border-color 0.25s ease;
+    }
+
+    
+
+    .nav-label {
+      font-family: "DM Mono", monospace;
+      font-size: 10px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: #000;
+      background: #30302e;
+      position: absolute;
+      right: calc(100% + 1px);
+      top: -1px;
+      height: calc(100% + 2px);
+      display: flex;
+      align-items: center;
+      padding: 0 10px;
+      white-space: nowrap;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease;
+      border: 1px solid #30302e;
+    }
+
+    @media (min-width: 768px) {
+      .nav-square:hover .nav-label {
+        opacity: 1;
+      }
+      .nav-square.active:hover .nav-label {
+        background: #ff003b;
+        border-color: #ff003b;
+      }
+    }
+
+    .nav-square.active {
+      background: #ff003b;
+      border-color: #ff003b;
+    }
+
+    .section-label {
+      font-size: 11px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--muted);
+      padding: 64px 0 32px;
+      opacity: 0;
+      animation: fadeUp 0.8s ease 0.2s forwards;
+    }
+
+
+    .grid-wrapper {
+      display: flex;
+      gap: 24px;
+      align-items: flex-start;
+    }
+
+    .nav-square {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      background: #30302e;
+      border: 1px solid #30302e;
+      flex-shrink: 0;
+      cursor: pointer;
+      position: relative;
+      transition: border-color 0.25s ease;
+    }
+
+    
+
+    .nav-label {
+      font-family: "DM Mono", monospace;
+      font-size: 10px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: #000;
+      background: #30302e;
+      position: absolute;
+      right: calc(100% + 1px);
+      top: -1px;
+      height: calc(100% + 2px);
+      display: flex;
+      align-items: center;
+      padding: 0 10px;
+      white-space: nowrap;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease;
+      border: 1px solid #30302e;
+    }
+
+    @media (min-width: 768px) {
+      .nav-square:hover .nav-label {
+        opacity: 1;
+      }
+      .nav-square.active:hover .nav-label {
+        background: #ff003b;
+        border-color: #ff003b;
+      }
+    }
+
+    .nav-square.active {
+      background: #ff003b;
+      border-color: #ff003b;
+    }
+
+    .section-label {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      opacity: 0;
+      animation: fadeUp 0.8s ease 0.2s forwards;
+      position: sticky;
+      top: 24px;
+      flex-shrink: 0;
+      padding-top: 0;
+    }
+
+    .works-grid {
+      transition: opacity 0.25s ease;
+    }
+    .works-grid.fade-out {
+      opacity: 0;
+    }
+    .work-item.placeholder .work-thumb {
+      background: #1a1a1a;
+    }
+    .work-item.placeholder .work-title,
+    .work-item.placeholder .work-year,
+    .work-item.placeholder .work-desc {
+      background: #1a1a1a;
+      border-radius: 2px;
+      height: 14px;
+      width: 60%;
+    }
+    .work-item.placeholder .work-desc { width: 90%; height: 42px; }
+    /* grid */
+    .works-grid {
+
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      background: transparent;
+      border: none;
+      opacity: 0;
+      animation: fadeUp 0.8s ease 0.35s forwards;
+    }
+
+    .work-item {
+      background: #30302e;
+      padding: 28px;
+      clip-path: polygon(0 0, calc(100% - 28px) 0, calc(100% - 28px) 28px, 100% 28px, 100% 100%, 0 100%);
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      transition: background 0.2s ease;
+      text-decoration: none;
+      color: inherit;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .work-item::after {
+      content: '↗';
+      position: absolute;
+      top: 18px;
+      right: 18px;
+      font-size: 13px;
+      color: var(--muted);
+      opacity: 0;
+      transform: translate(-4px, 4px);
+      transition: opacity 0.2s ease, transform 0.2s ease;
+    }
+
+    /* staggered columns using transform so grid sizing stays intact */
+    .works-grid {
+      align-items: stretch;
+    }
+    .work-item:nth-child(3n+2) {
+      transform: translateY(28px);
+    }
+    .work-item:nth-child(3n+3) {
+      transform: translateY(56px);
+    }
+    .work-item:hover::after { opacity: 1; transform: translate(0, 0); }
+
+    .work-thumb {
+      width: 100%;
+      aspect-ratio: 1 / 1;
+      background: var(--border);
+      overflow: hidden;
+    }
+
+    .work-thumb img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      filter: grayscale(15%);
+      transition: filter 0.3s ease, transform 0.4s ease;
+      display: block;
+    }
+
+    .work-item:hover .work-thumb img {
+      filter: grayscale(0%);
+      transform: scale(1.04);
+    }
+
+    .work-title {
+      font-family: 'DM Mono', monospace;
+      font-size: 20px;
+      font-style: normal;
+      color: var(--fg);
+      line-height: 1.2;
+      padding-right: 20px;
+    }
+
+    .work-year {
+      font-size: 11px;
+      color: var(--muted);
+      letter-spacing: 0.08em;
+      margin-top: auto;
+    }
+
+    .work-desc {
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.7;
+      flex: 1;
+    }
+
+    /* ── Footer ── */
+    footer {
+      margin-top: 80px;
+      padding: 32px 0 48px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      opacity: 0;
+      animation: fadeUp 0.8s ease 0.5s forwards;
+    }
+
+    .footer-copy { color: var(--muted); font-size: 11px; }
+    .footer-links { display: flex; gap: 20px; }
+    .footer-links a {
+      color: var(--muted);
+      text-decoration: none;
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      transition: color 0.2s;
+    }
+    .footer-links a:hover { color: var(--fg); }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(16px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    @media (max-width: 600px) {
+      header { flex-direction: column; align-items: flex-start; gap: 20px; }
+      .header-right { align-items: flex-start; }
+      .bio { text-align: left; max-width: 100%; }
+      footer { flex-direction: column; gap: 16px; align-items: flex-start; }
+      .works-grid { grid-template-columns: 1fr 1fr; }
+    }
+
+    #theme-toggle {
+      position: fixed;
+      top: 14px;
+      right: 14px;
+      width: 12px;
+      height: 12px;
+      background: #ff003b;
+      border: none;
+      cursor: pointer;
+      z-index: 200;
+      padding: 0;
+    }
+
+    #theme-toggle:hover {
+      opacity: 0.8;
+    }
+
+    /* ── On-chain SVG Decoder ── */
+    .decoder-wrap {
+      padding: 0 0 32px 0;
+      background: #30302e;
+      width: 100%;
+    }
+    .dec-inner {
+      max-width: 560px;
+      margin: 0 auto;
+    }
+    .dec-inner {
+      max-width: 680px;
+    }
+    .dec-sub {
+      font-size: 12px;
+      color: var(--muted);
+      margin: 0 0 20px;
+      font-family: 'DM Mono', monospace;
+    }
+    .dec-sub code {
+      background: #1a1a1a;
+      padding: 1px 5px;
+      border-radius: 2px;
+      color: var(--fg);
+    }
+    .dec-inner .dec-card {
+      background: #000;
+      border: 1px solid #1a1a1a;
+      padding: 20px;
+      margin-bottom: 16px;
+    }
+    .dec-inner label {
+      font-size: 11px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      display: block;
+      margin-bottom: 8px;
+      font-family: 'DM Mono', monospace;
+    }
+    .dec-inner textarea {
+      width: 100%;
+      height: 90px;
+      resize: vertical;
+      font-family: 'DM Mono', monospace;
+      font-size: 11px;
+      border: 1px solid #333;
+      padding: 10px;
+      background: #111;
+      color: var(--fg);
+      outline: none;
+      box-sizing: border-box;
+    }
+    .dec-inner textarea:focus { border-color: #555; }
+    .dec-hint {
+      font-size: 11px;
+      color: var(--muted);
+      margin: 8px 0 16px;
+      font-family: 'DM Mono', monospace;
+      line-height: 1.6;
+    }
+    .dec-hint code {
+      background: #1a1a1a;
+      padding: 1px 5px;
+      color: var(--fg);
+    }
+    .dec-inner .dec-btn {
+      width: 100%;
+      height: 36px;
+      border: 1px solid var(--fg);
+      background: transparent;
+      color: var(--fg);
+      font-size: 12px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      cursor: pointer;
+      font-family: 'DM Mono', monospace;
+      transition: background 0.2s, color 0.2s;
+    }
+    .dec-inner .dec-btn:hover { background: var(--fg); color: #000; }
+    .dec-error {
+      display: none;
+      color: #ff003b;
+      font-size: 12px;
+      margin-top: 10px;
+      font-family: 'DM Mono', monospace;
+    }
+    .dec-preview {
+      display: none;
+      border: 1px solid #1a1a1a;
+      background: #000;
+    }
+    .dec-preview-header {
+      padding: 12px 16px;
+      border-bottom: 1px solid #1a1a1a;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .dec-token-name {
+      font-size: 13px;
+      font-family: 'DM Mono', monospace;
+      color: var(--fg);
+    }
+    .dec-badge {
+      font-size: 10px;
+      padding: 2px 8px;
+      background: #ff003b;
+      color: #fff;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      font-family: 'DM Mono', monospace;
+    }
+    .dec-svg-frame {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      background: #0a0a0a;
+    }
+    .dec-svg-frame img {
+      max-width: 100%;
+      max-height: 440px;
+      image-rendering: pixelated;
+    }
+    .dec-description {
+      display: none;
+      font-size: 12px;
+      color: var(--muted);
+      padding: 12px 16px;
+      border-top: 1px solid #1a1a1a;
+      font-family: 'DM Mono', monospace;
+      line-height: 1.6;
+    }
+    .dec-meta-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+      gap: 8px;
+      padding: 12px 16px;
+      border-top: 1px solid #1a1a1a;
+    }
+    .dec-meta-card {
+      background: #111;
+      border: 1px solid #1a1a1a;
+      padding: 8px 10px;
+    }
+    .dec-meta-label {
+      font-size: 10px;
+      color: var(--muted);
+      margin-bottom: 2px;
+      font-family: 'DM Mono', monospace;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+    .dec-meta-val {
+      font-size: 12px;
+      color: var(--fg);
+      font-family: 'DM Mono', monospace;
+      word-break: break-word;
+    }
+    .dec-footer {
+      display: flex;
+      justify-content: flex-end;
+      border-top: 1px solid #1a1a1a;
+      padding: 8px 16px;
+    }
+    .dec-raw-link {
+      font-size: 11px;
+      color: var(--muted);
+      cursor: pointer;
+      background: none;
+      border: none;
+      padding: 0;
+      font-family: 'DM Mono', monospace;
+    }
+    .dec-raw-link:hover { color: var(--fg); }
+
+    .pixel-title {
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+      flex-wrap: wrap;
+    }
+    .pixel-letter {
+      display: grid;
+      gap: 0;
+    }
+    .pixel-letter .px {
+      width: 15px;
+      height: 15px;
+      background: #ff003b;
+    }
+    .pixel-letter .px-off {
+      width: 15px;
+      height: 15px;
+    }
+    .pixel-space {
+      width: 18px;
+    }
+    #decoder-title {
+      display: flex;
+      align-items: flex-start;
+      gap: 24px;
+      width: 100%;
+    }
+  </style>
+</head>
+<body>
+<div style="position:relative; width:100%;">
+<div id="corner-cut"></div>
+<button id="theme-toggle" title="Toggle theme"></button>
+<header>
+    <canvas id="header-canvas"></canvas>
+    <div class="name">ubk</div>
+    <div class="header-right">
+      <p class="bio">
+        NFT artist & creator.<br>
+        Corrupted jpegs, glitch systems,<br>void aesthetics.
+      </p>
+      <a class="bio" href="https://opensea.io/UnbearableKnife/created" target="_blank">OpenSea ↗</a>
+      <a class="bio" href="https://twitter.com/unbearableKnife" target="_blank">Twitter ↗</a>
+    </div>
+  </header>
+
+<div class="page-body"><div class="site-wrapper">
+
+  <div class="grid-wrapper">
+  <div class="section-label">
+    <span class="nav-square active" data-cat="works"><span class="nav-label">Works</span></span>
+    <span class="nav-square" data-cat="vvv"><span class="nav-label">VVV</span></span>
+    <span class="nav-square" data-cat="side"><span class="nav-label">Side Projects</span></span>
+    <span class="nav-square" data-cat="decoder"><span class="nav-label">On-chain SVG Decoder</span></span>
+  </div>
+      <div id="decoder-title" style="display:none; padding: 0 0 24px 0; justify-content: center;"><div class="pixel-title"><div class="pixel-letter" style="grid-template-columns: repeat(5, 15px);"><div class="px-off"></div><div class="px"></div><div class="px"></div><div class="px"></div><div class="px-off"></div><div class="px"></div><div class="px-off"></div><div class="px-off"></div><div class="px-off"></div><div class="px-off"></div><div class="px-off"></div><div class="px"></div><div class="px"></div><div class="px"></div><div class="px-off"></div><div class="px-off"></div><div class="px-off"></div><div class="px-off"></div><div class="px-off"></div><div class="px"></div><div class="px"></div><div class="px"></div><div class="px"></div><div class="px"></div><div class="px-off"></div></div><div class="pixel-letter" style="grid-template-columns: repeat(5, 15px);"><div class="px"></div><div class="px-off"></div><div class="px-off"></div><div class="px-off"></div><div class="px"></div><div class="px"></div><div class="px-off"></div><div class="px-off"></div><div class="px-off"></div><div class="px"></div><div class="px"></div><div class="px-off"></div><div class="px-off"></div><div class="px-off"></div><div class="px"></div><div class="px-off"></div><div class="px"></div><div class="px-off"></div><div class="px"></div><div class="px-off"></div><div class="px-off"></div><div class="px-off"></div><div class="px"></div><div class="px-off"></div><div class="px-off"></div></div><div class="pixel-letter" style="grid-template-columns: repeat(5, 15px);"><div class="px-off"></div><div class="px"></div><div class="px"></div><div class="px"></div><div class="px-off"></div><div class="px"></div><div class="px-off"></div><div class="px-off"></div><div class="px-off"></div><div class="px-off"></div><div class="px"></div><div class="px-off"></div><div class="px-off"></div><div class="px"></div><div class="px"></div><div class="px"></div><div class="px-off"></div><div class="px-off"></div><div class="px-off"></div><div class="px"></div><div class="px-off"></div><div class="px"></div><div class="px"></div><div class="px"></div><div class="px-off"></div></div><div class="pixel-space"></div><div class="pixel-letter" style="grid-template-columns: repeat(5, 15px);"><div class="px"></div><div class="px"></div><div class="px"></div><div class="px-off"></div><div class="px-off"></div><div class="px"></div><div class="px-off"></div><div class="px-off"></div><div class="px"></div><div class="px-off"></div><div class="px"></div><div class="px-off"></div><div class="px-off"></div><div class="px-off"></div><div class="px"></div><div class="px"></div><div class="px-off"></div><div class="px-off"></div><div class="px"></div><div class="px-off"></div><div class="px"></div><div class="px"></div><div class="px"></div><div class="px-off"></div><div class="px-off"></div></div><div class="pixel-letter" style="grid-template-columns: repeat(5, 15px);"><div class="px"></div><div class="px"></div><div class="px"></div><div class="px"></div><div class="px"></div><div class="px"></div><div class="px-off"></div><div class="px-off"></div><div class="px-off"></div><div class="px-off"></div><div class="px"></div><div class="px"></div><div class="px"></div><div class="px"></div><div class="px-off"></div><div class="px"></div><div class="px-off"></div><div class="px-off"></div><div class="px-off"></div><div class="px-off"></div><div class="px"></div><div class="px"></div><div class="px"></div><div class="px"></div><div class="px"></div></div><div class="pixel-letter" style="grid-template-columns: repeat(5, 15px);"><div class="px-off"></div><div class="px"></div><div class="px"></div><div class="px"></div><div class="px"></div><div class="px"></div><div class="px-off"></div><div class="px-off"></div><div class="px-off"></div><div class="px-off"></div><div class="px"></div><div class="px-off"></div><div class="px-off"></div><div class="px-off"></div><div class="px-off"></div><div class="px"></div><div class="px-off"></div><div class="px-off"></div><div class="px-off"></div><div class="px-off"></div><div class="px-off"></div><div class="px"></div><div class="px"></div><div class="px"></div><div class="px"></div></div><div class="pixel-letter" style="grid-template-columns: repeat(5, 15px);"><div class="px-off"></div><div class="px"></div><div class="px"></div><div class="px"></div><div class="px-off"></div><div class="px"></div><div class="px-off"></div><div class="px-off"></div><div class="px-off"></div><div class="px"></div><div class="px"></div><div class="px-off"></div><div class="px-off"></div><div class="px-off"></div><div class="px"></div><div class="px"></div><div class="px-off"></div><div class="px-off"></div><div class="px-off"></div><div class="px"></div><div class="px-off"></div><div class="px"></div><div class="px"></div><div class="px"></div><div class="px-off"></div></div><div class="pixel-letter" style="grid-template-columns: repeat(5, 15px);"><div class="px"></div><div class="px"></div><div class="px"></div><div class="px-off"></div><div class="px-off"></div><div class="px"></div><div class="px-off"></div><div class="px-off"></div><div class="px"></div><div class="px-off"></div><div class="px"></div><div class="px-off"></div><div class="px-off"></div><div class="px-off"></div><div class="px"></div><div class="px"></div><div class="px-off"></div><div class="px-off"></div><div class="px"></div><div class="px-off"></div><div class="px"></div><div class="px"></div><div class="px"></div><div class="px-off"></div><div class="px-off"></div></div><div class="pixel-letter" style="grid-template-columns: repeat(5, 15px);"><div class="px"></div><div class="px"></div><div class="px"></div><div class="px"></div><div class="px"></div><div class="px"></div><div class="px-off"></div><div class="px-off"></div><div class="px-off"></div><div class="px-off"></div><div class="px"></div><div class="px"></div><div class="px"></div><div class="px"></div><div class="px-off"></div><div class="px"></div><div class="px-off"></div><div class="px-off"></div><div class="px-off"></div><div class="px-off"></div><div class="px"></div><div class="px"></div><div class="px"></div><div class="px"></div><div class="px"></div></div><div class="pixel-letter" style="grid-template-columns: repeat(5, 15px);"><div class="px"></div><div class="px"></div><div class="px"></div><div class="px"></div><div class="px-off"></div><div class="px"></div><div class="px-off"></div><div class="px-off"></div><div class="px-off"></div><div class="px"></div><div class="px"></div><div class="px"></div><div class="px"></div><div class="px"></div><div class="px-off"></div><div class="px"></div><div class="px-off"></div><div class="px-off"></div><div class="px"></div><div class="px-off"></div><div class="px"></div><div class="px-off"></div><div class="px-off"></div><div class="px-off"></div><div class="px"></div></div></div></div>
+  <div class="works-grid" id="main-grid">
+
+    <!-- newest → oldest -->
+
+    <!-- May 2025 — first -->
+    <a class="work-item" href="https://www.transient.xyz/nfts/ethereum/0x5d09745f5b16da0b1dd558e98aa63fe849d53ff1" target="_blank">
+      <div class="work-thumb">
+        <img src="https://i2c.seadn.io/ethereum/0x5d09745f5b16da0b1dd558e98aa63fe849d53ff1/7fac5f3e53cc25acb2bc9711fa3871/fa7fac5f3e53cc25acb2bc9711fa3871.gif" alt="Dead Kernel Theory" loading="lazy" />
+      </div>
+      <div class="work-title">Dead Kernel Theory</div>
+      <div class="work-year">2025</div>
+      <div class="work-desc">Three pieces. A kernel panic frozen in time — the moment before total system collapse.</div>
+    </a>
+
+    <!-- May 2025 -->
+    <a class="work-item" href="https://www.transient.xyz/nfts/ethereum/0xd40e921907cf61d6a872bec669c82069c0de7ca0" target="_blank">
+      <div class="work-thumb">
+        <img src="https://i2c.seadn.io/ethereum/0xd40e921907cf61d6a872bec669c82069c0de7ca0/544a78c62caa84f651b0e41e077479/66544a78c62caa84f651b0e41e077479.jpeg" alt="INTERNET VOID TECH" loading="lazy" />
+      </div>
+      <div class="work-title">INTERNET VOID TECH</div>
+      <div class="work-year">2025</div>
+      <div class="work-desc">10 pieces. The technology of nothing — infrastructure built for the infinite scroll into the void.</div>
+    </a>
+
+    <!-- Apr 2025 -->
+    <a class="work-item" href="https://www.transient.xyz/mint/onchain-ceremony" target="_blank">
+      <div class="work-thumb">
+        <img src="https://i2c.seadn.io/ethereum/0xe84e3051b6bb2eb3f637f4e59852a6397f99402b/70b58d3ff1c93571f38e077944a2a6/0470b58d3ff1c93571f38e077944a2a6.jpeg" alt="void tech" loading="lazy" />
+      </div>
+      <div class="work-title">void tech</div>
+      <div class="work-year">2025</div>
+      <div class="work-desc">47 works. Earlier explorations of technological emptiness — the digital residue left after the signal dies.</div>
+    </a>
+
+    <!-- Apr 2025 -->
+    <a class="work-item" href="https://foundation.app/mint/eth/0xd3C63bbFFA94228C4DF5bE2b02CCc4d30173f834" target="_blank">
+      <div class="work-thumb">
+        <img src="https://i2c.seadn.io/ethereum/0xd3c63bbffa94228c4df5be2b02ccc4d30173f834/5820dddec64dc45c7e7e86e9e56039/cb5820dddec64dc45c7e7e86e9e56039.png" alt="200% GREED APOCALYPSE" loading="lazy" />
+      </div>
+      <div class="work-title">200% GREED APOCALYPSE – MAXIMUM OVERLOAD</div>
+      <div class="work-year">2025</div>
+      <div class="work-desc">100 greedy souls broadcast across massive screens throughout the city. They were once ordinary humans—now warped reflections of desire, consumed by excess. There's nothing left to save. Only overload.</div>
+    </a>
+
+    <!-- Mar 2025 -->
+    <a class="work-item" href="https://opensea.io/collection/maxxextraction" target="_blank">
+      <div class="work-thumb">
+        <img src="https://i2c.seadn.io/ethereum/0x0a57666bd967dc7481277d45024f2e82b62cec98/5871fde52f8c8bd57c7b610d1b2479/cf5871fde52f8c8bd57c7b610d1b2479.gif" alt="MAXXEXTRACTION" loading="lazy" />
+      </div>
+      <div class="work-title">MAXXEXTRACTION</div>
+      <div class="work-year">2025</div>
+      <div class="work-desc">26 pieces exploring maximum resource drain — the logic of extraction pushed to its visual limit.</div>
+    </a>
+
+    <!-- Jan 2025 -->
+    <a class="work-item" href="https://opensea.io/collection/rodeo-posts-9207" target="_blank">
+      <div class="work-thumb">
+        <img src="https://i2c.seadn.io/base/0xb65dbea547e64b6dee1a9bd93e1fdd06f7b81448/9e72d500e834a396bc053aff3080b0/949e72d500e834a396bc053aff3080b0.gif" alt="Rodeo posts" loading="lazy" />
+      </div>
+      <div class="work-title">Rodeo posts</div>
+      <div class="work-year">2025</div>
+      <div class="work-desc">774 dispatches from the digital frontier. Social media as artifact. Posted and preserved on Base.</div>
+    </a>
+
+    <!-- May 2024 -->
+    <a class="work-item" href="https://opensea.io/collection/0xf4ba23350dfa8ffba31f1cd9168d99c4ca87dd2b" target="_blank">
+      <div class="work-thumb">
+        <img src="https://i2c.seadn.io/base/0xf4ba23350dfa8ffba31f1cd9168d99c4ca87dd2b/01b8dbbfe04d95be69e161b90c377d83.gif" alt="lost" loading="lazy" />
+      </div>
+      <div class="work-title">lost</div>
+      <div class="work-year">2024</div>
+      <div class="work-desc">180 pieces adrift in the digital void. No floor. No direction. Just signal.</div>
+    </a>
+
+    <!-- Jun 2023 -->
+    <a class="work-item" href="https://foundation.app/mint/eth/0x4932139D0145A8bB1E906115f1FeDDe8AFFD8147" target="_blank">
+      <div class="work-thumb">
+        <img src="https://i2c.seadn.io/ethereum/0x4932139d0145a8bb1e906115f1fedde8affd8147/bba913400a904583a3173e7f7205fae9.gif" alt="Reprocess Destruction" loading="lazy" />
+      </div>
+      <div class="work-title">Reprocess Destruction</div>
+      <div class="work-year">2023</div>
+      <div class="work-desc">25 pixelated animations made out of the trash</div>
+    </a>
+
+    <!-- May 2023 -->
+    <a class="work-item" href="https://opensea.io/collection/doom-anarchy" target="_blank">
+      <div class="work-thumb">
+        <img src="https://i2c.seadn.io/ethereum/84f4e327b7e241089f178991f760b2a3/13648748b8d6f35d4a044f30962718/7d13648748b8d6f35d4a044f30962718.gif" alt="DOOM ANARCHY" loading="lazy" />
+      </div>
+      <div class="work-title">DOOM ANARCHY</div>
+      <div class="work-year">2023</div>
+      <div class="work-desc">80 editions of pure disorder. Chaos as a visual language — no hierarchy, no structure, no way out.</div>
+    </a>
+
+    <!-- Dec 2022 -->
+    <a class="work-item" href="https://opensea.io/collection/refinederrors" target="_blank">
+      <div class="work-thumb">
+        <img src="https://i2c.seadn.io/ethereum/139d47ca5d9246778dcdaf5b4c3dc4e6/b63185490a51727583016636ddbb27/adb63185490a51727583016636ddbb27.gif" alt="X and X" loading="lazy" />
+      </div>
+      <div class="work-title">X and X</div>
+      <div class="work-year">2022</div>
+      <div class="work-desc">620 editions. Two forces. Two marks. The collision between signal and noise, order and glitch.</div>
+    </a>
+
+    <!-- Oct 2022 -->
+    <a class="work-item" href="https://opensea.io/collection/uhgmoforekt" target="_blank">
+      <div class="work-thumb">
+        <img src="https://i2c.seadn.io/ethereum/ef4c8e1c47204a4e92ce47bf3559eaa0/3ee2ae83fa4dd4230dc617a8c4defb/b93ee2ae83fa4dd4230dc617a8c4defb.gif" alt="!UGH.MOFO/REKT" loading="lazy" />
+      </div>
+      <div class="work-title">!UGH.MOFO/REKT</div>
+      <div class="work-year">2022</div>
+      <div class="work-desc">16 pieces on the aftermath of being wrecked. The expletive preserved onchain.</div>
+    </a>
+
+    <!-- Oct 2022 -->
+    <a class="work-item" href="https://opensea.io/collection/ugh-k" target="_blank">
+      <div class="work-thumb">
+        <img src="https://i2c.seadn.io/ethereum/f523bea6de064aa5b0fa4e8c1f45c6ee/0ec48ae920f61b641febd76d9dd912/d00ec48ae920f61b641febd76d9dd912.gif" alt="!UGH.K" loading="lazy" />
+      </div>
+      <div class="work-title">!UGH.K</div>
+      <div class="work-year">2022</div>
+      <div class="work-desc">33 editions. Frustration as an art form — the knife through the screen, the sound before the crash.</div>
+    </a>
+
+    <!-- Sep 2022 -->
+    <a class="work-item" href="https://opensea.io/collection/void-thoughts-by-ubk" target="_blank">
+      <div class="work-thumb">
+        <img src="https://i2c.seadn.io/ethereum/9886f76b5c8a48489fb4ac41c8e8d2d6/238538de5552572452bb1eb0bb2acd/0e238538de5552572452bb1eb0bb2acd.gif" alt="Void Thoughts" loading="lazy" />
+      </div>
+      <div class="work-title">Void Thoughts</div>
+      <div class="work-year">2022</div>
+      <div class="work-desc">27 editions. Mental static from the edge of the digital — thoughts that form in empty spaces.</div>
+    </a>
+
+    <!-- Jul 2022 -->
+    <a class="work-item" href="https://opensea.io/collection/knife-token" target="_blank">
+      <div class="work-thumb">
+        <img src="https://i2c.seadn.io/ethereum/85f273cc46cb4c0abfce8b63322dd997/22e78895a4a0dab1c2558258e307da/7222e78895a4a0dab1c2558258e307da.gif" alt="Knife Token" loading="lazy" />
+      </div>
+      <div class="work-title">Knife Token</div>
+      <div class="work-year">2022</div>
+      <div class="work-desc">By holding this token you might receive corrupted jpegs, gifs and trash thoughts.</div>
+    </a>
+
+    <!-- Jul 2022 — first ever -->
+    <a class="work-item" href="https://foundation.app/mint/eth/0x048A5998756f1e8054a52CFe45501a69b85862df/1" target="_blank">
+      <div class="work-thumb">
+        <img src="https://i2c.seadn.io/ethereum/0x048a5998756f1e8054a52cfe45501a69b85862df/4375317fef8261513bc3f757e71ef7c1.gif" alt="Kuchillo" loading="lazy" />
+      </div>
+      <div class="work-title">Kuchillo</div>
+      <div class="work-year">2022</div>
+      <div class="work-desc">Single edition. The knife reduced to its most raw form — one object, one idea.</div>
+    </a>
+
+  </div>
+  </div>
+
+  <footer>
+    <span class="footer-copy">© 2026 UnbearableKnife</span>
+    <div class="footer-links">
+      <a href="https://opensea.io/UnbearableKnife/created" target="_blank">OpenSea</a>
+      <a href="https://twitter.com/unbearableKnife" target="_blank">Twitter</a>
+    </div>
+  </footer>
+
+</div>
+<canvas id="grid-canvas"></canvas>
+
+<style>
+  #grid-canvas {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 0;
+  }
+  .site-wrapper { position: relative; z-index: 1; }
+</style>
+
+<script>
+  // ── BACKGROUND: black squares (avoid header area) ──
+  const canvas = document.getElementById('grid-canvas');
+  const ctx = canvas.getContext('2d');
+
+  const CELL = 80;
+  let NUM_SQUARES = 14;
+
+  let cols, rows, squares = [], headerRows = 0;
+
+  function resize() {
+    canvas.width  = window.innerWidth;
+    canvas.height = window.innerHeight;
+    cols = Math.ceil(canvas.width / CELL);
+    rows = Math.ceil(canvas.height / CELL);
+    const hdrH = document.querySelector('header').offsetHeight;
+    headerRows = Math.ceil(hdrH / CELL);
+  }
+
+  function cellOccupied(col, row, excludeIdx) {
+    if (cellInGrid(col, row)) return true;
+    return squares.some((sq, i) => {
+      if (i === excludeIdx) return false;
+      return sq.targetCol === col && sq.targetRow === row;
+    });
+  }
+
+  function randomSquare(idx) {
+    let col, row, attempts = 0;
+    do {
+      col = Math.floor(Math.random() * cols);
+      row = headerRows + Math.floor(Math.random() * (rows - headerRows));
+      attempts++;
+    } while ((cellOccupied(col, row, idx) || cellInGrid(col, row)) && attempts < 200);
+    return {
+      x: col * CELL, y: row * CELL,
+      targetCol: col, targetRow: row,
+      fromX: col * CELL, fromY: row * CELL,
+      toX: col * CELL, toY: row * CELL,
+      size: CELL * (0.55 + Math.random() * 0.35),
+      dir: Math.random() < 0.5 ? 'h' : 'v',
+      speed: 0.35 + Math.random() * 0.35,
+      progress: 0, paused: Math.random() * 1.5,
+    };
+  }
+
+  function nextWaypoint(sq, idx) {
+    sq.fromX = sq.toX;
+    sq.fromY = sq.toY;
+    sq.progress = 0;
+
+    for (let attempt = 0; attempt < 8; attempt++) {
+      let newCol = sq.targetCol;
+      let newRow = sq.targetRow;
+
+      if (sq.dir === 'h') {
+        const step = Math.random() < 0.5 ? -1 : 1;
+        newCol = Math.max(0, Math.min(cols - 1, sq.targetCol + step));
+      } else {
+        const step = Math.random() < 0.5 ? -1 : 1;
+        // clamp so it never goes into header rows
+        newRow = Math.max(headerRows, Math.min(rows - 1, sq.targetRow + step));
+      }
+
+      if (!cellOccupied(newCol, newRow, idx)) {
+        sq.targetCol = newCol;
+        sq.targetRow = newRow;
+        break;
+      }
+      sq.dir = sq.dir === 'h' ? 'v' : 'h';
+    }
+
+    if (Math.random() < 0.25) sq.dir = sq.dir === 'h' ? 'v' : 'h';
+    sq.toX = sq.targetCol * CELL;
+    sq.toY = sq.targetRow * CELL;
+  }
+
+  let gridRect = null;
+
+  function updateGridRect() {
+    const grid = document.querySelector('.works-grid');
+    if (grid) gridRect = grid.getBoundingClientRect();
+  }
+
+  function cellInGrid(col, row) {
+    if (!gridRect) return false;
+    const x = col * CELL;
+    const y = row * CELL;
+    return (
+      x + CELL > gridRect.left &&
+      x < gridRect.right &&
+      y + CELL > gridRect.top + window.scrollY &&
+      y < gridRect.bottom + window.scrollY
+    );
+  }
+
+  function init() {
+    NUM_SQUARES = 0;
+    resize();
+    updateGridRect();
+    squares = [];
+    for (let i = 0; i < NUM_SQUARES; i++) squares.push(randomSquare(i));
+    squares.forEach((sq, i) => nextWaypoint(sq, i));
+  }
+
+  let lastBg = null;
+  function drawBg(ts) {
+    if (!lastBg) lastBg = ts;
+    const dt = Math.min((ts - lastBg) / 1000, 0.05);
+    lastBg = ts;
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    squares.forEach((sq, idx) => {
+      if (sq.paused > 0) { sq.paused -= dt; }
+      else {
+        sq.progress += sq.speed * dt;
+        if (sq.progress >= 1) {
+          sq.x = sq.toX; sq.y = sq.toY;
+          sq.paused = 0.3 + Math.random() * 0.8;
+          nextWaypoint(sq, idx);
+        } else {
+          sq.x = sq.fromX + (sq.toX - sq.fromX) * ease(sq.progress);
+          sq.y = sq.fromY + (sq.toY - sq.fromY) * ease(sq.progress);
+        }
+      }
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = '#000000';
+      ctx.fillRect(sq.x, sq.y, sq.size, sq.size);
+    });
+
+    requestAnimationFrame(drawBg);
+  }
+
+  // ── HEADER: red squares ──
+  const hCanvas = document.getElementById('header-canvas');
+  const hCtx = hCanvas.getContext('2d');
+  const H_CELL = 40;
+  let NUM_RED = 10;
+  let hCols, hRows, redSquares = [];
+
+  function redOccupied(col, row, excludeIdx) {
+    return redSquares.some((sq, i) => {
+      if (i === excludeIdx) return false;
+      return sq.targetCol === col && sq.targetRow === row;
+    });
+  }
+
+  function resizeHeader() {
+    const hdr = document.querySelector('header');
+    hCanvas.width  = hdr.clientWidth;
+    hCanvas.height = hdr.clientHeight;
+    hCols = Math.floor(hCanvas.width  / H_CELL);
+    hRows = Math.floor(hCanvas.height / H_CELL);
+  }
+
+  function randomRed(idx) {
+    let col, row, attempts = 0;
+    do {
+      col = Math.floor(Math.random() * hCols);
+      row = Math.floor(Math.random() * hRows);
+      attempts++;
+    } while (redOccupied(col, row, idx) && attempts < 100);
+    return {
+      x: col * H_CELL, y: row * H_CELL,
+      targetCol: col, targetRow: row,
+      fromX: col * H_CELL, fromY: row * H_CELL,
+      toX: col * H_CELL, toY: row * H_CELL,
+      size: H_CELL,
+      dir: Math.random() < 0.5 ? 'h' : 'v',
+      speed: 0.4 + Math.random() * 0.4,
+      progress: 0, paused: Math.random() * 1.2,
+    };
+  }
+
+  function nextRedWaypoint(sq, idx) {
+    sq.fromX = sq.toX;
+    sq.fromY = sq.toY;
+    sq.progress = 0;
+
+    for (let attempt = 0; attempt < 8; attempt++) {
+      let newCol = sq.targetCol;
+      let newRow = sq.targetRow;
+
+      if (sq.dir === 'h') {
+        const step = Math.random() < 0.5 ? -1 : 1;
+        newCol = Math.max(0, Math.min(hCols - 1, sq.targetCol + step));
+      } else {
+        const step = Math.random() < 0.5 ? -1 : 1;
+        newRow = Math.max(0, Math.min(hRows - 1, sq.targetRow + step));
+      }
+
+      if (!redOccupied(newCol, newRow, idx)) {
+        sq.targetCol = newCol;
+        sq.targetRow = newRow;
+        break;
+      }
+      sq.dir = sq.dir === 'h' ? 'v' : 'h';
+    }
+
+    if (Math.random() < 0.25) sq.dir = sq.dir === 'h' ? 'v' : 'h';
+    sq.toX = sq.targetCol * H_CELL;
+    sq.toY = sq.targetRow * H_CELL;
+  }
+
+  function initHeader() {
+    NUM_RED = window.innerWidth >= 768 ? 30 : 10;
+    resizeHeader();
+    redSquares = [];
+    for (let i = 0; i < NUM_RED; i++) redSquares.push(randomRed(i));
+    redSquares.forEach((sq, i) => nextRedWaypoint(sq, i));
+  }
+
+  let lastHdr = null;
+  function drawHeader(ts) {
+    if (!lastHdr) lastHdr = ts;
+    const dt = Math.min((ts - lastHdr) / 1000, 0.05);
+    lastHdr = ts;
+
+    hCtx.clearRect(0, 0, hCanvas.width, hCanvas.height);
+    hCtx.save();
+    hCtx.beginPath();
+    hCtx.rect(0, 0, hCols * H_CELL, hRows * H_CELL);
+    hCtx.clip();
+
+    redSquares.forEach((sq, idx) => {
+      if (sq.paused > 0) { sq.paused -= dt; }
+      else {
+        sq.progress += sq.speed * dt;
+        if (sq.progress >= 1) {
+          sq.x = sq.toX; sq.y = sq.toY;
+          sq.paused = 0.2 + Math.random() * 0.7;
+          nextRedWaypoint(sq, idx);
+        } else {
+          sq.x = sq.fromX + (sq.toX - sq.fromX) * ease(sq.progress);
+          sq.y = sq.fromY + (sq.toY - sq.fromY) * ease(sq.progress);
+        }
+      }
+      hCtx.globalAlpha = 1;
+      hCtx.fillStyle = '#ff003b';
+      hCtx.fillRect(sq.x, sq.y, sq.size, sq.size);
+    });
+
+    // Draw lines — persist after touch until 4 cells apart
+    if (!drawHeader.connections) drawHeader.connections = new Set();
+    const _connections = drawHeader.connections;
+    for (let i = 0; i < redSquares.length; i++) {
+      for (let j = i + 1; j < redSquares.length; j++) {
+        const a = redSquares[i];
+        const b = redSquares[j];
+        const key = i + '-' + j;
+        const ax = a.x + H_CELL / 2;
+        const ay = a.y + H_CELL / 2;
+        const bx = b.x + H_CELL / 2;
+        const by = b.y + H_CELL / 2;
+
+        const sameRow = Math.abs(a.y - b.y) < 2;
+        const sameCol = Math.abs(a.x - b.x) < 2;
+        const edgeDist = sameRow
+          ? Math.abs(a.x - b.x) - H_CELL
+          : sameCol
+            ? Math.abs(a.y - b.y) - H_CELL
+            : Infinity;
+        const dist = Math.hypot(bx - ax, by - ay);
+
+        // connect on touch
+        if ((sameRow || sameCol) && edgeDist >= 0 && edgeDist < 4) {
+          _connections.add(key);
+        }
+        // disconnect when more than 5 cells apart on desktop, 4 on mobile
+        const disconnectDist = window.innerWidth >= 768 ? H_CELL * 5 : H_CELL * 4;
+        if (dist > disconnectDist) {
+          _connections.delete(key);
+        }
+
+        if (_connections.has(key)) {
+          // pixelated line: evenly spaced squares along the path
+          hCtx.save();
+          hCtx.globalAlpha = 1;
+          hCtx.fillStyle = '#ff003b';
+          const ldx = bx - ax;
+          const ldy = by - ay;
+          const llen = Math.hypot(ldx, ldy);
+          const sqSize = 4;  // square size
+          const gap = 8;     // distance between square centers
+          const count = Math.floor(llen / gap);
+          for (let s = 1; s < count; s++) {
+            const t = s / count;
+            const qx = Math.round(ax + ldx * t) - sqSize / 2;
+            const qy = Math.round(ay + ldy * t) - sqSize / 2;
+            hCtx.fillRect(qx, qy, sqSize, sqSize);
+          }
+          hCtx.restore();
+        }
+      }
+    }
+
+    hCtx.restore();
+    requestAnimationFrame(drawHeader);
+  }
+
+  function ease(t) { return t < 0.5 ? 2*t*t : -1+(4-2*t)*t; }
+
+  window.addEventListener('resize', () => { init(); initHeader(); });
+  window.addEventListener('scroll', updateGridRect);
+
+  // wait for DOM so header has dimensions
+  window.addEventListener('load', () => {
+    init();
+    initHeader();
+    requestAnimationFrame(drawBg);
+    requestAnimationFrame(drawHeader);
+  });
+</script>
+
+<script>
+  const _categories = {
+    vvv: [
+      { title: 'Screenshots from a game banned in 50+ countries', year: '2026', desc: '', img: 'https://ipfs.io/ipfs/bafybeie3vr2bv2hfzgn5p5cmyvzxcfosu4revzpbcshpuwxliqjamwr7a4', link: 'https://www.vvv.so/sfagbi50c' },
+      { title: 'Tomodachi Void Club', year: '2025', desc: 'A group of strangers is torn from their lives and thrown into a dark Void where time doesn\'t exist.', img: 'https://ipfs.io/ipfs/bafybeicjqxhyo56awlfq34blhg4fn5vnppo3mwtfwrxktmfqx7blu7wxtu', link: 'https://www.vvv.so/tomodachi-void-club' },
+      { title: 'Evvvil Aura', year: '2025', desc: '666 Demons, ghosts, broken people — all wandering through Kabukicho like they own the damn city', img: 'https://ipfs.io/ipfs/bafybeifu3l6b5iu42qfiwfebrpkaxw4qlgb4ctdpqv6mcsptywslyaeb7e', link: 'https://www.vvv.so/evvvil-aura' },
+    ],
+    decoder: [{ type: 'decoder' }],
+    side: [
+      { title: 'Frog Heads', year: '2025', desc: '6666 1/1s with memetic explosion of color, chaos, and character—transforming the humble frog into a vessel for artistic expression.', img: 'https://i2c.seadn.io/ethereum/0x95a57eff2bd0afaaa3898273c7a3213855541710/6fe64087935e2f856902e8ba01c83d/7d6fe64087935e2f856902e8ba01c83d.png?w=1000', link: 'https://opensea.io/collection/frog-heads-cult' },
+      { title: 'Panana n frens', year: '2025', desc: '666 1/1s from a bomefers ecosystem\'s spin off', img: 'https://pbs.twimg.com/media/GjCjf0eXQAAU5f9?format=jpg&name=medium', link: null },
+      { title: 'Art For Bomefers', year: '2024', desc: '4269 based af frogs, fuckers inspired by @Darkfarms1 and @sartoshi_rip', img: 'https://i2c.seadn.io/base/0xe3150c35226e5afecc58f159d79d5bcc3f82e33f/5aab28db300409a85b669d9b35bcee/c05aab28db300409a85b669d9b35bcee.png?w=1000', link: 'https://opensea.io/collection/bomefers' },
+    ],
+  };
+
+  const _grid = document.getElementById('main-grid');
+  const _worksHTML = _grid.innerHTML;
+
+
+  function _renderDecoder() {
+    return `<div class="decoder-wrap" style="grid-column:1/-1;">
+      <div class="dec-inner">
+        <p class="dec-sub">Paste a <code>tokenURI</code> string to decode and render the on-chain SVG.</p>
+        <div class="dec-card">
+          <label for="dec-input">tokenURI OUTPUT</label>
+          <textarea id="dec-input" placeholder="data:application/json;base64,eyJuYW1lIjoiREVBVEgg..."></textarea>
+          <p class="dec-hint">Etherscan → Read Contract → <code>tokenURI</code> → enter token ID → Query → copy result here.</p>
+          <button class="dec-btn" onclick="svgDecoder.decode()">Decode and render</button>
+          <div class="dec-error" id="dec-error"></div>
+        </div>
+        <div class="dec-preview" id="dec-preview">
+          <div class="dec-preview-header">
+            <span class="dec-token-name" id="dec-token-name"></span>
+            <span class="dec-badge">fully on-chain</span>
+          </div>
+          <div class="dec-svg-frame">
+            <img id="dec-svg-img" src="" alt="on-chain SVG" />
+          </div>
+          <div class="dec-description" id="dec-description"></div>
+          <div class="dec-meta-grid" id="dec-meta-grid"></div>
+          <div class="dec-footer">
+            <button class="dec-raw-link" onclick="svgDecoder.openRaw()">view raw tokenURI ↗</button>
+          </div>
+        </div>
+      </div>
+    </div>`;
+  }
+  function _renderCard(item) {
+    if (item.type === 'decoder') return _renderDecoder();
+    var thumb = item.img
+      ? '<img src="' + item.img + '" style="width:100%;height:100%;object-fit:cover;" loading="lazy"/>'
+      : '';
+    var year = item.year ? '<div class="work-year">' + item.year + '</div>' : '';
+    var cls = item.img ? 'work-item' : 'work-item placeholder';
+    var tag = item.link ? 'a' : 'div';
+    var href = item.link ? 'href="' + item.link + '" target="_blank"' : '';
+    return '<' + tag + ' class="' + cls + '" ' + href + '>'
+      + '<div class="work-thumb">' + thumb + '</div>'
+      + '<div class="work-title">' + item.title + '</div>'
+      + year
+      + '<div class="work-desc">' + item.desc + '</div>'
+      + '</' + tag + '>';
+  }
+
+  document.querySelectorAll('.nav-square').forEach(function(sq) {
+    sq.addEventListener('click', function() {
+      var cat = sq.dataset.cat;
+      document.querySelectorAll('.nav-square').forEach(function(s){ s.classList.remove('active'); });
+      sq.classList.add('active');
+      _grid.classList.add('fade-out');
+      setTimeout(function() {
+        if (cat === 'works') {
+          _grid.innerHTML = _worksHTML;
+        } else {
+          var items = _categories[cat];
+          _grid.innerHTML = items.map(_renderCard).join('');
+        }
+        _grid.classList.remove('fade-out');
+
+        // decoder: override grid to single centered column
+        var wrapper = document.querySelector('.grid-wrapper');
+        var dtitle = document.getElementById('decoder-title');
+        if (cat === 'decoder') {
+          if (dtitle) dtitle.style.display = 'flex';
+          _grid.style.gridTemplateColumns = '1fr';
+          _grid.style.background = 'transparent';
+          _grid.style.gap = '0';
+          _grid.style.width = '100%';
+          if (wrapper) wrapper.style.display = 'block';
+        } else {
+          if (dtitle) dtitle.style.display = 'none';
+          _grid.style.gridTemplateColumns = '';
+          _grid.style.background = '';
+          _grid.style.gap = '';
+          _grid.style.width = '';
+          if (wrapper) wrapper.style.display = '';
+          // reapply current theme to all cards
+          var cardBg = (window._dark !== false) ? '#30302e' : '#000';
+          _grid.querySelectorAll('.work-item').forEach(function(el) {
+            el.style.background = cardBg;
+          });
+        }
+      }, 250);
+    });
+  });
+</script>
+
+<script>
+  const _toggle = document.getElementById('theme-toggle');
+  let _dark = true;
+  window._dark = true;
+
+  _toggle.addEventListener('click', function() {
+    _dark = !_dark;
+    window._dark = _dark;
+
+    const bg    = _dark ? '#000'     : '#30302e';
+    const hdrBg = _dark ? '#30302e' : '#000';
+    const border= _dark ? '#000'     : '#30302e';
+
+    _toggle.style.background = _dark ? '#ff003b' : '#fff';
+    document.body.style.background = bg;
+    document.querySelector('.page-body') && (document.querySelector('.page-body').style.background = bg);
+
+    // header
+    document.querySelector('header').style.background = hdrBg;
+    document.querySelector('header').style.borderColor = border;
+
+    // corner-cut
+    document.getElementById('corner-cut').style.background = hdrBg;
+
+    // cards
+    document.querySelectorAll('.work-item').forEach(function(el) {
+      el.style.background = hdrBg;
+    });
+
+    // nav squares
+    document.querySelectorAll('.nav-square:not(.active)').forEach(function(el) {
+      el.style.background = hdrBg;
+      el.style.borderColor = hdrBg;
+    });
+
+    // nav label text color
+    document.querySelectorAll('.nav-label').forEach(function(el) {
+      el.style.background = hdrBg;
+      el.style.color = _dark ? '#000' : '#fff';
+    });
+  });
+</script>
+
+<script>
+const svgDecoder = (() => {
+  let _raw = '';
+  function _err(msg) {
+    const el = document.getElementById('dec-error');
+    el.textContent = msg;
+    el.style.display = 'block';
+  }
+  function _clearErr() {
+    const el = document.getElementById('dec-error');
+    if (el) el.style.display = 'none';
+  }
+  function decode() {
+    _clearErr();
+    const preview = document.getElementById('dec-preview');
+    if (preview) preview.style.display = 'none';
+    _raw = '';
+    const input = document.getElementById('dec-input').value.trim();
+    if (!input) { _err('Paste a tokenURI string first.'); return; }
+    let meta;
+    try {
+      if (input.startsWith('data:application/json;base64,')) {
+        const b64 = input.slice('data:application/json;base64,'.length);
+        const bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+        meta = JSON.parse(new TextDecoder('utf-8').decode(bytes));
+      } else if (/^data:application\/json;(charset=utf-8|utf-?8),/i.test(input)) {
+        const payload = input.replace(/^data:application\/json;(charset=utf-8|utf-?8),/i, '');
+        try { meta = JSON.parse(decodeURIComponent(payload)); } catch { meta = JSON.parse(payload); }
+      } else if (input.startsWith('data:application/json,')) {
+        const payload = input.slice('data:application/json,'.length);
+        try { meta = JSON.parse(decodeURIComponent(payload)); } catch { meta = JSON.parse(payload); }
+      } else if (input.startsWith('{')) {
+        meta = JSON.parse(input);
+      } else if (/^[A-Za-z0-9+/=\s]+$/.test(input)) {
+        const bytes = Uint8Array.from(atob(input.replace(/\s/g, '')), c => c.charCodeAt(0));
+        meta = JSON.parse(new TextDecoder('utf-8').decode(bytes));
+      } else {
+        _err('Unrecognized format.'); return;
+      }
+    } catch(e) { _err('Failed to decode: ' + e.message); return; }
+    if (!meta.image) { _err('No "image" field found.'); return; }
+    _raw = input;
+    document.getElementById('dec-token-name').textContent = meta.name || 'NFT';
+    let imgSrc = meta.image;
+    if (imgSrc.includes('$3') || imgSrc.includes('$2'))
+      imgSrc = imgSrc.replace(/\$([0-9a-fA-F]{2})/g, '%$1');
+    if (imgSrc.includes('%3c') || imgSrc.includes('%3C') || imgSrc.includes('%3e') || imgSrc.includes('%3E'))
+      try { imgSrc = decodeURIComponent(imgSrc); } catch(e) {}
+    if (imgSrc.startsWith('<svg') || imgSrc.startsWith('<SVG'))
+      imgSrc = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(imgSrc);
+    else if (/^data:image\/svg\+xml;(charset=utf-8|utf-?8),/i.test(imgSrc)) {
+      const raw = imgSrc.replace(/^data:image\/svg\+xml;(charset=utf-8|utf-?8),/i, '');
+      try { imgSrc = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(decodeURIComponent(raw)); } catch(e) {}
+    }
+    document.getElementById('dec-svg-img').src = imgSrc;
+    const desc = document.getElementById('dec-description');
+    if (meta.description) { desc.textContent = meta.description; desc.style.display = 'block'; }
+    else { desc.style.display = 'none'; }
+    const grid = document.getElementById('dec-meta-grid');
+    if (meta.attributes && meta.attributes.length > 0) {
+      grid.innerHTML = meta.attributes.map(a =>
+        '<div class="dec-meta-card"><div class="dec-meta-label">' + (a.trait_type||'Trait') + '</div><div class="dec-meta-val">' + a.value + '</div></div>'
+      ).join('');
+    } else { grid.innerHTML = ''; }
+    document.getElementById('dec-preview').style.display = 'block';
+  }
+  function openRaw() {
+    const win = window.open('','_blank');
+    win.document.write('<html><head><title>tokenURI raw</title></head><body><pre style="word-break:break-all;white-space:pre-wrap;font-size:12px;padding:1rem;">' + _raw + '</pre></body></html>');
+  }
+  return { decode, openRaw };
+})();
+</script>
+</body>
+</html>
