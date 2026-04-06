@@ -3,445 +3,554 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>DEATH THESIS #6</title>
+<title>DEATH THESIS</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Fragment+Mono:ital@0;1&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Syne:wght@400;700;800&display=swap');
+* { box-sizing: border-box; margin: 0; padding: 0; }
 
-  * { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg:       #000;
+  --surface:  #0a0a0a;
+  --border:   #1a1a1a;
+  --dim:      #2a2a2a;
+  --mid:      #555;
+  --text:     #8a91a8;
+  --bright:   #bec2d0;
+  --accent:   #454954;
+  /* palette from SVGs */
+  --c-k: #000000;
+  --c-d: #23242a;
+  --c-a: #454954;
+  --c-b: #5b5ca6;
+  --c-r: #ff003b;
+  --c-o: #ff7e00;
+  --c-n: #1e1e3d;
+  --mono: 'Fragment Mono', 'Share Tech Mono', monospace;
+}
 
-  :root {
-    --bg: #000000;
-    --surface: #0a0a0a;
-    --border: #1a1a1a;
-    --text-dim: #2a2a2a;
-    --text-mid: #444;
-    --text: #8a91a8;
-    --text-bright: #bec2d0;
-    --accent: #454954;
-    --mono: 'Share Tech Mono', monospace;
-    --sans: 'Syne', sans-serif;
-  }
+html { background: var(--bg); color: var(--text); font-family: var(--mono); scroll-behavior: smooth; }
+body { min-height: 100vh; overflow-x: hidden; }
 
-  html, body {
-    background: var(--bg);
-    color: var(--text);
-    font-family: var(--mono);
-    min-height: 100vh;
-    overflow-x: hidden;
-  }
+a { color: inherit; text-decoration: none; }
 
+/* ── HEADER ─────────────────────────────────────────────── */
+.header {
+  position: relative;
+  width: 100%;
+  height: 280px;
+  overflow: hidden;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
 
-  .layout {
-    display: grid;
-    grid-template-columns: 1fr 400px;
-    grid-template-rows: 100vh;
-    max-width: 1400px;
-    margin: 0 auto;
-  }
+.header-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
 
-  /* LEFT */
-  .canvas-side {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 60px;
-    position: relative;
-  }
+.header-title {
+  position: relative;
+  z-index: 2;
+  text-align: center;
+}
 
-  .canvas-wrap {
-    position: relative;
-  }
+.header-title h1 {
+  font-size: clamp(48px, 8vw, 96px);
+  font-weight: 800;
+  font-family: 'Syne', sans-serif;
+  color: var(--bright);
+  letter-spacing: -0.01em;
+  text-transform: uppercase;
+  line-height: 0.95;
+}
 
-  canvas {
-    image-rendering: pixelated;
-    width: 512px;
-    height: 512px;
-    display: block;
-  }
+.header-title .sub {
+  font-size: 11px;
+  color: var(--mid);
+  letter-spacing: 0.35em;
+  text-transform: uppercase;
+  margin-top: 10px;
+}
 
-  .corner {
-    position: absolute;
-    width: 20px;
-    height: 20px;
-    border-color: var(--accent);
-    border-style: solid;
-  }
-  .corner.tl { top: -8px; left: -8px; border-width: 1px 0 0 1px; }
-  .corner.tr { top: -8px; right: -8px; border-width: 1px 1px 0 0; }
-  .corner.bl { bottom: -8px; left: -8px; border-width: 0 0 1px 1px; }
-  .corner.br { bottom: -8px; right: -8px; border-width: 0 1px 1px 0; }
+/* ── INTRO ──────────────────────────────────────────────── */
+.intro {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 100px 40px;
+  border-bottom: 1px solid var(--border);
+}
 
-  .progress-wrap {
-    width: 512px;
-    height: 1px;
-    background: var(--border);
-    margin-top: 18px;
-    position: relative;
-    overflow: hidden;
-  }
+.intro p {
+  font-size: 15px;
+  line-height: 2;
+  color: var(--mid);
+  letter-spacing: 0.04em;
+}
 
-  .progress-fill {
-    height: 100%;
-    background: var(--accent);
-    width: 0%;
-    transition: width 0.1s linear;
-  }
+.intro p + p { margin-top: 24px; }
 
-  .info-bar {
-    margin-top: 20px;
-    text-align: center;
-  }
+/* ── TOKENS SECTION ─────────────────────────────────────── */
+.tokens-section {
+  padding: 80px 40px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
 
-  .info-main {
-    font-size: 18px;
-    color: var(--text-mid);
-    letter-spacing: 0.08em;
-    line-height: 1.6;
-  }
+.section-label {
+  font-size: 9px;
+  letter-spacing: 0.35em;
+  color: var(--dim);
+  text-transform: uppercase;
+  margin-bottom: 48px;
+}
 
-  .info-main span.val { color: var(--text); }
+.tokens-info {
+  max-width: 720px;
+  margin-bottom: 60px;
+  text-align: left;
+}
 
-  .info-sub {
-    font-size: 13px;
-    color: var(--text-dim);
-    margin-top: 4px;
-    letter-spacing: 0.06em;
-  }
+.tokens-info h2 {
+  font-size: 20px;
+  font-weight: 400;
+  color: var(--bright);
+  letter-spacing: 0.06em;
+  line-height: 1.5;
+  margin-bottom: 16px;
+}
 
-  .info-sub span.val { color: #333; }
+.tokens-info p {
+  font-size: 12px;
+  color: var(--mid);
+  line-height: 1.9;
+  letter-spacing: 0.04em;
+}
 
-  /* save buttons below canvas */
-  .save-buttons {
-    display: flex;
-    gap: 10px;
-    margin-top: 18px;
-  }
+.tokens-row {
+  display: flex;
+  gap: 24px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+  margin-bottom: 48px;
+  scrollbar-width: none;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+.tokens-row::-webkit-scrollbar { display: none; }
 
-  .btn-save {
-    background: transparent;
-    border: 1px solid var(--border);
-    color: var(--text-mid);
-    font-family: var(--mono);
-    font-size: 10px;
-    letter-spacing: 0.18em;
-    text-transform: uppercase;
-    padding: 8px 18px;
-    cursor: pointer;
-    transition: border-color 0.2s, color 0.2s;
-  }
+.token-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  flex-shrink: 0;
+}
 
-  .btn-save:hover {
-    border-color: var(--accent);
-    color: var(--text);
-  }
+.token-card iframe {
+  width: 540px;
+  height: 540px;
+  border: 1px solid var(--border);
+  background: #000;
+  display: block;
+}
 
-  .btn-save:active {
-    background: var(--border);
-  }
+.token-card:hover iframe {
+  border-color: var(--accent);
+}
 
-  /* RIGHT */
-  .sidebar {
-    border-left: 1px solid var(--border);
-    display: flex;
-    flex-direction: column;
-    padding: 50px 36px;
-    position: relative;
-    overflow: hidden;
-  }
+.token-meta {
+  font-size: 9px;
+  color: var(--dim);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  line-height: 1.6;
+}
 
-  .label {
-    font-size: 9px;
-    letter-spacing: 0.25em;
-    color: var(--text-dim);
-    text-transform: uppercase;
-    margin-bottom: 6px;
-  }
+.token-status {
+  font-size: 9px;
+  letter-spacing: 0.1em;
+}
 
-  .title-block { margin-bottom: 48px; }
+.collection-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 28px;
+  border: 1px solid var(--border);
+  font-size: 10px;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  color: var(--mid);
+  transition: border-color 0.2s, color 0.2s;
+}
+.collection-link:hover {
+  border-color: var(--bright);
+  color: var(--bright);
+}
 
-  .title {
-    font-family: var(--sans);
-    font-size: 32px;
-    font-weight: 800;
-    color: var(--text-bright);
-    line-height: 1.1;
-    letter-spacing: -0.01em;
-  }
+/* ── TOKEN 6 SECTION ────────────────────────────────────── */
+.token6-section {
+  padding: 80px 40px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
 
-  .num {
-    font-family: var(--sans);
-    font-size: 13px;
-    font-weight: 400;
-    color: var(--text-mid);
-    margin-top: 6px;
-    letter-spacing: 0.1em;
-  }
+.token6-section > .section-label {
+  width: 100%;
+  max-width: 1600px;
+}
 
-  .divider {
-    height: 1px;
-    background: var(--border);
-    margin: 28px 0;
-  }
+.token6-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 80px;
+  align-items: start;
+  max-width: 1600px;
+  width: 100%;
+  margin-top: 48px;
+}
 
-  .stat-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: baseline;
-    margin-bottom: 16px;
-  }
+@media (max-width: 768px) {
+  .token6-grid { grid-template-columns: 1fr; gap: 48px; }
+}
 
-  .stat-label {
-    font-size: 10px;
-    letter-spacing: 0.2em;
-    color: var(--text-dim);
-    text-transform: uppercase;
-  }
+.token6-text h2 {
+  font-size: 20px;
+  font-weight: 400;
+  color: var(--bright);
+  letter-spacing: 0.06em;
+  line-height: 1.5;
+  margin-bottom: 20px;
+}
 
-  .stat-value {
-    font-size: 13px;
-    color: var(--text);
-    letter-spacing: 0.05em;
-    font-family: var(--mono);
-  }
+.token6-text p {
+  font-size: 12px;
+  color: var(--mid);
+  line-height: 1.9;
+  letter-spacing: 0.04em;
+  margin-bottom: 16px;
+}
 
-  .stat-value.live  { color: var(--text-bright); }
-  .stat-value.dim   { color: var(--text-mid); }
+.token6-text h3 {
+  font-size: 10px;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin: 32px 0 12px;
+}
 
-  .chain-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 10px;
-    color: var(--text-dim);
-    letter-spacing: 0.15em;
-  }
+.burn-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 28px;
+  border: 1px solid var(--border);
+  font-size: 10px;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  color: var(--mid);
+  margin-top: 32px;
+  transition: border-color 0.2s, color 0.2s;
+}
+.burn-link:hover {
+  border-color: var(--c-r);
+  color: var(--c-r);
+}
 
-  .chain-dot {
-    width: 5px;
-    height: 5px;
-    border-radius: 50%;
-    background: #2a2a2a;
-    animation: pulse-dot 2s ease-in-out infinite;
-  }
+/* TOKEN 6 CANVAS SIDE */
+.token6-visual {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  position: sticky;
+  top: 40px;
+}
 
-  .chain-dot.connected {
-    background: #3a5a3a;
-    animation: pulse-dot-green 2s ease-in-out infinite;
-  }
+.canvas-wrap {
+  position: relative;
+}
 
-  @keyframes pulse-dot {
-    0%, 100% { opacity: 0.4; }
-    50% { opacity: 1; }
-  }
+canvas#c {
+  image-rendering: pixelated;
+  width: 100%;
+  aspect-ratio: 1;
+  display: block;
+  max-width: 1170px;
+}
 
-  @keyframes pulse-dot-green {
-    0%, 100% { opacity: 0.6; box-shadow: 0 0 0 0 rgba(58,90,58,0); }
-    50% { opacity: 1; box-shadow: 0 0 4px 2px rgba(58,90,58,0.4); }
-  }
+.progress-bar {
+  width: 100%;
+  max-width: 1170px;
+  height: 1px;
+  background: var(--border);
+  margin-top: 0;
+  position: relative;
+}
+.progress-fill {
+  height: 100%;
+  background: var(--accent);
+  width: 0%;
+  transition: width 0.08s linear;
+}
 
-  .spacer { flex: 1; }
+.token6-stats {
+  max-width: 1170px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+  margin-top: 1px;
+  border: 1px solid var(--border);
+}
 
-  .desc {
-    font-size: 11px;
-    color: var(--text-dim);
-    line-height: 1.8;
-    letter-spacing: 0.05em;
-  }
+.stat {
+  padding: 12px 16px;
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+.stat:nth-child(2n) { border-right: none; }
+.stat:nth-last-child(-n+2) { border-bottom: none; }
 
-  .contract-addr {
-    font-size: 9px;
-    color: var(--text-dim);
-    letter-spacing: 0.05em;
-    word-break: break-all;
-    margin-top: 4px;
-    opacity: 0.5;
-  }
+.stat-k {
+  font-size: 8px;
+  letter-spacing: 0.2em;
+  color: var(--dim);
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+.stat-v {
+  font-size: 12px;
+  color: var(--text);
+  letter-spacing: 0.05em;
+}
+.stat-v.live { color: var(--bright); }
 
-  .status-line {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 10px;
-    color: var(--text-dim);
-    letter-spacing: 0.15em;
-    margin-top: 24px;
-  }
+.save-row {
+  max-width: 1170px;
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+.btn-save {
+  flex: 1;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--mid);
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  padding: 10px;
+  cursor: pointer;
+  transition: border-color 0.2s, color 0.2s;
+}
+.btn-save:hover { border-color: var(--accent); color: var(--text); }
 
-  @media (max-width: 900px) {
-    .layout {
-      grid-template-columns: 1fr;
-      grid-template-rows: auto auto;
-      min-height: 100vh;
-    }
-    .canvas-side { padding: 40px 20px; }
-    canvas { width: min(90vw, 512px); height: min(90vw, 512px); }
-    .progress-wrap { width: min(90vw, 512px); }
-    .sidebar { border-left: none; border-top: 1px solid var(--border); padding: 36px 20px; }
-  }
+/* status line */
+.status-bar {
+  max-width: 1170px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  font-size: 9px;
+  color: var(--dim);
+  letter-spacing: 0.15em;
+}
+.dot {
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  background: var(--dim);
+  animation: pulse 2s infinite;
+}
+.dot.on {
+  background: #3a5a3a;
+  animation: pulse-on 2s infinite;
+}
+@keyframes pulse { 0%,100%{opacity:.4}50%{opacity:1} }
+@keyframes pulse-on { 0%,100%{opacity:.6;box-shadow:0 0 0 0 rgba(58,90,58,0)}50%{opacity:1;box-shadow:0 0 4px 2px rgba(58,90,58,.4)} }
 
-  /* TOKENS 1-5 VIEWER */
-  .tokens-row {
-    display: flex;
-    gap: 20px;
-    justify-content: center;
-    padding: 40px 40px 20px;
-    overflow-x: auto;
-    background: var(--bg);
-    border-bottom: 1px solid var(--border);
-  }
-  .token-card {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 8px;
-    flex-shrink: 0;
-  }
-  .token-card iframe {
-    width: 200px;
-    height: 200px;
-    border: 1px solid var(--border);
-    background: #000;
-    display: block;
-  }
-  .token-label {
-    font-size: 10px;
-    color: var(--text-dim);
-    letter-spacing: 0.2em;
-    text-transform: uppercase;
-  }
-  .token-status {
-    font-size: 9px;
-    color: var(--text-dim);
-    letter-spacing: 0.1em;
-  }
+/* ── FOOTER ─────────────────────────────────────────────── */
+footer {
+  padding: 40px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 9px;
+  color: var(--dim);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
 </style>
 </head>
 <body>
-<div class="tokens-row">
-  <div class="token-card">
-    <iframe id="frame-1" scrolling="no"></iframe>
-    <div class="token-label">DEATH THESIS #1</div>
-    <div class="token-status" id="status-1">loading…</div>
-  </div>
-  <div class="token-card">
-    <iframe id="frame-2" scrolling="no"></iframe>
-    <div class="token-label">DEATH THESIS #2</div>
-    <div class="token-status" id="status-2">loading…</div>
-  </div>
-  <div class="token-card">
-    <iframe id="frame-3" scrolling="no"></iframe>
-    <div class="token-label">DEATH THESIS #3</div>
-    <div class="token-status" id="status-3">loading…</div>
-  </div>
-  <div class="token-card">
-    <iframe id="frame-4" scrolling="no"></iframe>
-    <div class="token-label">DEATH THESIS #4</div>
-    <div class="token-status" id="status-4">loading…</div>
-  </div>
-  <div class="token-card">
-    <iframe id="frame-5" scrolling="no"></iframe>
-    <div class="token-label">DEATH THESIS #5</div>
-    <div class="token-status" id="status-5">loading…</div>
-  </div>
-</div>
 
-<div class="layout">
+<!-- HEADER -->
+<header class="header">
+  <canvas class="header-canvas" id="header-canvas"></canvas>
+  <div class="header-title">
+    <h1>DEATH THESIS</h1>
+    <div class="sub">Fully On-Chain &nbsp;·&nbsp; by UBK</div>
+  </div>
+</header>
 
-  <!-- LEFT -->
-  <div class="canvas-side">
-    <div class="canvas-wrap">
-      <div class="corner tl"></div>
-      <div class="corner tr"></div>
-      <div class="corner bl"></div>
-      <div class="corner br"></div>
-      <canvas id="c" width="64" height="64"></canvas>
-    </div>
+<!-- INTRO -->
+<section class="intro">
+  <p>
+    What comes after death? Heaven? Hell? Valhalla?<br>
+    We don't care.
+  </p>
+  <p>
+    The world is already damned. What matters is how you meet it—how you stand in the face of the void and refuse to flinch.
+  </p>
+  <p>
+    These faces chose to live without regret, without doubt, without wasting breath on what waits beyond the curtain. They decided, in this mortal realm, to be exactly what they are. To act without apology. To burn as they choose, before the flame is taken from them.
+  </p>
+  <p>
+    Death Thesis is a canvas for these unyielding souls. A mirror held up to the ones who own their fears instead of being owned by them. It tries—through line, shadow, and silence—to capture the faces of consciousnesses that have already made their peace with tomorrow… by refusing to ask its permission.
+  </p>
+</section>
 
-    <div class="progress-wrap">
-      <div class="progress-fill" id="prog"></div>
-    </div>
+<!-- TOKENS 1-5 -->
+<section class="tokens-section">
+  <div class="section-label">The Collection</div>
 
-    <div class="info-bar">
-      <div class="info-main" id="info-main">—</div>
-      <div class="info-sub" id="info-sub">—</div>
-    </div>
-
-    <div class="save-buttons">
-      <button class="btn-save" onclick="saveSVG()">Save SVG</button>
-      <button class="btn-save" onclick="savePNG()">Save PNG</button>
-    </div>
+  <div class="tokens-info">
+    <h2>Five works. Fully on-chain.</h2>
+    <p>
+      Each one carries its own animation, sealed inside the Ethereum blockchain. Every token holds its complete SVG — every line, every shadow, every SMIL animation — inscribed directly into the smart contract.
+    </p>
+    <p>
+      These images are self-contained. They need nothing from the outside world. No external links. No fragile servers. No dying platforms.
+    </p>
+    <p>
+      They will render in any browser, any marketplace, any wallet… and they will continue to move, to breathe, long after the platforms that once displayed them have turned to dust.
+    </p>
   </div>
 
-  <!-- RIGHT -->
-  <div class="sidebar">
-    <div class="title-block">
-      <div class="label">Collection</div>
-      <div class="title">DEATH<br>THESIS</div>
-      <div class="num">TOKEN #6 &nbsp;/&nbsp; BURN EDITION</div>
+  <div class="tokens-row">
+    <div class="token-card">
+      <iframe id="frame-1" scrolling="no"></iframe>
+      <div class="token-meta">DEATH THESIS #1<br><span class="token-status" id="status-1">loading…</span></div>
     </div>
-
-    <div class="divider"></div>
-
-    <div class="stat-row">
-      <span class="stat-label">Network</span>
-      <span class="chain-badge">
-        <span class="chain-dot" id="chain-dot"></span>
-        <span id="chain-name">connecting…</span>
-      </span>
+    <div class="token-card">
+      <iframe id="frame-2" scrolling="no"></iframe>
+      <div class="token-meta">DEATH THESIS #2<br><span class="token-status" id="status-2">loading…</span></div>
     </div>
-
-    <div class="stat-row">
-      <span class="stat-label">Block</span>
-      <span class="stat-value live" id="block-num">—</span>
+    <div class="token-card">
+      <iframe id="frame-3" scrolling="no"></iframe>
+      <div class="token-meta">DEATH THESIS #3<br><span class="token-status" id="status-3">loading…</span></div>
     </div>
-
-    <div class="stat-row">
-      <span class="stat-label">Seed</span>
-      <span class="stat-value" id="seed-val">—</span>
+    <div class="token-card">
+      <iframe id="frame-4" scrolling="no"></iframe>
+      <div class="token-meta">DEATH THESIS #4<br><span class="token-status" id="status-4">loading…</span></div>
     </div>
-
-    <div class="stat-row">
-      <span class="stat-label">Chunk size</span>
-      <span class="stat-value" id="chunk-val">—</span>
-    </div>
-
-    <div class="stat-row">
-      <span class="stat-label">Groups</span>
-      <span class="stat-value" id="groups-val">—</span>
-    </div>
-
-    <div class="stat-row">
-      <span class="stat-label">Reveal</span>
-      <span class="stat-value" id="reveal-val">—</span>
-    </div>
-
-    <div class="divider"></div>
-
-    <div class="stat-row">
-      <span class="stat-label">Storage</span>
-      <span class="stat-value dim">on-chain / Sepolia</span>
-    </div>
-
-    <div class="contract-addr">0xa6071D5e7a6B1ad5299ff564b4C9147a649225Dc</div>
-
-    <div class="spacer"></div>
-
-    <div class="desc">
-      Each Ethereum block generates a unique reveal order.<br>
-      The image assembles in real time, seeded by the chain.
-    </div>
-
-    <div class="status-line" id="status-line">
-      <span class="chain-dot" id="status-dot"></span>
-      <span id="status-text">initializing</span>
+    <div class="token-card">
+      <iframe id="frame-5" scrolling="no"></iframe>
+      <div class="token-meta">DEATH THESIS #5<br><span class="token-status" id="status-5">loading…</span></div>
     </div>
   </div>
 
-</div>
+  <a href="#" class="collection-link" id="opensea-link">
+    View on OpenSea &nbsp;→
+  </a>
+</section>
+
+<!-- TOKEN 6 -->
+<section class="token6-section">
+  <div class="section-label">Token #6 — Burn Edition</div>
+
+  <div class="token6-grid">
+
+    <!-- LEFT: text -->
+    <div class="token6-text">
+      <h2>The sixth piece<br>requires a sacrifice.</h2>
+      <p>
+        DEATH THESIS #6 cannot be minted. It can only be claimed by burning a token from a previous collection — an act of destruction that transforms one artifact into another. The burned token disappears forever. What remains is this.
+      </p>
+
+      <h3>The Reveal</h3>
+      <p>
+        Unlike the other five pieces, #6 is alive in a different way. Its image is generated on-chain at the moment of every Ethereum block, seeded by the block number itself. The composition assembles over 12 seconds — the average duration of a block — then resets with a new arrangement. Every viewer sees the same state within the same block. No two blocks are identical.
+      </p>
+      <p>
+        The page you are reading is the canonical experience: synchronized in real time with the Ethereum chain. Marketplaces will show a snapshot — a single frame captured when they last called the contract. Here, you see it breathe.
+      </p>
+
+      <a href="#" class="burn-link" id="burn-link">
+        Burn to Claim &nbsp;→
+      </a>
+    </div>
+
+    <!-- RIGHT: live canvas -->
+    <div class="token6-visual">
+      <div class="canvas-wrap">
+        <canvas id="c" width="64" height="64"></canvas>
+      </div>
+      <div class="progress-bar"><div class="progress-fill" id="prog"></div></div>
+
+      <div class="token6-stats">
+        <div class="stat">
+          <div class="stat-k">Network</div>
+          <div class="stat-v" id="chain-name">connecting…</div>
+        </div>
+        <div class="stat">
+          <div class="stat-k">Block</div>
+          <div class="stat-v live" id="block-num">—</div>
+        </div>
+        <div class="stat">
+          <div class="stat-k">Seed</div>
+          <div class="stat-v" id="seed-val">—</div>
+        </div>
+        <div class="stat">
+          <div class="stat-k">Stripes</div>
+          <div class="stat-v" id="chunk-val">—</div>
+        </div>
+        <div class="stat">
+          <div class="stat-k">Reveal</div>
+          <div class="stat-v live" id="reveal-val">—</div>
+        </div>
+        <div class="stat">
+          <div class="stat-k">Blocks since mint</div>
+          <div class="stat-v" id="blocks-since">—</div>
+        </div>
+      </div>
+
+      <div class="save-row">
+        <button class="btn-save" onclick="savePNG()">Save PNG</button>
+        <button class="btn-save" onclick="saveSVG()">Save SVG</button>
+      </div>
+
+      <div class="status-bar">
+        <span class="dot" id="status-dot"></span>
+        <span id="status-text">initializing</span>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <span>DEATH THESIS &copy; 2025</span>
+  <span>Ethereum Mainnet &nbsp;·&nbsp; Fully On-Chain</span>
+</footer>
 
 <script>
-const SEPOLIA_RPC    = 'https://ethereum-sepolia-rpc.publicnode.com';
+const SEPOLIA_RPC = 'https://ethereum-sepolia-rpc.publicnode.com';
+const DEATH_THESIS = '0xC1B420c7cF55F04CF83Ac146875dEbBA0A46fA60';
+const TOKEN6_CONTRACT = '0x41f56c7EB306696EEe32CccC9276148357e3f88E';
+const BLOCK_DURATION = 12000;
+const MINT_BLOCK = 0; // TODO: replace with actual mint block after mainnet deploy
 
 async function rpc(method, params = []) {
   const res = await fetch(SEPOLIA_RPC, {
@@ -453,273 +562,53 @@ async function rpc(method, params = []) {
   if (d.error) throw new Error(d.error.message);
   return d.result;
 }
-const BLOCK_DURATION = 12000;
 
-const COLORS = {
-  k: '#000000', q: '#2a0b18', b: '#8a91a8',
-  d: '#23242a', m: '#454954', g: '#666979', l: '#bec2d0'
-};
-// chunk sizes now determined by stripe algorithm
-const PIXELS = [["m", 0, 0], ["m", 1, 0], ["m", 2, 0], ["m", 3, 0], ["m", 4, 0], ["m", 5, 0], ["m", 6, 0], ["m", 7, 0], ["m", 8, 0], ["m", 9, 0], ["m", 10, 0], ["m", 11, 0], ["m", 12, 0], ["m", 13, 0], ["m", 14, 0], ["m", 15, 0], ["m", 16, 0], ["m", 17, 0], ["m", 18, 0], ["m", 19, 0], ["m", 20, 0], ["m", 21, 0], ["m", 22, 0], ["m", 23, 0], ["m", 24, 0], ["m", 25, 0], ["m", 26, 0], ["m", 27, 0], ["m", 28, 0], ["m", 29, 0], ["m", 30, 0], ["m", 31, 0], ["m", 32, 0], ["m", 33, 0], ["m", 34, 0], ["m", 35, 0], ["m", 36, 0], ["m", 37, 0], ["m", 38, 0], ["m", 39, 0], ["m", 40, 0], ["m", 41, 0], ["m", 42, 0], ["m", 43, 0], ["m", 44, 0], ["m", 45, 0], ["m", 46, 0], ["m", 47, 0], ["m", 48, 0], ["m", 49, 0], ["m", 50, 0], ["m", 51, 0], ["m", 52, 0], ["m", 53, 0], ["m", 54, 0], ["m", 55, 0], ["m", 56, 0], ["m", 57, 0], ["m", 58, 0], ["m", 59, 0], ["m", 60, 0], ["m", 61, 0], ["m", 62, 0], ["m", 63, 0], ["m", 0, 1], ["m", 1, 1], ["m", 2, 1], ["m", 3, 1], ["m", 4, 1], ["m", 5, 1], ["m", 6, 1], ["m", 7, 1], ["m", 8, 1], ["m", 9, 1], ["m", 10, 1], ["m", 11, 1], ["m", 12, 1], ["m", 13, 1], ["m", 14, 1], ["m", 15, 1], ["m", 16, 1], ["m", 17, 1], ["m", 18, 1], ["m", 19, 1], ["m", 20, 1], ["m", 21, 1], ["m", 22, 1], ["m", 23, 1], ["m", 24, 1], ["m", 25, 1], ["m", 26, 1], ["m", 27, 1], ["m", 28, 1], ["m", 29, 1], ["m", 30, 1], ["m", 31, 1], ["m", 32, 1], ["m", 33, 1], ["m", 34, 1], ["m", 35, 1], ["m", 36, 1], ["m", 37, 1], ["m", 38, 1], ["m", 39, 1], ["m", 40, 1], ["m", 41, 1], ["m", 42, 1], ["m", 43, 1], ["m", 44, 1], ["m", 45, 1], ["m", 46, 1], ["m", 47, 1], ["m", 48, 1], ["m", 49, 1], ["m", 50, 1], ["m", 51, 1], ["m", 52, 1], ["m", 53, 1], ["m", 54, 1], ["m", 55, 1], ["m", 56, 1], ["m", 57, 1], ["m", 58, 1], ["m", 59, 1], ["m", 60, 1], ["m", 61, 1], ["m", 62, 1], ["m", 63, 1], ["m", 0, 2], ["m", 1, 2], ["m", 2, 2], ["m", 3, 2], ["m", 4, 2], ["m", 5, 2], ["m", 6, 2], ["m", 7, 2], ["m", 8, 2], ["m", 9, 2], ["m", 10, 2], ["m", 11, 2], ["m", 12, 2], ["m", 13, 2], ["m", 14, 2], ["m", 15, 2], ["m", 16, 2], ["m", 17, 2], ["m", 18, 2], ["m", 19, 2], ["m", 20, 2], ["m", 21, 2], ["m", 22, 2], ["m", 23, 2], ["m", 24, 2], ["m", 25, 2], ["m", 26, 2], ["m", 27, 2], ["m", 28, 2], ["m", 29, 2], ["m", 30, 2], ["m", 31, 2], ["m", 32, 2], ["m", 33, 2], ["m", 34, 2], ["m", 35, 2], ["m", 36, 2], ["m", 37, 2], ["m", 38, 2], ["m", 39, 2], ["m", 40, 2], ["m", 41, 2], ["m", 42, 2], ["m", 43, 2], ["m", 44, 2], ["m", 45, 2], ["m", 46, 2], ["m", 47, 2], ["m", 48, 2], ["m", 49, 2], ["m", 50, 2], ["m", 51, 2], ["m", 52, 2], ["m", 53, 2], ["m", 54, 2], ["m", 55, 2], ["m", 56, 2], ["m", 57, 2], ["m", 58, 2], ["m", 59, 2], ["m", 60, 2], ["m", 61, 2], ["m", 62, 2], ["m", 63, 2], ["m", 0, 3], ["m", 1, 3], ["m", 2, 3], ["m", 3, 3], ["m", 4, 3], ["m", 5, 3], ["m", 6, 3], ["m", 7, 3], ["m", 8, 3], ["m", 9, 3], ["m", 10, 3], ["m", 11, 3], ["m", 12, 3], ["m", 13, 3], ["m", 14, 3], ["m", 15, 3], ["m", 16, 3], ["m", 17, 3], ["m", 18, 3], ["m", 19, 3], ["m", 20, 3], ["m", 21, 3], ["m", 22, 3], ["m", 23, 3], ["m", 24, 3], ["m", 25, 3], ["m", 26, 3], ["m", 27, 3], ["m", 28, 3], ["m", 29, 3], ["m", 30, 3], ["m", 31, 3], ["m", 32, 3], ["m", 33, 3], ["m", 34, 3], ["m", 35, 3], ["m", 36, 3], ["m", 37, 3], ["m", 38, 3], ["m", 39, 3], ["m", 40, 3], ["m", 41, 3], ["m", 42, 3], ["m", 43, 3], ["m", 44, 3], ["m", 45, 3], ["m", 46, 3], ["m", 47, 3], ["m", 48, 3], ["m", 49, 3], ["m", 50, 3], ["m", 51, 3], ["m", 52, 3], ["m", 53, 3], ["m", 54, 3], ["m", 55, 3], ["m", 56, 3], ["m", 57, 3], ["m", 58, 3], ["m", 59, 3], ["m", 60, 3], ["m", 61, 3], ["m", 62, 3], ["m", 63, 3], ["m", 0, 4], ["m", 1, 4], ["m", 2, 4], ["m", 3, 4], ["m", 4, 4], ["m", 5, 4], ["m", 6, 4], ["m", 7, 4], ["m", 8, 4], ["m", 9, 4], ["m", 10, 4], ["m", 11, 4], ["m", 12, 4], ["m", 13, 4], ["m", 14, 4], ["m", 15, 4], ["m", 16, 4], ["m", 17, 4], ["m", 19, 4], ["m", 20, 4], ["m", 21, 4], ["m", 22, 4], ["m", 23, 4], ["m", 24, 4], ["d", 25, 4], ["m", 26, 4], ["m", 27, 4], ["m", 28, 4], ["d", 29, 4], ["d", 30, 4], ["d", 31, 4], ["d", 32, 4], ["d", 33, 4], ["d", 34, 4], ["d", 35, 4], ["d", 36, 4], ["d", 37, 4], ["d", 38, 4], ["d", 39, 4], ["d", 40, 4], ["d", 41, 4], ["d", 42, 4], ["d", 43, 4], ["m", 44, 4], ["m", 45, 4], ["m", 46, 4], ["m", 47, 4], ["m", 48, 4], ["m", 49, 4], ["m", 50, 4], ["m", 51, 4], ["m", 52, 4], ["m", 53, 4], ["m", 54, 4], ["m", 55, 4], ["m", 56, 4], ["m", 57, 4], ["m", 58, 4], ["m", 59, 4], ["m", 60, 4], ["m", 61, 4], ["m", 62, 4], ["m", 63, 4], ["m", 0, 5], ["m", 1, 5], ["m", 2, 5], ["m", 3, 5], ["m", 4, 5], ["m", 5, 5], ["m", 6, 5], ["m", 7, 5], ["m", 8, 5], ["m", 9, 5], ["m", 10, 5], ["m", 11, 5], ["m", 12, 5], ["m", 14, 5], ["l", 15, 5], ["m", 16, 5], ["m", 17, 5], ["m", 18, 5], ["m", 19, 5], ["m", 20, 5], ["m", 21, 5], ["m", 22, 5], ["m", 23, 5], ["m", 24, 5], ["d", 25, 5], ["m", 26, 5], ["m", 33, 5], ["d", 34, 5], ["d", 35, 5], ["d", 36, 5], ["d", 37, 5], ["d", 38, 5], ["d", 39, 5], ["d", 40, 5], ["d", 41, 5], ["d", 42, 5], ["d", 43, 5], ["d", 44, 5], ["d", 45, 5], ["d", 46, 5], ["d", 47, 5], ["m", 48, 5], ["d", 49, 5], ["d", 50, 5], ["d", 51, 5], ["m", 52, 5], ["m", 53, 5], ["m", 54, 5], ["m", 55, 5], ["m", 56, 5], ["m", 57, 5], ["m", 58, 5], ["m", 59, 5], ["m", 60, 5], ["m", 61, 5], ["m", 62, 5], ["m", 63, 5], ["m", 0, 6], ["m", 1, 6], ["m", 2, 6], ["m", 3, 6], ["m", 4, 6], ["m", 5, 6], ["m", 6, 6], ["m", 7, 6], ["m", 8, 6], ["m", 9, 6], ["b", 10, 6], ["b", 11, 6], ["b", 12, 6], ["b", 13, 6], ["b", 14, 6], ["d", 15, 6], ["d", 16, 6], ["d", 17, 6], ["b", 18, 6], ["b", 19, 6], ["b", 20, 6], ["b", 21, 6], ["b", 22, 6], ["b", 23, 6], ["m", 24, 6], ["m", 25, 6], ["m", 26, 6], ["m", 33, 6], ["m", 34, 6], ["d", 38, 6], ["d", 39, 6], ["d", 40, 6], ["d", 41, 6], ["d", 42, 6], ["d", 43, 6], ["d", 44, 6], ["d", 45, 6], ["d", 46, 6], ["d", 47, 6], ["m", 48, 6], ["d", 49, 6], ["d", 50, 6], ["d", 51, 6], ["d", 52, 6], ["d", 53, 6], ["m", 54, 6], ["m", 55, 6], ["m", 56, 6], ["m", 57, 6], ["m", 58, 6], ["m", 59, 6], ["m", 60, 6], ["m", 61, 6], ["m", 62, 6], ["m", 63, 6], ["m", 0, 7], ["m", 1, 7], ["m", 2, 7], ["m", 3, 7], ["m", 4, 7], ["m", 5, 7], ["m", 6, 7], ["m", 7, 7], ["m", 8, 7], ["b", 9, 7], ["b", 10, 7], ["b", 11, 7], ["b", 12, 7], ["b", 13, 7], ["b", 14, 7], ["b", 15, 7], ["d", 16, 7], ["b", 17, 7], ["b", 18, 7], ["b", 19, 7], ["d", 20, 7], ["d", 40, 7], ["d", 41, 7], ["d", 42, 7], ["d", 43, 7], ["d", 44, 7], ["d", 45, 7], ["d", 46, 7], ["d", 47, 7], ["d", 50, 7], ["d", 51, 7], ["d", 52, 7], ["d", 53, 7], ["d", 54, 7], ["m", 55, 7], ["m", 56, 7], ["m", 57, 7], ["m", 58, 7], ["m", 59, 7], ["m", 60, 7], ["m", 61, 7], ["m", 62, 7], ["m", 63, 7], ["m", 0, 8], ["m", 1, 8], ["m", 2, 8], ["m", 3, 8], ["m", 4, 8], ["m", 5, 8], ["b", 6, 8], ["b", 7, 8], ["b", 8, 8], ["b", 9, 8], ["b", 10, 8], ["b", 11, 8], ["d", 12, 8], ["d", 13, 8], ["d", 14, 8], ["d", 15, 8], ["m", 16, 8], ["m", 18, 8], ["m", 19, 8], ["m", 20, 8], ["b", 21, 8], ["b", 22, 8], ["b", 23, 8], ["b", 24, 8], ["b", 25, 8], ["b", 26, 8], ["d", 43, 8], ["d", 44, 8], ["d", 45, 8], ["d", 46, 8], ["m", 50, 8], ["d", 51, 8], ["d", 52, 8], ["d", 53, 8], ["d", 54, 8], ["d", 55, 8], ["m", 56, 8], ["m", 57, 8], ["m", 58, 8], ["m", 59, 8], ["m", 60, 8], ["m", 61, 8], ["m", 62, 8], ["m", 63, 8], ["m", 0, 9], ["m", 1, 9], ["m", 2, 9], ["m", 3, 9], ["m", 4, 9], ["m", 5, 9], ["b", 6, 9], ["b", 7, 9], ["b", 8, 9], ["b", 9, 9], ["b", 10, 9], ["d", 11, 9], ["d", 12, 9], ["d", 13, 9], ["m", 14, 9], ["m", 15, 9], ["m", 16, 9], ["m", 17, 9], ["d", 19, 9], ["l", 20, 9], ["b", 21, 9], ["b", 22, 9], ["b", 23, 9], ["b", 24, 9], ["b", 25, 9], ["b", 27, 9], ["b", 28, 9], ["m", 51, 9], ["d", 52, 9], ["d", 53, 9], ["d", 54, 9], ["d", 55, 9], ["m", 56, 9], ["m", 57, 9], ["m", 58, 9], ["m", 59, 9], ["m", 60, 9], ["m", 61, 9], ["m", 62, 9], ["m", 63, 9], ["m", 0, 10], ["m", 1, 10], ["m", 2, 10], ["m", 3, 10], ["m", 4, 10], ["m", 5, 10], ["b", 6, 10], ["b", 7, 10], ["b", 8, 10], ["d", 9, 10], ["d", 10, 10], ["m", 11, 10], ["m", 12, 10], ["m", 13, 10], ["m", 14, 10], ["b", 15, 10], ["b", 16, 10], ["l", 17, 10], ["m", 18, 10], ["m", 19, 10], ["b", 21, 10], ["b", 22, 10], ["m", 34, 10], ["b", 40, 10], ["b", 41, 10], ["b", 42, 10], ["b", 44, 10], ["b", 45, 10], ["b", 46, 10], ["b", 47, 10], ["b", 48, 10], ["b", 49, 10], ["b", 50, 10], ["b", 51, 10], ["d", 52, 10], ["b", 53, 10], ["d", 54, 10], ["d", 55, 10], ["d", 56, 10], ["m", 57, 10], ["m", 58, 10], ["m", 59, 10], ["m", 60, 10], ["m", 61, 10], ["m", 62, 10], ["m", 63, 10], ["m", 0, 11], ["m", 1, 11], ["m", 2, 11], ["m", 3, 11], ["m", 4, 11], ["m", 5, 11], ["b", 6, 11], ["m", 7, 11], ["m", 8, 11], ["m", 9, 11], ["m", 10, 11], ["m", 11, 11], ["m", 12, 11], ["m", 13, 11], ["l", 14, 11], ["l", 15, 11], ["b", 29, 11], ["b", 30, 11], ["b", 31, 11], ["b", 32, 11], ["b", 33, 11], ["b", 34, 11], ["b", 35, 11], ["b", 36, 11], ["b", 37, 11], ["b", 40, 11], ["b", 41, 11], ["b", 42, 11], ["b", 43, 11], ["b", 44, 11], ["b", 45, 11], ["b", 46, 11], ["b", 47, 11], ["b", 48, 11], ["b", 49, 11], ["b", 50, 11], ["b", 51, 11], ["b", 52, 11], ["b", 53, 11], ["d", 54, 11], ["d", 55, 11], ["d", 56, 11], ["m", 57, 11], ["m", 58, 11], ["m", 59, 11], ["m", 60, 11], ["m", 61, 11], ["m", 62, 11], ["m", 63, 11], ["m", 0, 12], ["m", 1, 12], ["m", 2, 12], ["m", 3, 12], ["m", 4, 12], ["m", 5, 12], ["m", 6, 12], ["b", 7, 12], ["b", 9, 12], ["b", 10, 12], ["b", 11, 12], ["d", 12, 12], ["b", 13, 12], ["b", 14, 12], ["b", 15, 12], ["b", 16, 12], ["b", 17, 12], ["b", 18, 12], ["d", 25, 12], ["d", 26, 12], ["d", 27, 12], ["b", 28, 12], ["b", 29, 12], ["b", 30, 12], ["l", 31, 12], ["b", 32, 12], ["b", 33, 12], ["b", 34, 12], ["b", 35, 12], ["b", 36, 12], ["b", 37, 12], ["b", 38, 12], ["l", 40, 12], ["l", 41, 12], ["b", 42, 12], ["b", 43, 12], ["b", 44, 12], ["b", 45, 12], ["b", 46, 12], ["b", 47, 12], ["b", 48, 12], ["b", 49, 12], ["b", 50, 12], ["b", 51, 12], ["b", 52, 12], ["b", 53, 12], ["b", 54, 12], ["d", 55, 12], ["d", 56, 12], ["d", 57, 12], ["m", 58, 12], ["m", 59, 12], ["m", 60, 12], ["m", 61, 12], ["m", 62, 12], ["m", 63, 12], ["m", 0, 13], ["m", 1, 13], ["m", 2, 13], ["m", 3, 13], ["m", 4, 13], ["m", 5, 13], ["b", 7, 13], ["b", 8, 13], ["b", 9, 13], ["b", 10, 13], ["b", 11, 13], ["b", 12, 13], ["b", 18, 13], ["b", 25, 13], ["d", 26, 13], ["b", 27, 13], ["b", 28, 13], ["b", 29, 13], ["l", 30, 13], ["b", 31, 13], ["b", 32, 13], ["b", 33, 13], ["b", 34, 13], ["b", 35, 13], ["b", 36, 13], ["b", 37, 13], ["b", 38, 13], ["b", 39, 13], ["b", 42, 13], ["b", 43, 13], ["b", 44, 13], ["b", 45, 13], ["b", 46, 13], ["b", 47, 13], ["b", 48, 13], ["b", 50, 13], ["b", 51, 13], ["b", 52, 13], ["b", 53, 13], ["b", 54, 13], ["d", 55, 13], ["d", 56, 13], ["d", 57, 13], ["m", 58, 13], ["m", 59, 13], ["m", 60, 13], ["m", 61, 13], ["m", 62, 13], ["m", 63, 13], ["m", 0, 14], ["m", 1, 14], ["m", 2, 14], ["b", 3, 14], ["l", 6, 14], ["b", 7, 14], ["b", 8, 14], ["b", 9, 14], ["b", 10, 14], ["b", 11, 14], ["b", 12, 14], ["b", 13, 14], ["b", 28, 14], ["b", 29, 14], ["b", 30, 14], ["b", 31, 14], ["b", 32, 14], ["b", 33, 14], ["b", 34, 14], ["b", 35, 14], ["l", 36, 14], ["b", 37, 14], ["b", 38, 14], ["b", 39, 14], ["b", 40, 14], ["b", 43, 14], ["b", 44, 14], ["b", 45, 14], ["b", 46, 14], ["b", 47, 14], ["b", 49, 14], ["b", 50, 14], ["b", 51, 14], ["b", 52, 14], ["b", 53, 14], ["l", 54, 14], ["b", 55, 14], ["d", 56, 14], ["d", 57, 14], ["m", 59, 14], ["m", 60, 14], ["m", 61, 14], ["m", 62, 14], ["m", 63, 14], ["m", 0, 15], ["m", 1, 15], ["m", 3, 15], ["m", 4, 15], ["b", 5, 15], ["b", 6, 15], ["b", 7, 15], ["b", 8, 15], ["b", 20, 15], ["l", 21, 15], ["b", 22, 15], ["b", 23, 15], ["d", 24, 15], ["d", 25, 15], ["b", 26, 15], ["m", 27, 15], ["m", 28, 15], ["b", 29, 15], ["b", 30, 15], ["b", 31, 15], ["b", 32, 15], ["b", 33, 15], ["l", 34, 15], ["b", 35, 15], ["b", 36, 15], ["b", 37, 15], ["b", 39, 15], ["b", 40, 15], ["b", 41, 15], ["b", 42, 15], ["b", 44, 15], ["b", 45, 15], ["b", 46, 15], ["b", 47, 15], ["b", 48, 15], ["b", 49, 15], ["b", 50, 15], ["b", 51, 15], ["b", 52, 15], ["b", 53, 15], ["l", 54, 15], ["b", 55, 15], ["d", 56, 15], ["d", 57, 15], ["m", 58, 15], ["b", 59, 15], ["m", 60, 15], ["m", 61, 15], ["m", 62, 15], ["m", 63, 15], ["m", 0, 16], ["m", 1, 16], ["m", 3, 16], ["b", 4, 16], ["b", 5, 16], ["b", 6, 16], ["b", 7, 16], ["b", 8, 16], ["m", 9, 16], ["b", 10, 16], ["d", 20, 16], ["d", 21, 16], ["b", 22, 16], ["b", 23, 16], ["b", 24, 16], ["b", 25, 16], ["l", 26, 16], ["b", 28, 16], ["g", 29, 16], ["g", 30, 16], ["b", 33, 16], ["b", 34, 16], ["b", 35, 16], ["b", 36, 16], ["b", 37, 16], ["b", 38, 16], ["b", 39, 16], ["b", 40, 16], ["b", 41, 16], ["b", 42, 16], ["b", 43, 16], ["b", 45, 16], ["b", 46, 16], ["b", 47, 16], ["b", 48, 16], ["b", 49, 16], ["b", 50, 16], ["b", 51, 16], ["b", 53, 16], ["d", 55, 16], ["l", 56, 16], ["d", 57, 16], ["b", 59, 16], ["b", 60, 16], ["m", 61, 16], ["m", 62, 16], ["m", 63, 16], ["m", 0, 17], ["m", 1, 17], ["m", 2, 17], ["m", 3, 17], ["b", 4, 17], ["b", 5, 17], ["b", 6, 17], ["b", 7, 17], ["b", 8, 17], ["b", 9, 17], ["b", 19, 17], ["b", 20, 17], ["b", 21, 17], ["b", 22, 17], ["b", 23, 17], ["b", 24, 17], ["b", 27, 17], ["b", 28, 17], ["b", 29, 17], ["q", 39, 17], ["b", 40, 17], ["b", 41, 17], ["b", 42, 17], ["b", 43, 17], ["b", 46, 17], ["b", 47, 17], ["b", 48, 17], ["b", 49, 17], ["b", 50, 17], ["b", 51, 17], ["m", 52, 17], ["m", 53, 17], ["m", 54, 17], ["d", 55, 17], ["d", 56, 17], ["d", 57, 17], ["b", 60, 17], ["m", 61, 17], ["m", 62, 17], ["m", 63, 17], ["m", 0, 18], ["m", 1, 18], ["m", 2, 18], ["m", 3, 18], ["b", 4, 18], ["b", 5, 18], ["b", 6, 18], ["b", 7, 18], ["b", 18, 18], ["b", 19, 18], ["b", 20, 18], ["b", 21, 18], ["m", 22, 18], ["b", 23, 18], ["b", 24, 18], ["b", 25, 18], ["b", 26, 18], ["b", 27, 18], ["b", 28, 18], ["b", 29, 18], ["q", 30, 18], ["q", 31, 18], ["b", 41, 18], ["d", 42, 18], ["b", 43, 18], ["b", 49, 18], ["d", 50, 18], ["b", 51, 18], ["m", 53, 18], ["m", 54, 18], ["m", 55, 18], ["d", 56, 18], ["d", 57, 18], ["m", 58, 18], ["m", 59, 18], ["m", 60, 18], ["m", 61, 18], ["m", 62, 18], ["m", 63, 18], ["m", 0, 19], ["m", 1, 19], ["m", 2, 19], ["m", 3, 19], ["b", 4, 19], ["b", 5, 19], ["b", 6, 19], ["b", 17, 19], ["b", 18, 19], ["b", 19, 19], ["b", 20, 19], ["b", 21, 19], ["b", 22, 19], ["q", 28, 19], ["q", 29, 19], ["b", 47, 19], ["b", 55, 19], ["d", 56, 19], ["d", 57, 19], ["d", 58, 19], ["m", 59, 19], ["m", 60, 19], ["m", 61, 19], ["m", 62, 19], ["m", 63, 19], ["m", 1, 20], ["d", 2, 20], ["m", 3, 20], ["b", 4, 20], ["b", 5, 20], ["b", 6, 20], ["b", 16, 20], ["b", 17, 20], ["b", 18, 20], ["b", 19, 20], ["d", 20, 20], ["b", 21, 20], ["b", 22, 20], ["q", 27, 20], ["q", 28, 20], ["m", 32, 20], ["m", 33, 20], ["m", 34, 20], ["m", 35, 20], ["m", 36, 20], ["m", 37, 20], ["m", 38, 20], ["m", 39, 20], ["m", 40, 20], ["q", 44, 20], ["m", 46, 20], ["b", 47, 20], ["g", 49, 20], ["d", 56, 20], ["d", 57, 20], ["d", 58, 20], ["m", 60, 20], ["m", 61, 20], ["m", 62, 20], ["m", 63, 20], ["m", 1, 21], ["m", 2, 21], ["m", 3, 21], ["b", 4, 21], ["b", 5, 21], ["b", 6, 21], ["g", 9, 21], ["g", 13, 21], ["g", 14, 21], ["g", 15, 21], ["b", 16, 21], ["b", 17, 21], ["b", 18, 21], ["b", 19, 21], ["b", 20, 21], ["b", 21, 21], ["b", 22, 21], ["m", 30, 21], ["m", 31, 21], ["m", 32, 21], ["m", 44, 21], ["q", 45, 21], ["b", 46, 21], ["b", 47, 21], ["g", 55, 21], ["g", 56, 21], ["d", 57, 21], ["b", 58, 21], ["b", 59, 21], ["m", 60, 21], ["m", 61, 21], ["m", 62, 21], ["m", 63, 21], ["m", 0, 22], ["m", 1, 22], ["m", 3, 22], ["b", 4, 22], ["b", 5, 22], ["b", 6, 22], ["d", 7, 22], ["g", 9, 22], ["l", 10, 22], ["g", 11, 22], ["b", 12, 22], ["b", 13, 22], ["m", 14, 22], ["b", 18, 22], ["b", 19, 22], ["b", 20, 22], ["b", 21, 22], ["m", 29, 22], ["q", 45, 22], ["q", 46, 22], ["b", 47, 22], ["b", 48, 22], ["m", 53, 22], ["m", 54, 22], ["m", 55, 22], ["d", 57, 22], ["m", 59, 22], ["l", 60, 22], ["m", 61, 22], ["m", 62, 22], ["m", 0, 23], ["m", 1, 23], ["m", 2, 23], ["m", 3, 23], ["b", 4, 23], ["b", 5, 23], ["d", 7, 23], ["m", 8, 23], ["b", 12, 23], ["b", 18, 23], ["b", 20, 23], ["b", 21, 23], ["b", 23, 23], ["m", 28, 23], ["q", 46, 23], ["q", 47, 23], ["d", 48, 23], ["l", 49, 23], ["g", 50, 23], ["g", 51, 23], ["l", 52, 23], ["m", 53, 23], ["d", 57, 23], ["l", 60, 23], ["m", 61, 23], ["m", 62, 23], ["d", 63, 23], ["b", 0, 24], ["m", 2, 24], ["b", 4, 24], ["b", 5, 24], ["g", 9, 24], ["b", 18, 24], ["m", 20, 24], ["q", 47, 24], ["d", 57, 24], ["m", 60, 24], ["m", 61, 24], ["m", 62, 24], ["d", 63, 24], ["b", 0, 25], ["b", 1, 25], ["m", 2, 25], ["m", 3, 25], ["b", 4, 25], ["b", 5, 25], ["d", 6, 25], ["g", 9, 25], ["b", 19, 25], ["m", 20, 25], ["b", 22, 25], ["q", 47, 25], ["q", 48, 25], ["d", 57, 25], ["b", 60, 25], ["b", 61, 25], ["m", 62, 25], ["d", 63, 25], ["m", 0, 26], ["m", 1, 26], ["m", 2, 26], ["d", 3, 26], ["b", 4, 26], ["d", 5, 26], ["d", 6, 26], ["g", 9, 26], ["q", 12, 26], ["q", 13, 26], ["q", 14, 26], ["q", 15, 26], ["q", 16, 26], ["q", 17, 26], ["l", 20, 26], ["m", 21, 26], ["q", 22, 26], ["q", 41, 26], ["q", 48, 26], ["q", 51, 26], ["q", 52, 26], ["q", 53, 26], ["q", 54, 26], ["q", 55, 26], ["q", 56, 26], ["d", 57, 26], ["g", 59, 26], ["b", 60, 26], ["b", 61, 26], ["m", 62, 26], ["m", 63, 26], ["m", 0, 27], ["m", 1, 27], ["m", 2, 27], ["d", 3, 27], ["d", 4, 27], ["d", 5, 27], ["d", 6, 27], ["l", 9, 27], ["q", 11, 27], ["q", 12, 27], ["q", 13, 27], ["q", 14, 27], ["q", 15, 27], ["q", 16, 27], ["q", 17, 27], ["l", 19, 27], ["l", 20, 27], ["b", 21, 27], ["q", 22, 27], ["q", 32, 27], ["b", 48, 27], ["q", 50, 27], ["q", 51, 27], ["q", 52, 27], ["q", 53, 27], ["q", 54, 27], ["q", 55, 27], ["q", 56, 27], ["d", 57, 27], ["g", 59, 27], ["b", 60, 27], ["b", 61, 27], ["m", 62, 27], ["m", 63, 27], ["m", 1, 28], ["m", 2, 28], ["d", 3, 28], ["d", 4, 28], ["d", 5, 28], ["d", 6, 28], ["q", 11, 28], ["q", 12, 28], ["q", 13, 28], ["q", 14, 28], ["q", 15, 28], ["q", 16, 28], ["q", 17, 28], ["q", 18, 28], ["b", 19, 28], ["b", 20, 28], ["b", 21, 28], ["q", 27, 28], ["q", 43, 28], ["b", 48, 28], ["q", 50, 28], ["q", 51, 28], ["q", 52, 28], ["q", 53, 28], ["q", 54, 28], ["q", 55, 28], ["q", 56, 28], ["q", 57, 28], ["d", 58, 28], ["b", 59, 28], ["b", 60, 28], ["b", 61, 28], ["l", 62, 28], ["m", 63, 28], ["m", 1, 29], ["m", 2, 29], ["d", 3, 29], ["d", 4, 29], ["d", 5, 29], ["q", 11, 29], ["q", 12, 29], ["q", 13, 29], ["q", 15, 29], ["q", 17, 29], ["b", 19, 29], ["b", 20, 29], ["q", 21, 29], ["b", 48, 29], ["q", 50, 29], ["q", 51, 29], ["q", 53, 29], ["q", 55, 29], ["q", 56, 29], ["q", 57, 29], ["d", 58, 29], ["b", 59, 29], ["b", 60, 29], ["b", 61, 29], ["m", 1, 30], ["b", 2, 30], ["d", 3, 30], ["d", 4, 30], ["d", 6, 30], ["l", 8, 30], ["q", 12, 30], ["q", 13, 30], ["q", 15, 30], ["q", 17, 30], ["b", 19, 30], ["b", 20, 30], ["m", 21, 30], ["b", 48, 30], ["q", 50, 30], ["q", 51, 30], ["q", 53, 30], ["q", 55, 30], ["q", 56, 30], ["q", 57, 30], ["d", 58, 30], ["l", 59, 30], ["m", 62, 30], ["m", 63, 30], ["m", 0, 31], ["m", 1, 31], ["m", 2, 31], ["d", 3, 31], ["d", 6, 31], ["l", 7, 31], ["b", 8, 31], ["q", 10, 31], ["q", 12, 31], ["q", 13, 31], ["q", 14, 31], ["q", 15, 31], ["q", 16, 31], ["b", 19, 31], ["q", 20, 31], ["b", 47, 31], ["b", 48, 31], ["q", 51, 31], ["q", 52, 31], ["q", 53, 31], ["q", 54, 31], ["q", 56, 31], ["q", 57, 31], ["l", 59, 31], ["l", 60, 31], ["m", 61, 31], ["m", 63, 31], ["m", 0, 32], ["m", 1, 32], ["m", 2, 32], ["d", 3, 32], ["d", 5, 32], ["d", 7, 32], ["l", 8, 32], ["q", 10, 32], ["q", 13, 32], ["q", 14, 32], ["q", 15, 32], ["q", 16, 32], ["q", 17, 32], ["b", 19, 32], ["q", 20, 32], ["q", 24, 32], ["m", 27, 32], ["b", 47, 32], ["l", 49, 32], ["q", 52, 32], ["q", 53, 32], ["q", 54, 32], ["q", 55, 32], ["q", 56, 32], ["q", 57, 32], ["l", 60, 32], ["m", 61, 32], ["m", 63, 32], ["m", 0, 33], ["m", 1, 33], ["m", 2, 33], ["b", 3, 33], ["b", 4, 33], ["d", 5, 33], ["b", 6, 33], ["d", 7, 33], ["l", 8, 33], ["q", 10, 33], ["q", 12, 33], ["q", 15, 33], ["q", 19, 33], ["q", 20, 33], ["m", 44, 33], ["b", 47, 33], ["q", 52, 33], ["q", 55, 33], ["q", 56, 33], ["d", 57, 33], ["l", 59, 33], ["l", 60, 33], ["m", 61, 33], ["d", 63, 33], ["m", 0, 34], ["l", 1, 34], ["m", 2, 34], ["m", 3, 34], ["d", 4, 34], ["d", 5, 34], ["d", 6, 34], ["d", 7, 34], ["l", 8, 34], ["l", 9, 34], ["q", 12, 34], ["q", 16, 34], ["q", 19, 34], ["q", 52, 34], ["q", 54, 34], ["q", 55, 34], ["q", 56, 34], ["l", 59, 34], ["l", 60, 34], ["m", 61, 34], ["d", 63, 34], ["m", 0, 35], ["m", 1, 35], ["m", 2, 35], ["m", 3, 35], ["l", 7, 35], ["l", 8, 35], ["q", 12, 35], ["q", 19, 35], ["l", 50, 35], ["q", 53, 35], ["q", 55, 35], ["d", 56, 35], ["l", 59, 35], ["l", 60, 35], ["m", 61, 35], ["b", 0, 36], ["b", 1, 36], ["m", 2, 36], ["l", 3, 36], ["g", 6, 36], ["g", 7, 36], ["g", 8, 36], ["l", 9, 36], ["q", 12, 36], ["q", 16, 36], ["q", 19, 36], ["m", 23, 36], ["q", 48, 36], ["q", 53, 36], ["q", 55, 36], ["b", 59, 36], ["m", 60, 36], ["m", 61, 36], ["m", 62, 36], ["d", 63, 36], ["d", 0, 37], ["m", 3, 37], ["g", 6, 37], ["g", 7, 37], ["g", 8, 37], ["g", 9, 37], ["b", 11, 37], ["q", 12, 37], ["g", 13, 37], ["q", 14, 37], ["q", 16, 37], ["q", 19, 37], ["q", 48, 37], ["q", 53, 37], ["b", 58, 37], ["b", 59, 37], ["m", 60, 37], ["m", 61, 37], ["m", 62, 37], ["d", 63, 37], ["d", 0, 38], ["m", 1, 38], ["m", 3, 38], ["m", 4, 38], ["b", 5, 38], ["g", 6, 38], ["g", 7, 38], ["g", 8, 38], ["g", 9, 38], ["q", 12, 38], ["q", 14, 38], ["q", 16, 38], ["l", 17, 38], ["q", 19, 38], ["m", 25, 38], ["b", 47, 38], ["q", 52, 38], ["q", 53, 38], ["d", 58, 38], ["b", 59, 38], ["m", 60, 38], ["m", 61, 38], ["m", 62, 38], ["d", 63, 38], ["d", 0, 39], ["m", 3, 39], ["m", 4, 39], ["b", 5, 39], ["g", 6, 39], ["b", 11, 39], ["q", 12, 39], ["d", 13, 39], ["q", 14, 39], ["b", 16, 39], ["b", 17, 39], ["q", 18, 39], ["m", 22, 39], ["q", 45, 39], ["b", 50, 39], ["q", 53, 39], ["d", 58, 39], ["b", 59, 39], ["m", 60, 39], ["b", 61, 39], ["b", 62, 39], ["b", 63, 39], ["m", 0, 40], ["m", 2, 40], ["d", 5, 40], ["b", 11, 40], ["q", 14, 40], ["q", 18, 40], ["m", 22, 40], ["b", 43, 40], ["b", 50, 40], ["q", 53, 40], ["b", 58, 40], ["m", 59, 40], ["m", 60, 40], ["l", 61, 40], ["b", 62, 40], ["b", 63, 40], ["m", 0, 41], ["m", 1, 41], ["b", 4, 41], ["b", 5, 41], ["b", 6, 41], ["b", 11, 41], ["q", 14, 41], ["q", 18, 41], ["m", 22, 41], ["q", 36, 41], ["q", 40, 41], ["l", 50, 41], ["q", 53, 41], ["b", 58, 41], ["m", 59, 41], ["m", 60, 41], ["m", 61, 41], ["m", 62, 41], ["m", 63, 41], ["m", 0, 42], ["m", 1, 42], ["m", 2, 42], ["b", 4, 42], ["b", 5, 42], ["b", 6, 42], ["q", 14, 42], ["q", 18, 42], ["q", 48, 42], ["q", 53, 42], ["l", 57, 42], ["g", 58, 42], ["b", 59, 42], ["l", 60, 42], ["m", 61, 42], ["m", 62, 42], ["m", 63, 42], ["m", 0, 43], ["m", 1, 43], ["m", 2, 43], ["l", 4, 43], ["b", 5, 43], ["b", 6, 43], ["b", 7, 43], ["b", 8, 43], ["b", 9, 43], ["b", 11, 43], ["b", 13, 43], ["q", 14, 43], ["b", 16, 43], ["q", 18, 43], ["q", 28, 43], ["q", 29, 43], ["q", 48, 43], ["l", 57, 43], ["m", 58, 43], ["b", 59, 43], ["m", 61, 43], ["m", 62, 43], ["m", 0, 44], ["m", 2, 44], ["l", 4, 44], ["b", 5, 44], ["b", 8, 44], ["b", 9, 44], ["b", 13, 44], ["q", 14, 44], ["b", 16, 44], ["q", 17, 44], ["q", 18, 44], ["q", 23, 44], ["b", 41, 44], ["d", 46, 44], ["m", 58, 44], ["l", 59, 44], ["m", 60, 44], ["m", 61, 44], ["m", 62, 44], ["m", 63, 44], ["m", 0, 45], ["m", 2, 45], ["d", 3, 45], ["l", 4, 45], ["b", 5, 45], ["b", 6, 45], ["b", 7, 45], ["b", 8, 45], ["b", 9, 45], ["b", 13, 45], ["b", 16, 45], ["q", 17, 45], ["m", 18, 45], ["d", 49, 45], ["d", 55, 45], ["m", 58, 45], ["m", 59, 45], ["m", 60, 45], ["m", 61, 45], ["m", 63, 45], ["m", 0, 46], ["m", 2, 46], ["b", 4, 46], ["b", 5, 46], ["b", 6, 46], ["b", 7, 46], ["b", 8, 46], ["b", 9, 46], ["b", 11, 46], ["b", 13, 46], ["b", 16, 46], ["q", 17, 46], ["b", 18, 46], ["b", 39, 46], ["q", 42, 46], ["d", 48, 46], ["d", 49, 46], ["d", 51, 46], ["g", 55, 46], ["g", 56, 46], ["g", 57, 46], ["g", 58, 46], ["m", 59, 46], ["l", 60, 46], ["m", 61, 46], ["m", 62, 46], ["m", 63, 46], ["m", 0, 47], ["m", 3, 47], ["b", 4, 47], ["b", 5, 47], ["b", 6, 47], ["b", 7, 47], ["b", 8, 47], ["b", 9, 47], ["b", 11, 47], ["b", 13, 47], ["q", 17, 47], ["b", 18, 47], ["q", 36, 47], ["q", 39, 47], ["q", 41, 47], ["q", 42, 47], ["q", 48, 47], ["d", 49, 47], ["d", 51, 47], ["g", 55, 47], ["b", 56, 47], ["b", 57, 47], ["l", 58, 47], ["m", 59, 47], ["l", 60, 47], ["m", 61, 47], ["m", 62, 47], ["m", 63, 47], ["m", 0, 48], ["m", 3, 48], ["b", 4, 48], ["b", 5, 48], ["b", 6, 48], ["b", 7, 48], ["b", 8, 48], ["b", 9, 48], ["b", 11, 48], ["b", 13, 48], ["l", 15, 48], ["q", 17, 48], ["m", 18, 48], ["q", 35, 48], ["q", 36, 48], ["q", 39, 48], ["q", 41, 48], ["q", 48, 48], ["g", 49, 48], ["d", 51, 48], ["g", 55, 48], ["b", 56, 48], ["b", 57, 48], ["d", 58, 48], ["m", 59, 48], ["m", 60, 48], ["m", 61, 48], ["m", 62, 48], ["m", 63, 48], ["m", 0, 49], ["m", 3, 49], ["b", 4, 49], ["b", 5, 49], ["b", 6, 49], ["b", 7, 49], ["l", 8, 49], ["l", 9, 49], ["l", 10, 49], ["b", 13, 49], ["q", 17, 49], ["q", 26, 49], ["q", 28, 49], ["q", 29, 49], ["b", 33, 49], ["d", 34, 49], ["q", 35, 49], ["g", 40, 49], ["q", 41, 49], ["q", 47, 49], ["d", 51, 49], ["b", 54, 49], ["b", 55, 49], ["b", 56, 49], ["b", 57, 49], ["m", 58, 49], ["m", 59, 49], ["l", 60, 49], ["m", 61, 49], ["m", 62, 49], ["m", 63, 49], ["m", 0, 50], ["m", 3, 50], ["b", 4, 50], ["b", 5, 50], ["b", 6, 50], ["b", 7, 50], ["b", 8, 50], ["b", 9, 50], ["b", 10, 50], ["b", 13, 50], ["q", 17, 50], ["q", 25, 50], ["q", 26, 50], ["m", 30, 50], ["b", 31, 50], ["d", 32, 50], ["d", 33, 50], ["m", 34, 50], ["q", 35, 50], ["m", 37, 50], ["l", 38, 50], ["q", 44, 50], ["q", 47, 50], ["d", 51, 50], ["b", 54, 50], ["b", 55, 50], ["b", 56, 50], ["l", 58, 50], ["m", 59, 50], ["m", 60, 50], ["m", 61, 50], ["m", 62, 50], ["m", 63, 50], ["m", 0, 51], ["b", 1, 51], ["b", 2, 51], ["l", 3, 51], ["b", 4, 51], ["d", 5, 51], ["b", 6, 51], ["l", 7, 51], ["b", 8, 51], ["d", 9, 51], ["d", 13, 51], ["q", 17, 51], ["q", 25, 51], ["b", 29, 51], ["b", 30, 51], ["b", 31, 51], ["q", 32, 51], ["b", 33, 51], ["d", 40, 51], ["d", 41, 51], ["d", 42, 51], ["q", 44, 51], ["q", 47, 51], ["g", 49, 51], ["m", 51, 51], ["m", 54, 51], ["d", 56, 51], ["d", 57, 51], ["l", 58, 51], ["l", 59, 51], ["m", 60, 51], ["m", 61, 51], ["m", 62, 51], ["m", 63, 51], ["m", 0, 52], ["b", 1, 52], ["b", 2, 52], ["l", 3, 52], ["b", 4, 52], ["d", 5, 52], ["b", 6, 52], ["d", 7, 52], ["d", 8, 52], ["b", 9, 52], ["b", 10, 52], ["d", 13, 52], ["q", 16, 52], ["q", 25, 52], ["d", 26, 52], ["l", 27, 52], ["b", 29, 52], ["b", 30, 52], ["b", 31, 52], ["b", 32, 52], ["q", 33, 52], ["d", 36, 52], ["d", 37, 52], ["d", 38, 52], ["d", 39, 52], ["d", 40, 52], ["d", 41, 52], ["d", 42, 52], ["l", 44, 52], ["q", 45, 52], ["q", 46, 52], ["m", 47, 52], ["l", 48, 52], ["m", 49, 52], ["m", 51, 52], ["m", 54, 52], ["d", 55, 52], ["d", 56, 52], ["m", 57, 52], ["m", 58, 52], ["m", 59, 52], ["m", 60, 52], ["m", 62, 52], ["m", 63, 52], ["m", 0, 53], ["m", 1, 53], ["b", 2, 53], ["m", 3, 53], ["m", 4, 53], ["m", 5, 53], ["m", 6, 53], ["b", 7, 53], ["l", 8, 53], ["b", 9, 53], ["b", 10, 53], ["m", 13, 53], ["q", 16, 53], ["q", 24, 53], ["b", 25, 53], ["l", 26, 53], ["l", 27, 53], ["q", 33, 53], ["d", 38, 53], ["d", 39, 53], ["d", 40, 53], ["d", 41, 53], ["d", 42, 53], ["m", 46, 53], ["m", 47, 53], ["m", 48, 53], ["m", 49, 53], ["m", 51, 53], ["d", 54, 53], ["d", 55, 53], ["q", 56, 53], ["q", 57, 53], ["q", 58, 53], ["q", 59, 53], ["q", 60, 53], ["m", 61, 53], ["m", 62, 53], ["m", 63, 53], ["m", 0, 54], ["m", 1, 54], ["m", 2, 54], ["b", 3, 54], ["m", 4, 54], ["m", 5, 54], ["b", 6, 54], ["d", 7, 54], ["d", 8, 54], ["m", 9, 54], ["d", 10, 54], ["d", 13, 54], ["q", 16, 54], ["m", 18, 54], ["q", 24, 54], ["d", 38, 54], ["d", 39, 54], ["d", 40, 54], ["d", 41, 54], ["d", 42, 54], ["m", 45, 54], ["m", 46, 54], ["m", 47, 54], ["q", 48, 54], ["q", 49, 54], ["q", 50, 54], ["q", 51, 54], ["q", 52, 54], ["q", 53, 54], ["q", 54, 54], ["q", 55, 54], ["q", 56, 54], ["q", 57, 54], ["q", 58, 54], ["q", 60, 54], ["m", 61, 54], ["m", 62, 54], ["m", 63, 54], ["d", 0, 55], ["m", 1, 55], ["m", 2, 55], ["m", 3, 55], ["m", 5, 55], ["m", 6, 55], ["l", 7, 55], ["d", 8, 55], ["d", 9, 55], ["m", 10, 55], ["d", 11, 55], ["q", 16, 55], ["d", 17, 55], ["d", 18, 55], ["d", 20, 55], ["d", 21, 55], ["q", 24, 55], ["b", 25, 55], ["l", 29, 55], ["b", 30, 55], ["q", 36, 55], ["q", 37, 55], ["q", 38, 55], ["q", 39, 55], ["q", 40, 55], ["q", 41, 55], ["q", 42, 55], ["q", 43, 55], ["q", 44, 55], ["q", 45, 55], ["q", 46, 55], ["q", 47, 55], ["q", 48, 55], ["q", 49, 55], ["q", 50, 55], ["q", 51, 55], ["q", 52, 55], ["q", 53, 55], ["q", 54, 55], ["q", 55, 55], ["q", 56, 55], ["q", 57, 55], ["q", 58, 55], ["q", 59, 55], ["q", 60, 55], ["m", 61, 55], ["m", 62, 55], ["m", 63, 55], ["m", 0, 56], ["m", 1, 56], ["b", 2, 56], ["m", 3, 56], ["m", 5, 56], ["m", 6, 56], ["m", 7, 56], ["d", 8, 56], ["m", 9, 56], ["d", 10, 56], ["d", 11, 56], ["d", 15, 56], ["q", 16, 56], ["d", 17, 56], ["d", 18, 56], ["d", 19, 56], ["d", 20, 56], ["l", 21, 56], ["b", 22, 56], ["b", 23, 56], ["q", 24, 56], ["l", 28, 56], ["b", 30, 56], ["m", 31, 56], ["m", 32, 56], ["m", 33, 56], ["q", 36, 56], ["q", 37, 56], ["q", 38, 56], ["q", 39, 56], ["q", 40, 56], ["q", 41, 56], ["q", 42, 56], ["q", 43, 56], ["q", 44, 56], ["q", 45, 56], ["q", 46, 56], ["q", 47, 56], ["q", 48, 56], ["q", 49, 56], ["q", 50, 56], ["q", 51, 56], ["q", 52, 56], ["q", 53, 56], ["q", 54, 56], ["q", 55, 56], ["q", 56, 56], ["q", 57, 56], ["q", 58, 56], ["q", 59, 56], ["q", 60, 56], ["m", 61, 56], ["m", 62, 56], ["m", 63, 56], ["m", 0, 57], ["m", 1, 57], ["m", 2, 57], ["m", 3, 57], ["m", 4, 57], ["m", 5, 57], ["m", 6, 57], ["b", 7, 57], ["b", 8, 57], ["b", 9, 57], ["g", 10, 57], ["d", 15, 57], ["q", 16, 57], ["d", 17, 57], ["d", 18, 57], ["d", 19, 57], ["b", 20, 57], ["d", 21, 57], ["q", 23, 57], ["m", 24, 57], ["m", 25, 57], ["d", 26, 57], ["d", 27, 57], ["d", 28, 57], ["d", 29, 57], ["d", 30, 57], ["m", 31, 57], ["m", 32, 57], ["m", 33, 57], ["q", 36, 57], ["q", 37, 57], ["q", 38, 57], ["q", 39, 57], ["q", 40, 57], ["q", 41, 57], ["q", 42, 57], ["q", 43, 57], ["q", 44, 57], ["q", 45, 57], ["q", 46, 57], ["q", 47, 57], ["q", 48, 57], ["q", 49, 57], ["q", 50, 57], ["q", 51, 57], ["q", 52, 57], ["q", 53, 57], ["q", 54, 57], ["q", 55, 57], ["q", 56, 57], ["q", 57, 57], ["q", 58, 57], ["q", 59, 57], ["q", 60, 57], ["m", 61, 57], ["m", 62, 57], ["m", 63, 57], ["m", 0, 58], ["m", 1, 58], ["m", 2, 58], ["m", 3, 58], ["m", 4, 58], ["m", 5, 58], ["m", 6, 58], ["b", 7, 58], ["b", 8, 58], ["b", 9, 58], ["b", 10, 58], ["b", 11, 58], ["b", 13, 58], ["d", 15, 58], ["q", 16, 58], ["d", 17, 58], ["d", 18, 58], ["d", 19, 58], ["q", 23, 58], ["m", 24, 58], ["d", 25, 58], ["d", 26, 58], ["d", 27, 58], ["d", 28, 58], ["d", 29, 58], ["d", 30, 58], ["d", 31, 58], ["d", 32, 58], ["m", 33, 58], ["g", 34, 58], ["m", 35, 58], ["q", 36, 58], ["q", 37, 58], ["q", 38, 58], ["q", 39, 58], ["q", 40, 58], ["q", 41, 58], ["q", 42, 58], ["q", 43, 58], ["q", 44, 58], ["q", 45, 58], ["q", 46, 58], ["q", 47, 58], ["q", 48, 58], ["q", 49, 58], ["q", 50, 58], ["q", 51, 58], ["q", 52, 58], ["q", 53, 58], ["q", 54, 58], ["q", 55, 58], ["q", 56, 58], ["q", 57, 58], ["q", 58, 58], ["q", 59, 58], ["q", 60, 58], ["m", 61, 58], ["m", 62, 58], ["m", 63, 58], ["m", 0, 59], ["m", 1, 59], ["m", 2, 59], ["m", 3, 59], ["m", 4, 59], ["m", 5, 59], ["m", 6, 59], ["m", 7, 59], ["m", 8, 59], ["m", 9, 59], ["g", 10, 59], ["b", 11, 59], ["b", 13, 59], ["b", 15, 59], ["b", 16, 59], ["q", 17, 59], ["q", 23, 59], ["d", 24, 59], ["d", 25, 59], ["d", 26, 59], ["d", 27, 59], ["d", 28, 59], ["d", 29, 59], ["d", 30, 59], ["d", 31, 59], ["d", 32, 59], ["d", 33, 59], ["g", 34, 59], ["g", 35, 59], ["q", 36, 59], ["q", 37, 59], ["q", 38, 59], ["q", 39, 59], ["q", 40, 59], ["q", 41, 59], ["q", 42, 59], ["q", 43, 59], ["q", 44, 59], ["q", 45, 59], ["q", 46, 59], ["q", 47, 59], ["q", 48, 59], ["q", 49, 59], ["q", 50, 59], ["q", 51, 59], ["q", 52, 59], ["q", 53, 59], ["q", 54, 59], ["q", 55, 59], ["q", 56, 59], ["q", 57, 59], ["q", 58, 59], ["q", 59, 59], ["q", 60, 59], ["m", 61, 59], ["m", 62, 59], ["m", 63, 59], ["m", 0, 60], ["m", 1, 60], ["m", 2, 60], ["m", 3, 60], ["m", 4, 60], ["m", 5, 60], ["m", 6, 60], ["m", 7, 60], ["m", 8, 60], ["m", 9, 60], ["m", 10, 60], ["l", 11, 60], ["m", 13, 60], ["g", 15, 60], ["g", 16, 60], ["q", 17, 60], ["q", 23, 60], ["m", 24, 60], ["m", 25, 60], ["d", 27, 60], ["d", 28, 60], ["d", 29, 60], ["d", 30, 60], ["d", 31, 60], ["d", 32, 60], ["d", 33, 60], ["d", 34, 60], ["g", 35, 60], ["q", 36, 60], ["q", 37, 60], ["q", 38, 60], ["q", 39, 60], ["q", 40, 60], ["q", 41, 60], ["q", 42, 60], ["q", 43, 60], ["q", 44, 60], ["q", 45, 60], ["q", 46, 60], ["q", 47, 60], ["q", 48, 60], ["q", 49, 60], ["q", 50, 60], ["q", 51, 60], ["q", 52, 60], ["q", 53, 60], ["q", 54, 60], ["q", 55, 60], ["q", 56, 60], ["q", 57, 60], ["q", 58, 60], ["q", 59, 60], ["q", 60, 60], ["m", 61, 60], ["m", 62, 60], ["m", 63, 60], ["m", 0, 61], ["m", 1, 61], ["m", 2, 61], ["m", 3, 61], ["m", 4, 61], ["m", 5, 61], ["m", 6, 61], ["m", 7, 61], ["m", 8, 61], ["m", 9, 61], ["d", 10, 61], ["m", 11, 61], ["m", 13, 61], ["g", 15, 61], ["g", 16, 61], ["q", 17, 61], ["m", 24, 61], ["m", 25, 61], ["g", 29, 61], ["g", 30, 61], ["g", 31, 61], ["g", 32, 61], ["g", 33, 61], ["g", 34, 61], ["m", 35, 61], ["b", 36, 61], ["d", 37, 61], ["m", 38, 61], ["m", 39, 61], ["d", 42, 61], ["d", 43, 61], ["d", 44, 61], ["d", 45, 61], ["m", 46, 61], ["m", 47, 61], ["m", 48, 61], ["m", 51, 61], ["m", 54, 61], ["m", 55, 61], ["m", 56, 61], ["m", 57, 61], ["m", 58, 61], ["m", 59, 61], ["m", 60, 61], ["m", 61, 61], ["m", 62, 61], ["m", 63, 61], ["m", 0, 62], ["m", 1, 62], ["m", 2, 62], ["m", 3, 62], ["m", 4, 62], ["m", 5, 62], ["m", 6, 62], ["m", 7, 62], ["m", 8, 62], ["m", 9, 62], ["d", 10, 62], ["m", 11, 62], ["m", 13, 62], ["m", 15, 62], ["m", 16, 62], ["q", 17, 62], ["m", 24, 62], ["m", 25, 62], ["g", 29, 62], ["g", 30, 62], ["g", 31, 62], ["g", 32, 62], ["g", 33, 62], ["m", 34, 62], ["l", 35, 62], ["b", 36, 62], ["d", 37, 62], ["b", 41, 62], ["b", 42, 62], ["d", 43, 62], ["d", 44, 62], ["m", 45, 62], ["d", 46, 62], ["m", 48, 62], ["m", 51, 62], ["m", 54, 62], ["m", 55, 62], ["m", 56, 62], ["m", 57, 62], ["m", 58, 62], ["m", 59, 62], ["m", 60, 62], ["m", 61, 62], ["m", 62, 62], ["m", 63, 62], ["m", 0, 63], ["m", 1, 63], ["m", 2, 63], ["m", 3, 63], ["m", 4, 63], ["m", 5, 63], ["m", 6, 63], ["m", 7, 63], ["m", 8, 63], ["m", 9, 63], ["m", 10, 63], ["m", 11, 63], ["m", 13, 63], ["m", 15, 63], ["m", 16, 63], ["b", 17, 63], ["m", 24, 63], ["m", 25, 63], ["m", 29, 63], ["m", 30, 63], ["m", 31, 63], ["m", 32, 63], ["m", 33, 63], ["m", 34, 63], ["m", 35, 63], ["m", 36, 63], ["m", 37, 63], ["m", 38, 63], ["m", 39, 63], ["m", 40, 63], ["b", 42, 63], ["m", 43, 63], ["m", 44, 63], ["m", 45, 63], ["m", 46, 63], ["m", 48, 63], ["m", 51, 63], ["m", 54, 63], ["m", 55, 63], ["m", 56, 63], ["m", 57, 63], ["m", 58, 63], ["m", 59, 63], ["m", 60, 63], ["m", 61, 63], ["m", 62, 63], ["m", 63, 63]];
-const TOTAL  = PIXELS.length;
-
-// RNG
-function mulberry32(s) {
-  return function() {
-    s = (s + 0x6D2B79F5) >>> 0;
-    let t = Math.imul(s ^ (s >>> 15), 1 | s);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
-
-// State
-let seed = 42, blockNum = 0, startTime = null;
-let order = [], chunks = [], chunkSize = 50;
-let animFrame = null, currentProgress = 0;
-let connected = false, lastBlock = -1;
-
-// Exact port of DeathThesisToken6V7._assignBuckets() — ~98.8% pixel-perfect
-const BUCKETS = 20;
-
-function nextU32(s) {
-  s = (s + 0x6D2B79F5) >>> 0;
-  let t = (s ^ (s >>> 15)) >>> 0;
-  t = Math.imul(t, (1 | s) >>> 0) >>> 0;
-  t = (t + Math.imul(t ^ (t >>> 7), (61 | t) >>> 0)) >>> 0;
-  return [s >>> 0, (t ^ (t >>> 14)) >>> 0];
-}
-function modU32(s, m) {
-  let v; [s, v] = nextU32(s); return [s, v % m];
-}
-const CV = [1000, 924, 707, 383, 0, -383, -707, -924];
-const SV = [0, 383, 707, 924, 1000, 924, 707, 383];
-
-function buildFromSeed(seedU32) {
-  let s = seedU32 >>> 0, v;
-  [s, v] = modU32(s, 4);
-  const K = [12, 20, 28, 40][v];
-  chunkSize = K;
-
-  const cx = [], cy = [], ai = [], el = [];
-  for (let c = 0; c < K; c++) {
-    [s, v] = modU32(s, 64); cx.push(v);
-    [s, v] = modU32(s, 64); cy.push(v);
-    [s, v] = modU32(s, 8);  ai.push(v);
-    [s, v] = modU32(s, 57); el.push(4 + v);
-  }
-
-  const order = Array.from({length: K}, (_, i) => i);
-  for (let i = K - 1; i > 0; i--) {
-    [s, v] = modU32(s, i + 1);
-    [order[i], order[v]] = [order[v], order[i]];
-  }
-  const cb = new Array(K);
-  for (let c = 0; c < K; c++) cb[order[c]] = Math.floor((c * BUCKETS) / K);
-
-  const buckets = new Array(TOTAL).fill(0);
-  for (let i = 0; i < TOTAL; i++) {
-    let px = PIXELS[i][1], py = PIXELS[i][2];
-    [s, v] = modU32(s, 7); px = Math.max(0, Math.min(63, px + v - 3));
-    [s, v] = modU32(s, 7); py = Math.max(0, Math.min(63, py + v - 3));
-    let bestD = Infinity, bestC = 0;
-    for (let c = 0; c < K; c++) {
-      const dx = px - cx[c], dy = py - cy[c];
-      const ct = CV[ai[c]], st = SV[ai[c]], eln = el[c];
-      const u = (dx*ct - dy*st)/1000, vv = (dx*st + dy*ct)/1000;
-      const d = (u/eln)*(u/eln)*100 + vv*vv;
-      if (d < bestD) { bestD = d; bestC = c; }
-    }
-    buckets[i] = cb[bestC];
-  }
-  chunks = Array.from({length: BUCKETS}, () => []);
-  for (let i = 0; i < TOTAL; i++) chunks[buckets[i]].push(i);
-}
-
-// Draw
-function drawPixel(ctx, px, alpha) {
-  const hex = COLORS[px[0]];
-  const r = parseInt(hex.slice(1,3), 16);
-  const g = parseInt(hex.slice(3,5), 16);
-  const b = parseInt(hex.slice(5,7), 16);
-  ctx.fillStyle = `rgba(${r},${g},${b},${alpha})`;
-  ctx.fillRect(px[1], px[2], 1, 1);
-}
-
-function draw(progress) {
-  currentProgress = progress;
-  const canvas = document.getElementById('c');
+// ── HEADER ANIMATION ─────────────────────────────────────
+(function() {
+  const canvas = document.getElementById('header-canvas');
   const ctx = canvas.getContext('2d');
-  ctx.fillStyle = '#000';
-  ctx.fillRect(0, 0, 64, 64);
-  // visible = floor(progress * BUCKETS), same as contract
-  const visible = Math.floor(progress * BUCKETS);
-  const frac    = (progress * BUCKETS) - visible;
-  for (let b = 0; b < visible; b++)
-    for (const i of chunks[b]) drawPixel(ctx, PIXELS[i], 1);
-  if (visible < BUCKETS)
-    for (const i of chunks[visible]) drawPixel(ctx, PIXELS[i], frac);
-}
+  const COLORS = ['#23242a','#454954','#5b5ca6','#8a91a8','#1e1e3d','#ff003b','#ff7e00','#bec2d0'];
+  let particles = [];
+  let W, H;
 
-// Animate
-let _offsetMs = 0;
-function animate(ts) {
-  if (!startTime) startTime = ts - _offsetMs;
-  const elapsed  = ts - startTime;
-  const progress = Math.min(elapsed / BLOCK_DURATION, 1);
-  draw(progress);
-
-  const pct  = Math.floor(progress * 100);
-  const secs = (elapsed / 1000).toFixed(1);
-  const done = progress >= 1;
-
-  document.getElementById('prog').style.width = pct + '%';
-  document.getElementById('info-main').innerHTML =
-    `block <span class="val">#${blockNum}</span> &nbsp;—&nbsp; <span class="val">${pct}%</span>`;
-  document.getElementById('info-sub').innerHTML = done
-    ? `<span class="val">complete</span>`
-    : `<span class="val">${secs}s</span> / 12.0s`;
-  document.getElementById('reveal-val').textContent = done ? 'complete' : pct + '%';
-
-  if (!done) animFrame = requestAnimationFrame(animate);
-}
-
-function startBlock(block, s, offsetSec = 0) {
-  if (animFrame) cancelAnimationFrame(animFrame);
-  blockNum = block;
-  seed = s;
-  buildFromSeed(seed);
-  // offset startTime so animation begins at correct position
-  startTime = null;
-  _offsetMs = offsetSec * 1000;
-
-  document.getElementById('block-num').textContent  = '#' + blockNum;
-  document.getElementById('seed-val').textContent   = seed;
-  document.getElementById('chunk-val').textContent  = chunkSize + ' stripes';
-  document.getElementById('groups-val').textContent = chunkSize + ' stripes';
-
-  animFrame = requestAnimationFrame(animate);
-}
-
-// ── SAVE PNG ─────────────────────────────────────────────────────────
-function savePNG() {
-  if (animFrame) cancelAnimationFrame(animFrame);
-
-  const src = document.getElementById('c');
-  const big = document.createElement('canvas');
-  big.width = 640; big.height = 640;
-  const ctx = big.getContext('2d');
-  ctx.imageSmoothingEnabled = false;
-  ctx.drawImage(src, 0, 0, 640, 640);
-
-  const pct = Math.floor(currentProgress * 100);
-  const link = document.createElement('a');
-  link.download = `DTHT-6-block${blockNum}-${pct}pct.png`;
-  link.href = big.toDataURL('image/png');
-  link.click();
-
-  // resume if not complete
-  if (currentProgress < 1) {
-    startTime = performance.now() - (currentProgress * BLOCK_DURATION);
-    animFrame = requestAnimationFrame(animate);
+  function resize() {
+    W = canvas.width  = canvas.offsetWidth;
+    H = canvas.height = canvas.offsetHeight;
   }
-}
+  resize();
+  window.addEventListener('resize', resize);
 
-// ── SAVE SVG ─────────────────────────────────────────────────────────
-function saveSVG() {
-  const totalChunks = chunks.length;
-  const BUCKETS = Math.min(totalChunks, 20);
-
-  let css = '<style>\n';
-  css += '.k{fill:#000}.q{fill:#2a0b18}.b{fill:#8a91a8}.d{fill:#23242a}.m{fill:#454954}.g{fill:#666979}.l{fill:#bec2d0}\n';
-  for (let b = 0; b < BUCKETS; b++) {
-    const delay = (b / BUCKETS * 12).toFixed(2);
-    css += `@keyframes f${b}{from{opacity:0}to{opacity:1}}\n`;
-    css += `.a${b}{opacity:0;animation:f${b} 0.8s ${delay}s forwards}\n`;
-  }
-  css += '</style>\n';
-
-  const pixelBucket = new Array(TOTAL).fill(-1);
-  for (let c = 0; c < totalChunks; c++) {
-    const bucket = Math.min(Math.floor((c / totalChunks) * BUCKETS), BUCKETS - 1);
-    for (const i of chunks[c]) pixelBucket[i] = bucket;
+  for (let i = 0; i < 60; i++) {
+    particles.push({
+      x: Math.random() * 1400,
+      y: Math.random() * 300,
+      size: Math.floor(Math.random() * 3 + 1) * 8,
+      color: COLORS[Math.floor(Math.random() * COLORS.length)],
+      vx: (Math.random() - 0.5) * 0.3,
+      vy: (Math.random() - 0.5) * 0.2,
+      alpha: Math.random() * 0.4 + 0.05
+    });
   }
 
-  let svg = '<svg viewBox="0 0 640 640" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges">\n';
-  svg += css;
-  svg += '<g transform="scale(10)">\n';
-  svg += '<rect width="64" height="64" fill="#000"/>\n';
-  for (let i = 0; i < TOTAL; i++) {
-    const px = PIXELS[i];
-    const b  = pixelBucket[i];
-    svg += `<rect class="${px[0]} a${b}" x="${px[1]}" y="${px[2]}" width="1" height="1"/>\n`;
-  }
-  svg += '</g>\n</svg>';
-
-  const blob = new Blob([svg], {type: 'image/svg+xml'});
-  const link = document.createElement('a');
-  link.download = `DTHT-6-block${blockNum}-seed${seed}.svg`;
-  link.href = URL.createObjectURL(blob);
-  link.click();
-}
-
-// ── RPC POLL ─────────────────────────────────────────────────────────
-async function rpcCall(method, params = []) {
-  const res = await fetch(SEPOLIA_RPC, {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({jsonrpc:'2.0', id:1, method, params})
-  });
-  const data = await res.json();
-  return data.result;
-}
-
-function setStatus(text, ok) {
-  document.getElementById('status-text').textContent = text;
-  document.getElementById('status-dot').className = 'chain-dot' + (ok ? ' connected' : '');
-}
-function setChain(name, ok) {
-  document.getElementById('chain-dot').className = 'chain-dot' + (ok ? ' connected' : '');
-  document.getElementById('chain-name').textContent = name;
-}
-
-async function pollBlock() {
-  try {
-    const blk   = await rpc('eth_getBlockByNumber', ['latest', false]);
-    const block  = parseInt(blk.number, 16);
-    const ts     = parseInt(blk.timestamp, 16);
-
-    if (!connected) {
-      connected = true;
-      setChain('Sepolia', true);
-      setStatus('connected', true);
+  function drawHeader() {
+    ctx.clearRect(0, 0, W, H);
+    for (const p of particles) {
+      ctx.globalAlpha = p.alpha;
+      ctx.fillStyle = p.color;
+      ctx.fillRect(Math.round(p.x), Math.round(p.y), p.size, p.size);
+      p.x += p.vx; p.y += p.vy;
+      if (p.x < -p.size) p.x = W + p.size;
+      if (p.x > W + p.size) p.x = -p.size;
+      if (p.y < -p.size) p.y = H + p.size;
+      if (p.y > H + p.size) p.y = -p.size;
     }
-
-    if (block > lastBlock) {
-      lastBlock = block;
-      // Start the block animation offset by time already elapsed
-      const nowSec   = Date.now() / 1000;
-      const elapsed  = Math.max(0, nowSec - ts); // seconds into this block
-      startBlock(block, block >>> 0, elapsed);
-    }
-  } catch(e) {
-    setStatus('rpc error — retrying', false);
+    ctx.globalAlpha = 1;
+    requestAnimationFrame(drawHeader);
   }
-  setTimeout(pollBlock, 4000);
-}
+  drawHeader();
+})();
 
-// ── INIT ─────────────────────────────────────────────────────────────
-setChain('Sepolia', false);
-setStatus('connecting to Sepolia…', false);
-buildFromSeed(42);
-_offsetMs = 0;
-animFrame = requestAnimationFrame(animate);
-pollBlock();
-
-// ── TOKENS 1-5 VIEWER ────────────────────────────────────────────────
-const DEATH_THESIS = '0xC1B420c7cF55F04CF83Ac146875dEbBA0A46fA60';
-
+// ── TOKENS 1-5 LOADER ────────────────────────────────────
 function encodeTokenURISimple(tokenId) {
   return '0xc87b56dd' + tokenId.toString(16).padStart(64, '0');
 }
@@ -737,35 +626,224 @@ async function loadToken(tokenId) {
     });
     const data = await res.json();
     if (data.error) throw new Error(data.error.message);
-
     const hex = data.result.slice(2);
     const len = parseInt(hex.slice(64, 128), 16);
     const strHex = hex.slice(128, 128 + len * 2);
     let uri = '';
     for (let i = 0; i < strHex.length; i += 2)
       uri += String.fromCharCode(parseInt(strHex.slice(i, i+2), 16));
-
     const b64 = uri.split('base64,')[1];
     const meta = JSON.parse(atob(b64));
     const animUrl = meta.animation_url || meta.image;
-    const svgB64 = animUrl.split('base64,')[1];
-    const svg = atob(svgB64);
-
+    const svg = atob(animUrl.split('base64,')[1]);
     const frame = document.getElementById('frame-' + tokenId);
-    frame.srcdoc = '<!DOCTYPE html><html><head><style>*{margin:0;padding:0;}body{background:#000;overflow:hidden;}</style></head><body>' + svg + '</body></html>';
-    status.textContent = 'on-chain ✓';
+    frame.srcdoc = '<!DOCTYPE html><html><head><style>*{margin:0;padding:0;}body{background:#000;overflow:hidden;}svg{width:540px;height:540px;display:block;}</style></head><body>' + svg + '</body></html>';
+    status.textContent = 'on-chain \u2713';
     status.style.color = '#3a5a3a';
   } catch(e) {
     status.textContent = 'error';
     status.style.color = '#7a3a3a';
-    console.error('Token ' + tokenId, e);
+  }
+}
+for (let i = 1; i <= 5; i++) {
+  setTimeout(function(id){ return function(){ loadToken(id); }; }(i), (i-1) * 900);
+}
+
+// ── TOKEN 6 ALGORITHM (exact port of contract V7) ─────────
+</script>
+<script>
+// PIXELS data (2393 non-black pixels of token 6)
+const PIXELS = [["m", 0, 0], ["m", 1, 0], ["m", 2, 0], ["m", 3, 0], ["m", 4, 0], ["m", 5, 0], ["m", 6, 0], ["m", 7, 0], ["m", 8, 0], ["m", 9, 0], ["m", 10, 0], ["m", 11, 0], ["m", 12, 0], ["m", 13, 0], ["m", 14, 0], ["m", 15, 0], ["m", 16, 0], ["m", 17, 0], ["m", 18, 0], ["m", 19, 0], ["m", 20, 0], ["m", 21, 0], ["m", 22, 0], ["m", 23, 0], ["m", 24, 0], ["m", 25, 0], ["m", 26, 0], ["m", 27, 0], ["m", 28, 0], ["m", 29, 0], ["m", 30, 0], ["m", 31, 0], ["m", 32, 0], ["m", 33, 0], ["m", 34, 0], ["m", 35, 0], ["m", 36, 0], ["m", 37, 0], ["m", 38, 0], ["m", 39, 0], ["m", 40, 0], ["m", 41, 0], ["m", 42, 0], ["m", 43, 0], ["m", 44, 0], ["m", 45, 0], ["m", 46, 0], ["m", 47, 0], ["m", 48, 0], ["m", 49, 0], ["m", 50, 0], ["m", 51, 0], ["m", 52, 0], ["m", 53, 0], ["m", 54, 0], ["m", 55, 0], ["m", 56, 0], ["m", 57, 0], ["m", 58, 0], ["m", 59, 0], ["m", 60, 0], ["m", 61, 0], ["m", 62, 0], ["m", 63, 0], ["m", 0, 1], ["m", 1, 1], ["m", 2, 1], ["m", 3, 1], ["m", 4, 1], ["m", 5, 1], ["m", 6, 1], ["m", 7, 1], ["m", 8, 1], ["m", 9, 1], ["m", 10, 1], ["m", 11, 1], ["m", 12, 1], ["m", 13, 1], ["m", 14, 1], ["m", 15, 1], ["m", 16, 1], ["m", 17, 1], ["m", 18, 1], ["m", 19, 1], ["m", 20, 1], ["m", 21, 1], ["m", 22, 1], ["m", 23, 1], ["m", 24, 1], ["m", 25, 1], ["m", 26, 1], ["m", 27, 1], ["m", 28, 1], ["m", 29, 1], ["m", 30, 1], ["m", 31, 1], ["m", 32, 1], ["m", 33, 1], ["m", 34, 1], ["m", 35, 1], ["m", 36, 1], ["m", 37, 1], ["m", 38, 1], ["m", 39, 1], ["m", 40, 1], ["m", 41, 1], ["m", 42, 1], ["m", 43, 1], ["m", 44, 1], ["m", 45, 1], ["m", 46, 1], ["m", 47, 1], ["m", 48, 1], ["m", 49, 1], ["m", 50, 1], ["m", 51, 1], ["m", 52, 1], ["m", 53, 1], ["m", 54, 1], ["m", 55, 1], ["m", 56, 1], ["m", 57, 1], ["m", 58, 1], ["m", 59, 1], ["m", 60, 1], ["m", 61, 1], ["m", 62, 1], ["m", 63, 1], ["m", 0, 2], ["m", 1, 2], ["m", 2, 2], ["m", 3, 2], ["m", 4, 2], ["m", 5, 2], ["m", 6, 2], ["m", 7, 2], ["m", 8, 2], ["m", 9, 2], ["m", 10, 2], ["m", 11, 2], ["m", 12, 2], ["m", 13, 2], ["m", 14, 2], ["m", 15, 2], ["m", 16, 2], ["m", 17, 2], ["m", 18, 2], ["m", 19, 2], ["m", 20, 2], ["m", 21, 2], ["m", 22, 2], ["m", 23, 2], ["m", 24, 2], ["m", 25, 2], ["m", 26, 2], ["m", 27, 2], ["m", 28, 2], ["m", 29, 2], ["m", 30, 2], ["m", 31, 2], ["m", 32, 2], ["m", 33, 2], ["m", 34, 2], ["m", 35, 2], ["m", 36, 2], ["m", 37, 2], ["m", 38, 2], ["m", 39, 2], ["m", 40, 2], ["m", 41, 2], ["m", 42, 2], ["m", 43, 2], ["m", 44, 2], ["m", 45, 2], ["m", 46, 2], ["m", 47, 2], ["m", 48, 2], ["m", 49, 2], ["m", 50, 2], ["m", 51, 2], ["m", 52, 2], ["m", 53, 2], ["m", 54, 2], ["m", 55, 2], ["m", 56, 2], ["m", 57, 2], ["m", 58, 2], ["m", 59, 2], ["m", 60, 2], ["m", 61, 2], ["m", 62, 2], ["m", 63, 2], ["m", 0, 3], ["m", 1, 3], ["m", 2, 3], ["m", 3, 3], ["m", 4, 3], ["m", 5, 3], ["m", 6, 3], ["m", 7, 3], ["m", 8, 3], ["m", 9, 3], ["m", 10, 3], ["m", 11, 3], ["m", 12, 3], ["m", 13, 3], ["m", 14, 3], ["m", 15, 3], ["m", 16, 3], ["m", 17, 3], ["m", 18, 3], ["m", 19, 3], ["m", 20, 3], ["m", 21, 3], ["m", 22, 3], ["m", 23, 3], ["m", 24, 3], ["m", 25, 3], ["m", 26, 3], ["m", 27, 3], ["m", 28, 3], ["m", 29, 3], ["m", 30, 3], ["m", 31, 3], ["m", 32, 3], ["m", 33, 3], ["m", 34, 3], ["m", 35, 3], ["m", 36, 3], ["m", 37, 3], ["m", 38, 3], ["m", 39, 3], ["m", 40, 3], ["m", 41, 3], ["m", 42, 3], ["m", 43, 3], ["m", 44, 3], ["m", 45, 3], ["m", 46, 3], ["m", 47, 3], ["m", 48, 3], ["m", 49, 3], ["m", 50, 3], ["m", 51, 3], ["m", 52, 3], ["m", 53, 3], ["m", 54, 3], ["m", 55, 3], ["m", 56, 3], ["m", 57, 3], ["m", 58, 3], ["m", 59, 3], ["m", 60, 3], ["m", 61, 3], ["m", 62, 3], ["m", 63, 3], ["m", 0, 4], ["m", 1, 4], ["m", 2, 4], ["m", 3, 4], ["m", 4, 4], ["m", 5, 4], ["m", 6, 4], ["m", 7, 4], ["m", 8, 4], ["m", 9, 4], ["m", 10, 4], ["m", 11, 4], ["m", 12, 4], ["m", 13, 4], ["m", 14, 4], ["m", 15, 4], ["m", 16, 4], ["m", 17, 4], ["m", 19, 4], ["m", 20, 4], ["m", 21, 4], ["m", 22, 4], ["m", 23, 4], ["m", 24, 4], ["d", 25, 4], ["m", 26, 4], ["m", 27, 4], ["m", 28, 4], ["d", 29, 4], ["d", 30, 4], ["d", 31, 4], ["d", 32, 4], ["d", 33, 4], ["d", 34, 4], ["d", 35, 4], ["d", 36, 4], ["d", 37, 4], ["d", 38, 4], ["d", 39, 4], ["d", 40, 4], ["d", 41, 4], ["d", 42, 4], ["d", 43, 4], ["m", 44, 4], ["m", 45, 4], ["m", 46, 4], ["m", 47, 4], ["m", 48, 4], ["m", 49, 4], ["m", 50, 4], ["m", 51, 4], ["m", 52, 4], ["m", 53, 4], ["m", 54, 4], ["m", 55, 4], ["m", 56, 4], ["m", 57, 4], ["m", 58, 4], ["m", 59, 4], ["m", 60, 4], ["m", 61, 4], ["m", 62, 4], ["m", 63, 4], ["m", 0, 5], ["m", 1, 5], ["m", 2, 5], ["m", 3, 5], ["m", 4, 5], ["m", 5, 5], ["m", 6, 5], ["m", 7, 5], ["m", 8, 5], ["m", 9, 5], ["m", 10, 5], ["m", 11, 5], ["m", 12, 5], ["m", 14, 5], ["l", 15, 5], ["m", 16, 5], ["m", 17, 5], ["m", 18, 5], ["m", 19, 5], ["m", 20, 5], ["m", 21, 5], ["m", 22, 5], ["m", 23, 5], ["m", 24, 5], ["d", 25, 5], ["m", 26, 5], ["m", 33, 5], ["d", 34, 5], ["d", 35, 5], ["d", 36, 5], ["d", 37, 5], ["d", 38, 5], ["d", 39, 5], ["d", 40, 5], ["d", 41, 5], ["d", 42, 5], ["d", 43, 5], ["d", 44, 5], ["d", 45, 5], ["d", 46, 5], ["d", 47, 5], ["m", 48, 5], ["d", 49, 5], ["d", 50, 5], ["d", 51, 5], ["m", 52, 5], ["m", 53, 5], ["m", 54, 5], ["m", 55, 5], ["m", 56, 5], ["m", 57, 5], ["m", 58, 5], ["m", 59, 5], ["m", 60, 5], ["m", 61, 5], ["m", 62, 5], ["m", 63, 5], ["m", 0, 6], ["m", 1, 6], ["m", 2, 6], ["m", 3, 6], ["m", 4, 6], ["m", 5, 6], ["m", 6, 6], ["m", 7, 6], ["m", 8, 6], ["m", 9, 6], ["b", 10, 6], ["b", 11, 6], ["b", 12, 6], ["b", 13, 6], ["b", 14, 6], ["d", 15, 6], ["d", 16, 6], ["d", 17, 6], ["b", 18, 6], ["b", 19, 6], ["b", 20, 6], ["b", 21, 6], ["b", 22, 6], ["b", 23, 6], ["m", 24, 6], ["m", 25, 6], ["m", 26, 6], ["m", 33, 6], ["m", 34, 6], ["d", 38, 6], ["d", 39, 6], ["d", 40, 6], ["d", 41, 6], ["d", 42, 6], ["d", 43, 6], ["d", 44, 6], ["d", 45, 6], ["d", 46, 6], ["d", 47, 6], ["m", 48, 6], ["d", 49, 6], ["d", 50, 6], ["d", 51, 6], ["d", 52, 6], ["d", 53, 6], ["m", 54, 6], ["m", 55, 6], ["m", 56, 6], ["m", 57, 6], ["m", 58, 6], ["m", 59, 6], ["m", 60, 6], ["m", 61, 6], ["m", 62, 6], ["m", 63, 6], ["m", 0, 7], ["m", 1, 7], ["m", 2, 7], ["m", 3, 7], ["m", 4, 7], ["m", 5, 7], ["m", 6, 7], ["m", 7, 7], ["m", 8, 7], ["b", 9, 7], ["b", 10, 7], ["b", 11, 7], ["b", 12, 7], ["b", 13, 7], ["b", 14, 7], ["b", 15, 7], ["d", 16, 7], ["b", 17, 7], ["b", 18, 7], ["b", 19, 7], ["d", 20, 7], ["d", 40, 7], ["d", 41, 7], ["d", 42, 7], ["d", 43, 7], ["d", 44, 7], ["d", 45, 7], ["d", 46, 7], ["d", 47, 7], ["d", 50, 7], ["d", 51, 7], ["d", 52, 7], ["d", 53, 7], ["d", 54, 7], ["m", 55, 7], ["m", 56, 7], ["m", 57, 7], ["m", 58, 7], ["m", 59, 7], ["m", 60, 7], ["m", 61, 7], ["m", 62, 7], ["m", 63, 7], ["m", 0, 8], ["m", 1, 8], ["m", 2, 8], ["m", 3, 8], ["m", 4, 8], ["m", 5, 8], ["b", 6, 8], ["b", 7, 8], ["b", 8, 8], ["b", 9, 8], ["b", 10, 8], ["b", 11, 8], ["d", 12, 8], ["d", 13, 8], ["d", 14, 8], ["d", 15, 8], ["m", 16, 8], ["m", 18, 8], ["m", 19, 8], ["m", 20, 8], ["b", 21, 8], ["b", 22, 8], ["b", 23, 8], ["b", 24, 8], ["b", 25, 8], ["b", 26, 8], ["d", 43, 8], ["d", 44, 8], ["d", 45, 8], ["d", 46, 8], ["m", 50, 8], ["d", 51, 8], ["d", 52, 8], ["d", 53, 8], ["d", 54, 8], ["d", 55, 8], ["m", 56, 8], ["m", 57, 8], ["m", 58, 8], ["m", 59, 8], ["m", 60, 8], ["m", 61, 8], ["m", 62, 8], ["m", 63, 8], ["m", 0, 9], ["m", 1, 9], ["m", 2, 9], ["m", 3, 9], ["m", 4, 9], ["m", 5, 9], ["b", 6, 9], ["b", 7, 9], ["b", 8, 9], ["b", 9, 9], ["b", 10, 9], ["d", 11, 9], ["d", 12, 9], ["d", 13, 9], ["m", 14, 9], ["m", 15, 9], ["m", 16, 9], ["m", 17, 9], ["d", 19, 9], ["l", 20, 9], ["b", 21, 9], ["b", 22, 9], ["b", 23, 9], ["b", 24, 9], ["b", 25, 9], ["b", 27, 9], ["b", 28, 9], ["m", 51, 9], ["d", 52, 9], ["d", 53, 9], ["d", 54, 9], ["d", 55, 9], ["m", 56, 9], ["m", 57, 9], ["m", 58, 9], ["m", 59, 9], ["m", 60, 9], ["m", 61, 9], ["m", 62, 9], ["m", 63, 9], ["m", 0, 10], ["m", 1, 10], ["m", 2, 10], ["m", 3, 10], ["m", 4, 10], ["m", 5, 10], ["b", 6, 10], ["b", 7, 10], ["b", 8, 10], ["d", 9, 10], ["d", 10, 10], ["m", 11, 10], ["m", 12, 10], ["m", 13, 10], ["m", 14, 10], ["b", 15, 10], ["b", 16, 10], ["l", 17, 10], ["m", 18, 10], ["m", 19, 10], ["b", 21, 10], ["b", 22, 10], ["m", 34, 10], ["b", 40, 10], ["b", 41, 10], ["b", 42, 10], ["b", 44, 10], ["b", 45, 10], ["b", 46, 10], ["b", 47, 10], ["b", 48, 10], ["b", 49, 10], ["b", 50, 10], ["b", 51, 10], ["d", 52, 10], ["b", 53, 10], ["d", 54, 10], ["d", 55, 10], ["d", 56, 10], ["m", 57, 10], ["m", 58, 10], ["m", 59, 10], ["m", 60, 10], ["m", 61, 10], ["m", 62, 10], ["m", 63, 10], ["m", 0, 11], ["m", 1, 11], ["m", 2, 11], ["m", 3, 11], ["m", 4, 11], ["m", 5, 11], ["b", 6, 11], ["m", 7, 11], ["m", 8, 11], ["m", 9, 11], ["m", 10, 11], ["m", 11, 11], ["m", 12, 11], ["m", 13, 11], ["l", 14, 11], ["l", 15, 11], ["b", 29, 11], ["b", 30, 11], ["b", 31, 11], ["b", 32, 11], ["b", 33, 11], ["b", 34, 11], ["b", 35, 11], ["b", 36, 11], ["b", 37, 11], ["b", 40, 11], ["b", 41, 11], ["b", 42, 11], ["b", 43, 11], ["b", 44, 11], ["b", 45, 11], ["b", 46, 11], ["b", 47, 11], ["b", 48, 11], ["b", 49, 11], ["b", 50, 11], ["b", 51, 11], ["b", 52, 11], ["b", 53, 11], ["d", 54, 11], ["d", 55, 11], ["d", 56, 11], ["m", 57, 11], ["m", 58, 11], ["m", 59, 11], ["m", 60, 11], ["m", 61, 11], ["m", 62, 11], ["m", 63, 11], ["m", 0, 12], ["m", 1, 12], ["m", 2, 12], ["m", 3, 12], ["m", 4, 12], ["m", 5, 12], ["m", 6, 12], ["b", 7, 12], ["b", 9, 12], ["b", 10, 12], ["b", 11, 12], ["d", 12, 12], ["b", 13, 12], ["b", 14, 12], ["b", 15, 12], ["b", 16, 12], ["b", 17, 12], ["b", 18, 12], ["d", 25, 12], ["d", 26, 12], ["d", 27, 12], ["b", 28, 12], ["b", 29, 12], ["b", 30, 12], ["l", 31, 12], ["b", 32, 12], ["b", 33, 12], ["b", 34, 12], ["b", 35, 12], ["b", 36, 12], ["b", 37, 12], ["b", 38, 12], ["l", 40, 12], ["l", 41, 12], ["b", 42, 12], ["b", 43, 12], ["b", 44, 12], ["b", 45, 12], ["b", 46, 12], ["b", 47, 12], ["b", 48, 12], ["b", 49, 12], ["b", 50, 12], ["b", 51, 12], ["b", 52, 12], ["b", 53, 12], ["b", 54, 12], ["d", 55, 12], ["d", 56, 12], ["d", 57, 12], ["m", 58, 12], ["m", 59, 12], ["m", 60, 12], ["m", 61, 12], ["m", 62, 12], ["m", 63, 12], ["m", 0, 13], ["m", 1, 13], ["m", 2, 13], ["m", 3, 13], ["m", 4, 13], ["m", 5, 13], ["b", 7, 13], ["b", 8, 13], ["b", 9, 13], ["b", 10, 13], ["b", 11, 13], ["b", 12, 13], ["b", 18, 13], ["b", 25, 13], ["d", 26, 13], ["b", 27, 13], ["b", 28, 13], ["b", 29, 13], ["l", 30, 13], ["b", 31, 13], ["b", 32, 13], ["b", 33, 13], ["b", 34, 13], ["b", 35, 13], ["b", 36, 13], ["b", 37, 13], ["b", 38, 13], ["b", 39, 13], ["b", 42, 13], ["b", 43, 13], ["b", 44, 13], ["b", 45, 13], ["b", 46, 13], ["b", 47, 13], ["b", 48, 13], ["b", 50, 13], ["b", 51, 13], ["b", 52, 13], ["b", 53, 13], ["b", 54, 13], ["d", 55, 13], ["d", 56, 13], ["d", 57, 13], ["m", 58, 13], ["m", 59, 13], ["m", 60, 13], ["m", 61, 13], ["m", 62, 13], ["m", 63, 13], ["m", 0, 14], ["m", 1, 14], ["m", 2, 14], ["b", 3, 14], ["l", 6, 14], ["b", 7, 14], ["b", 8, 14], ["b", 9, 14], ["b", 10, 14], ["b", 11, 14], ["b", 12, 14], ["b", 13, 14], ["b", 28, 14], ["b", 29, 14], ["b", 30, 14], ["b", 31, 14], ["b", 32, 14], ["b", 33, 14], ["b", 34, 14], ["b", 35, 14], ["l", 36, 14], ["b", 37, 14], ["b", 38, 14], ["b", 39, 14], ["b", 40, 14], ["b", 43, 14], ["b", 44, 14], ["b", 45, 14], ["b", 46, 14], ["b", 47, 14], ["b", 49, 14], ["b", 50, 14], ["b", 51, 14], ["b", 52, 14], ["b", 53, 14], ["l", 54, 14], ["b", 55, 14], ["d", 56, 14], ["d", 57, 14], ["m", 59, 14], ["m", 60, 14], ["m", 61, 14], ["m", 62, 14], ["m", 63, 14], ["m", 0, 15], ["m", 1, 15], ["m", 3, 15], ["m", 4, 15], ["b", 5, 15], ["b", 6, 15], ["b", 7, 15], ["b", 8, 15], ["b", 20, 15], ["l", 21, 15], ["b", 22, 15], ["b", 23, 15], ["d", 24, 15], ["d", 25, 15], ["b", 26, 15], ["m", 27, 15], ["m", 28, 15], ["b", 29, 15], ["b", 30, 15], ["b", 31, 15], ["b", 32, 15], ["b", 33, 15], ["l", 34, 15], ["b", 35, 15], ["b", 36, 15], ["b", 37, 15], ["b", 39, 15], ["b", 40, 15], ["b", 41, 15], ["b", 42, 15], ["b", 44, 15], ["b", 45, 15], ["b", 46, 15], ["b", 47, 15], ["b", 48, 15], ["b", 49, 15], ["b", 50, 15], ["b", 51, 15], ["b", 52, 15], ["b", 53, 15], ["l", 54, 15], ["b", 55, 15], ["d", 56, 15], ["d", 57, 15], ["m", 58, 15], ["b", 59, 15], ["m", 60, 15], ["m", 61, 15], ["m", 62, 15], ["m", 63, 15], ["m", 0, 16], ["m", 1, 16], ["m", 3, 16], ["b", 4, 16], ["b", 5, 16], ["b", 6, 16], ["b", 7, 16], ["b", 8, 16], ["m", 9, 16], ["b", 10, 16], ["d", 20, 16], ["d", 21, 16], ["b", 22, 16], ["b", 23, 16], ["b", 24, 16], ["b", 25, 16], ["l", 26, 16], ["b", 28, 16], ["g", 29, 16], ["g", 30, 16], ["b", 33, 16], ["b", 34, 16], ["b", 35, 16], ["b", 36, 16], ["b", 37, 16], ["b", 38, 16], ["b", 39, 16], ["b", 40, 16], ["b", 41, 16], ["b", 42, 16], ["b", 43, 16], ["b", 45, 16], ["b", 46, 16], ["b", 47, 16], ["b", 48, 16], ["b", 49, 16], ["b", 50, 16], ["b", 51, 16], ["b", 53, 16], ["d", 55, 16], ["l", 56, 16], ["d", 57, 16], ["b", 59, 16], ["b", 60, 16], ["m", 61, 16], ["m", 62, 16], ["m", 63, 16], ["m", 0, 17], ["m", 1, 17], ["m", 2, 17], ["m", 3, 17], ["b", 4, 17], ["b", 5, 17], ["b", 6, 17], ["b", 7, 17], ["b", 8, 17], ["b", 9, 17], ["b", 19, 17], ["b", 20, 17], ["b", 21, 17], ["b", 22, 17], ["b", 23, 17], ["b", 24, 17], ["b", 27, 17], ["b", 28, 17], ["b", 29, 17], ["q", 39, 17], ["b", 40, 17], ["b", 41, 17], ["b", 42, 17], ["b", 43, 17], ["b", 46, 17], ["b", 47, 17], ["b", 48, 17], ["b", 49, 17], ["b", 50, 17], ["b", 51, 17], ["m", 52, 17], ["m", 53, 17], ["m", 54, 17], ["d", 55, 17], ["d", 56, 17], ["d", 57, 17], ["b", 60, 17], ["m", 61, 17], ["m", 62, 17], ["m", 63, 17], ["m", 0, 18], ["m", 1, 18], ["m", 2, 18], ["m", 3, 18], ["b", 4, 18], ["b", 5, 18], ["b", 6, 18], ["b", 7, 18], ["b", 18, 18], ["b", 19, 18], ["b", 20, 18], ["b", 21, 18], ["m", 22, 18], ["b", 23, 18], ["b", 24, 18], ["b", 25, 18], ["b", 26, 18], ["b", 27, 18], ["b", 28, 18], ["b", 29, 18], ["q", 30, 18], ["q", 31, 18], ["b", 41, 18], ["d", 42, 18], ["b", 43, 18], ["b", 49, 18], ["d", 50, 18], ["b", 51, 18], ["m", 53, 18], ["m", 54, 18], ["m", 55, 18], ["d", 56, 18], ["d", 57, 18], ["m", 58, 18], ["m", 59, 18], ["m", 60, 18], ["m", 61, 18], ["m", 62, 18], ["m", 63, 18], ["m", 0, 19], ["m", 1, 19], ["m", 2, 19], ["m", 3, 19], ["b", 4, 19], ["b", 5, 19], ["b", 6, 19], ["b", 17, 19], ["b", 18, 19], ["b", 19, 19], ["b", 20, 19], ["b", 21, 19], ["b", 22, 19], ["q", 28, 19], ["q", 29, 19], ["b", 47, 19], ["b", 55, 19], ["d", 56, 19], ["d", 57, 19], ["d", 58, 19], ["m", 59, 19], ["m", 60, 19], ["m", 61, 19], ["m", 62, 19], ["m", 63, 19], ["m", 1, 20], ["d", 2, 20], ["m", 3, 20], ["b", 4, 20], ["b", 5, 20], ["b", 6, 20], ["b", 16, 20], ["b", 17, 20], ["b", 18, 20], ["b", 19, 20], ["d", 20, 20], ["b", 21, 20], ["b", 22, 20], ["q", 27, 20], ["q", 28, 20], ["m", 32, 20], ["m", 33, 20], ["m", 34, 20], ["m", 35, 20], ["m", 36, 20], ["m", 37, 20], ["m", 38, 20], ["m", 39, 20], ["m", 40, 20], ["q", 44, 20], ["m", 46, 20], ["b", 47, 20], ["g", 49, 20], ["d", 56, 20], ["d", 57, 20], ["d", 58, 20], ["m", 60, 20], ["m", 61, 20], ["m", 62, 20], ["m", 63, 20], ["m", 1, 21], ["m", 2, 21], ["m", 3, 21], ["b", 4, 21], ["b", 5, 21], ["b", 6, 21], ["g", 9, 21], ["g", 13, 21], ["g", 14, 21], ["g", 15, 21], ["b", 16, 21], ["b", 17, 21], ["b", 18, 21], ["b", 19, 21], ["b", 20, 21], ["b", 21, 21], ["b", 22, 21], ["m", 30, 21], ["m", 31, 21], ["m", 32, 21], ["m", 44, 21], ["q", 45, 21], ["b", 46, 21], ["b", 47, 21], ["g", 55, 21], ["g", 56, 21], ["d", 57, 21], ["b", 58, 21], ["b", 59, 21], ["m", 60, 21], ["m", 61, 21], ["m", 62, 21], ["m", 63, 21], ["m", 0, 22], ["m", 1, 22], ["m", 3, 22], ["b", 4, 22], ["b", 5, 22], ["b", 6, 22], ["d", 7, 22], ["g", 9, 22], ["l", 10, 22], ["g", 11, 22], ["b", 12, 22], ["b", 13, 22], ["m", 14, 22], ["b", 18, 22], ["b", 19, 22], ["b", 20, 22], ["b", 21, 22], ["m", 29, 22], ["q", 45, 22], ["q", 46, 22], ["b", 47, 22], ["b", 48, 22], ["m", 53, 22], ["m", 54, 22], ["m", 55, 22], ["d", 57, 22], ["m", 59, 22], ["l", 60, 22], ["m", 61, 22], ["m", 62, 22], ["m", 0, 23], ["m", 1, 23], ["m", 2, 23], ["m", 3, 23], ["b", 4, 23], ["b", 5, 23], ["d", 7, 23], ["m", 8, 23], ["b", 12, 23], ["b", 18, 23], ["b", 20, 23], ["b", 21, 23], ["b", 23, 23], ["m", 28, 23], ["q", 46, 23], ["q", 47, 23], ["d", 48, 23], ["l", 49, 23], ["g", 50, 23], ["g", 51, 23], ["l", 52, 23], ["m", 53, 23], ["d", 57, 23], ["l", 60, 23], ["m", 61, 23], ["m", 62, 23], ["d", 63, 23], ["b", 0, 24], ["m", 2, 24], ["b", 4, 24], ["b", 5, 24], ["g", 9, 24], ["b", 18, 24], ["m", 20, 24], ["q", 47, 24], ["d", 57, 24], ["m", 60, 24], ["m", 61, 24], ["m", 62, 24], ["d", 63, 24], ["b", 0, 25], ["b", 1, 25], ["m", 2, 25], ["m", 3, 25], ["b", 4, 25], ["b", 5, 25], ["d", 6, 25], ["g", 9, 25], ["b", 19, 25], ["m", 20, 25], ["b", 22, 25], ["q", 47, 25], ["q", 48, 25], ["d", 57, 25], ["b", 60, 25], ["b", 61, 25], ["m", 62, 25], ["d", 63, 25], ["m", 0, 26], ["m", 1, 26], ["m", 2, 26], ["d", 3, 26], ["b", 4, 26], ["d", 5, 26], ["d", 6, 26], ["g", 9, 26], ["q", 12, 26], ["q", 13, 26], ["q", 14, 26], ["q", 15, 26], ["q", 16, 26], ["q", 17, 26], ["l", 20, 26], ["m", 21, 26], ["q", 22, 26], ["q", 41, 26], ["q", 48, 26], ["q", 51, 26], ["q", 52, 26], ["q", 53, 26], ["q", 54, 26], ["q", 55, 26], ["q", 56, 26], ["d", 57, 26], ["g", 59, 26], ["b", 60, 26], ["b", 61, 26], ["m", 62, 26], ["m", 63, 26], ["m", 0, 27], ["m", 1, 27], ["m", 2, 27], ["d", 3, 27], ["d", 4, 27], ["d", 5, 27], ["d", 6, 27], ["l", 9, 27], ["q", 11, 27], ["q", 12, 27], ["q", 13, 27], ["q", 14, 27], ["q", 15, 27], ["q", 16, 27], ["q", 17, 27], ["l", 19, 27], ["l", 20, 27], ["b", 21, 27], ["q", 22, 27], ["q", 32, 27], ["b", 48, 27], ["q", 50, 27], ["q", 51, 27], ["q", 52, 27], ["q", 53, 27], ["q", 54, 27], ["q", 55, 27], ["q", 56, 27], ["d", 57, 27], ["g", 59, 27], ["b", 60, 27], ["b", 61, 27], ["m", 62, 27], ["m", 63, 27], ["m", 1, 28], ["m", 2, 28], ["d", 3, 28], ["d", 4, 28], ["d", 5, 28], ["d", 6, 28], ["q", 11, 28], ["q", 12, 28], ["q", 13, 28], ["q", 14, 28], ["q", 15, 28], ["q", 16, 28], ["q", 17, 28], ["q", 18, 28], ["b", 19, 28], ["b", 20, 28], ["b", 21, 28], ["q", 27, 28], ["q", 43, 28], ["b", 48, 28], ["q", 50, 28], ["q", 51, 28], ["q", 52, 28], ["q", 53, 28], ["q", 54, 28], ["q", 55, 28], ["q", 56, 28], ["q", 57, 28], ["d", 58, 28], ["b", 59, 28], ["b", 60, 28], ["b", 61, 28], ["l", 62, 28], ["m", 63, 28], ["m", 1, 29], ["m", 2, 29], ["d", 3, 29], ["d", 4, 29], ["d", 5, 29], ["q", 11, 29], ["q", 12, 29], ["q", 13, 29], ["q", 15, 29], ["q", 17, 29], ["b", 19, 29], ["b", 20, 29], ["q", 21, 29], ["b", 48, 29], ["q", 50, 29], ["q", 51, 29], ["q", 53, 29], ["q", 55, 29], ["q", 56, 29], ["q", 57, 29], ["d", 58, 29], ["b", 59, 29], ["b", 60, 29], ["b", 61, 29], ["m", 1, 30], ["b", 2, 30], ["d", 3, 30], ["d", 4, 30], ["d", 6, 30], ["l", 8, 30], ["q", 12, 30], ["q", 13, 30], ["q", 15, 30], ["q", 17, 30], ["b", 19, 30], ["b", 20, 30], ["m", 21, 30], ["b", 48, 30], ["q", 50, 30], ["q", 51, 30], ["q", 53, 30], ["q", 55, 30], ["q", 56, 30], ["q", 57, 30], ["d", 58, 30], ["l", 59, 30], ["m", 62, 30], ["m", 63, 30], ["m", 0, 31], ["m", 1, 31], ["m", 2, 31], ["d", 3, 31], ["d", 6, 31], ["l", 7, 31], ["b", 8, 31], ["q", 10, 31], ["q", 12, 31], ["q", 13, 31], ["q", 14, 31], ["q", 15, 31], ["q", 16, 31], ["b", 19, 31], ["q", 20, 31], ["b", 47, 31], ["b", 48, 31], ["q", 51, 31], ["q", 52, 31], ["q", 53, 31], ["q", 54, 31], ["q", 56, 31], ["q", 57, 31], ["l", 59, 31], ["l", 60, 31], ["m", 61, 31], ["m", 63, 31], ["m", 0, 32], ["m", 1, 32], ["m", 2, 32], ["d", 3, 32], ["d", 5, 32], ["d", 7, 32], ["l", 8, 32], ["q", 10, 32], ["q", 13, 32], ["q", 14, 32], ["q", 15, 32], ["q", 16, 32], ["q", 17, 32], ["b", 19, 32], ["q", 20, 32], ["q", 24, 32], ["m", 27, 32], ["b", 47, 32], ["l", 49, 32], ["q", 52, 32], ["q", 53, 32], ["q", 54, 32], ["q", 55, 32], ["q", 56, 32], ["q", 57, 32], ["l", 60, 32], ["m", 61, 32], ["m", 63, 32], ["m", 0, 33], ["m", 1, 33], ["m", 2, 33], ["b", 3, 33], ["b", 4, 33], ["d", 5, 33], ["b", 6, 33], ["d", 7, 33], ["l", 8, 33], ["q", 10, 33], ["q", 12, 33], ["q", 15, 33], ["q", 19, 33], ["q", 20, 33], ["m", 44, 33], ["b", 47, 33], ["q", 52, 33], ["q", 55, 33], ["q", 56, 33], ["d", 57, 33], ["l", 59, 33], ["l", 60, 33], ["m", 61, 33], ["d", 63, 33], ["m", 0, 34], ["l", 1, 34], ["m", 2, 34], ["m", 3, 34], ["d", 4, 34], ["d", 5, 34], ["d", 6, 34], ["d", 7, 34], ["l", 8, 34], ["l", 9, 34], ["q", 12, 34], ["q", 16, 34], ["q", 19, 34], ["q", 52, 34], ["q", 54, 34], ["q", 55, 34], ["q", 56, 34], ["l", 59, 34], ["l", 60, 34], ["m", 61, 34], ["d", 63, 34], ["m", 0, 35], ["m", 1, 35], ["m", 2, 35], ["m", 3, 35], ["l", 7, 35], ["l", 8, 35], ["q", 12, 35], ["q", 19, 35], ["l", 50, 35], ["q", 53, 35], ["q", 55, 35], ["d", 56, 35], ["l", 59, 35], ["l", 60, 35], ["m", 61, 35], ["b", 0, 36], ["b", 1, 36], ["m", 2, 36], ["l", 3, 36], ["g", 6, 36], ["g", 7, 36], ["g", 8, 36], ["l", 9, 36], ["q", 12, 36], ["q", 16, 36], ["q", 19, 36], ["m", 23, 36], ["q", 48, 36], ["q", 53, 36], ["q", 55, 36], ["b", 59, 36], ["m", 60, 36], ["m", 61, 36], ["m", 62, 36], ["d", 63, 36], ["d", 0, 37], ["m", 3, 37], ["g", 6, 37], ["g", 7, 37], ["g", 8, 37], ["g", 9, 37], ["b", 11, 37], ["q", 12, 37], ["g", 13, 37], ["q", 14, 37], ["q", 16, 37], ["q", 19, 37], ["q", 48, 37], ["q", 53, 37], ["b", 58, 37], ["b", 59, 37], ["m", 60, 37], ["m", 61, 37], ["m", 62, 37], ["d", 63, 37], ["d", 0, 38], ["m", 1, 38], ["m", 3, 38], ["m", 4, 38], ["b", 5, 38], ["g", 6, 38], ["g", 7, 38], ["g", 8, 38], ["g", 9, 38], ["q", 12, 38], ["q", 14, 38], ["q", 16, 38], ["l", 17, 38], ["q", 19, 38], ["m", 25, 38], ["b", 47, 38], ["q", 52, 38], ["q", 53, 38], ["d", 58, 38], ["b", 59, 38], ["m", 60, 38], ["m", 61, 38], ["m", 62, 38], ["d", 63, 38], ["d", 0, 39], ["m", 3, 39], ["m", 4, 39], ["b", 5, 39], ["g", 6, 39], ["b", 11, 39], ["q", 12, 39], ["d", 13, 39], ["q", 14, 39], ["b", 16, 39], ["b", 17, 39], ["q", 18, 39], ["m", 22, 39], ["q", 45, 39], ["b", 50, 39], ["q", 53, 39], ["d", 58, 39], ["b", 59, 39], ["m", 60, 39], ["b", 61, 39], ["b", 62, 39], ["b", 63, 39], ["m", 0, 40], ["m", 2, 40], ["d", 5, 40], ["b", 11, 40], ["q", 14, 40], ["q", 18, 40], ["m", 22, 40], ["b", 43, 40], ["b", 50, 40], ["q", 53, 40], ["b", 58, 40], ["m", 59, 40], ["m", 60, 40], ["l", 61, 40], ["b", 62, 40], ["b", 63, 40], ["m", 0, 41], ["m", 1, 41], ["b", 4, 41], ["b", 5, 41], ["b", 6, 41], ["b", 11, 41], ["q", 14, 41], ["q", 18, 41], ["m", 22, 41], ["q", 36, 41], ["q", 40, 41], ["l", 50, 41], ["q", 53, 41], ["b", 58, 41], ["m", 59, 41], ["m", 60, 41], ["m", 61, 41], ["m", 62, 41], ["m", 63, 41], ["m", 0, 42], ["m", 1, 42], ["m", 2, 42], ["b", 4, 42], ["b", 5, 42], ["b", 6, 42], ["q", 14, 42], ["q", 18, 42], ["q", 48, 42], ["q", 53, 42], ["l", 57, 42], ["g", 58, 42], ["b", 59, 42], ["l", 60, 42], ["m", 61, 42], ["m", 62, 42], ["m", 63, 42], ["m", 0, 43], ["m", 1, 43], ["m", 2, 43], ["l", 4, 43], ["b", 5, 43], ["b", 6, 43], ["b", 7, 43], ["b", 8, 43], ["b", 9, 43], ["b", 11, 43], ["b", 13, 43], ["q", 14, 43], ["b", 16, 43], ["q", 18, 43], ["q", 28, 43], ["q", 29, 43], ["q", 48, 43], ["l", 57, 43], ["m", 58, 43], ["b", 59, 43], ["m", 61, 43], ["m", 62, 43], ["m", 0, 44], ["m", 2, 44], ["l", 4, 44], ["b", 5, 44], ["b", 8, 44], ["b", 9, 44], ["b", 13, 44], ["q", 14, 44], ["b", 16, 44], ["q", 17, 44], ["q", 18, 44], ["q", 23, 44], ["b", 41, 44], ["d", 46, 44], ["m", 58, 44], ["l", 59, 44], ["m", 60, 44], ["m", 61, 44], ["m", 62, 44], ["m", 63, 44], ["m", 0, 45], ["m", 2, 45], ["d", 3, 45], ["l", 4, 45], ["b", 5, 45], ["b", 6, 45], ["b", 7, 45], ["b", 8, 45], ["b", 9, 45], ["b", 13, 45], ["b", 16, 45], ["q", 17, 45], ["m", 18, 45], ["d", 49, 45], ["d", 55, 45], ["m", 58, 45], ["m", 59, 45], ["m", 60, 45], ["m", 61, 45], ["m", 63, 45], ["m", 0, 46], ["m", 2, 46], ["b", 4, 46], ["b", 5, 46], ["b", 6, 46], ["b", 7, 46], ["b", 8, 46], ["b", 9, 46], ["b", 11, 46], ["b", 13, 46], ["b", 16, 46], ["q", 17, 46], ["b", 18, 46], ["b", 39, 46], ["q", 42, 46], ["d", 48, 46], ["d", 49, 46], ["d", 51, 46], ["g", 55, 46], ["g", 56, 46], ["g", 57, 46], ["g", 58, 46], ["m", 59, 46], ["l", 60, 46], ["m", 61, 46], ["m", 62, 46], ["m", 63, 46], ["m", 0, 47], ["m", 3, 47], ["b", 4, 47], ["b", 5, 47], ["b", 6, 47], ["b", 7, 47], ["b", 8, 47], ["b", 9, 47], ["b", 11, 47], ["b", 13, 47], ["q", 17, 47], ["b", 18, 47], ["q", 36, 47], ["q", 39, 47], ["q", 41, 47], ["q", 42, 47], ["q", 48, 47], ["d", 49, 47], ["d", 51, 47], ["g", 55, 47], ["b", 56, 47], ["b", 57, 47], ["l", 58, 47], ["m", 59, 47], ["l", 60, 47], ["m", 61, 47], ["m", 62, 47], ["m", 63, 47], ["m", 0, 48], ["m", 3, 48], ["b", 4, 48], ["b", 5, 48], ["b", 6, 48], ["b", 7, 48], ["b", 8, 48], ["b", 9, 48], ["b", 11, 48], ["b", 13, 48], ["l", 15, 48], ["q", 17, 48], ["m", 18, 48], ["q", 35, 48], ["q", 36, 48], ["q", 39, 48], ["q", 41, 48], ["q", 48, 48], ["g", 49, 48], ["d", 51, 48], ["g", 55, 48], ["b", 56, 48], ["b", 57, 48], ["d", 58, 48], ["m", 59, 48], ["m", 60, 48], ["m", 61, 48], ["m", 62, 48], ["m", 63, 48], ["m", 0, 49], ["m", 3, 49], ["b", 4, 49], ["b", 5, 49], ["b", 6, 49], ["b", 7, 49], ["l", 8, 49], ["l", 9, 49], ["l", 10, 49], ["b", 13, 49], ["q", 17, 49], ["q", 26, 49], ["q", 28, 49], ["q", 29, 49], ["b", 33, 49], ["d", 34, 49], ["q", 35, 49], ["g", 40, 49], ["q", 41, 49], ["q", 47, 49], ["d", 51, 49], ["b", 54, 49], ["b", 55, 49], ["b", 56, 49], ["b", 57, 49], ["m", 58, 49], ["m", 59, 49], ["l", 60, 49], ["m", 61, 49], ["m", 62, 49], ["m", 63, 49], ["m", 0, 50], ["m", 3, 50], ["b", 4, 50], ["b", 5, 50], ["b", 6, 50], ["b", 7, 50], ["b", 8, 50], ["b", 9, 50], ["b", 10, 50], ["b", 13, 50], ["q", 17, 50], ["q", 25, 50], ["q", 26, 50], ["m", 30, 50], ["b", 31, 50], ["d", 32, 50], ["d", 33, 50], ["m", 34, 50], ["q", 35, 50], ["m", 37, 50], ["l", 38, 50], ["q", 44, 50], ["q", 47, 50], ["d", 51, 50], ["b", 54, 50], ["b", 55, 50], ["b", 56, 50], ["l", 58, 50], ["m", 59, 50], ["m", 60, 50], ["m", 61, 50], ["m", 62, 50], ["m", 63, 50], ["m", 0, 51], ["b", 1, 51], ["b", 2, 51], ["l", 3, 51], ["b", 4, 51], ["d", 5, 51], ["b", 6, 51], ["l", 7, 51], ["b", 8, 51], ["d", 9, 51], ["d", 13, 51], ["q", 17, 51], ["q", 25, 51], ["b", 29, 51], ["b", 30, 51], ["b", 31, 51], ["q", 32, 51], ["b", 33, 51], ["d", 40, 51], ["d", 41, 51], ["d", 42, 51], ["q", 44, 51], ["q", 47, 51], ["g", 49, 51], ["m", 51, 51], ["m", 54, 51], ["d", 56, 51], ["d", 57, 51], ["l", 58, 51], ["l", 59, 51], ["m", 60, 51], ["m", 61, 51], ["m", 62, 51], ["m", 63, 51], ["m", 0, 52], ["b", 1, 52], ["b", 2, 52], ["l", 3, 52], ["b", 4, 52], ["d", 5, 52], ["b", 6, 52], ["d", 7, 52], ["d", 8, 52], ["b", 9, 52], ["b", 10, 52], ["d", 13, 52], ["q", 16, 52], ["q", 25, 52], ["d", 26, 52], ["l", 27, 52], ["b", 29, 52], ["b", 30, 52], ["b", 31, 52], ["b", 32, 52], ["q", 33, 52], ["d", 36, 52], ["d", 37, 52], ["d", 38, 52], ["d", 39, 52], ["d", 40, 52], ["d", 41, 52], ["d", 42, 52], ["l", 44, 52], ["q", 45, 52], ["q", 46, 52], ["m", 47, 52], ["l", 48, 52], ["m", 49, 52], ["m", 51, 52], ["m", 54, 52], ["d", 55, 52], ["d", 56, 52], ["m", 57, 52], ["m", 58, 52], ["m", 59, 52], ["m", 60, 52], ["m", 62, 52], ["m", 63, 52], ["m", 0, 53], ["m", 1, 53], ["b", 2, 53], ["m", 3, 53], ["m", 4, 53], ["m", 5, 53], ["m", 6, 53], ["b", 7, 53], ["l", 8, 53], ["b", 9, 53], ["b", 10, 53], ["m", 13, 53], ["q", 16, 53], ["q", 24, 53], ["b", 25, 53], ["l", 26, 53], ["l", 27, 53], ["q", 33, 53], ["d", 38, 53], ["d", 39, 53], ["d", 40, 53], ["d", 41, 53], ["d", 42, 53], ["m", 46, 53], ["m", 47, 53], ["m", 48, 53], ["m", 49, 53], ["m", 51, 53], ["d", 54, 53], ["d", 55, 53], ["q", 56, 53], ["q", 57, 53], ["q", 58, 53], ["q", 59, 53], ["q", 60, 53], ["m", 61, 53], ["m", 62, 53], ["m", 63, 53], ["m", 0, 54], ["m", 1, 54], ["m", 2, 54], ["b", 3, 54], ["m", 4, 54], ["m", 5, 54], ["b", 6, 54], ["d", 7, 54], ["d", 8, 54], ["m", 9, 54], ["d", 10, 54], ["d", 13, 54], ["q", 16, 54], ["m", 18, 54], ["q", 24, 54], ["d", 38, 54], ["d", 39, 54], ["d", 40, 54], ["d", 41, 54], ["d", 42, 54], ["m", 45, 54], ["m", 46, 54], ["m", 47, 54], ["q", 48, 54], ["q", 49, 54], ["q", 50, 54], ["q", 51, 54], ["q", 52, 54], ["q", 53, 54], ["q", 54, 54], ["q", 55, 54], ["q", 56, 54], ["q", 57, 54], ["q", 58, 54], ["q", 60, 54], ["m", 61, 54], ["m", 62, 54], ["m", 63, 54], ["d", 0, 55], ["m", 1, 55], ["m", 2, 55], ["m", 3, 55], ["m", 5, 55], ["m", 6, 55], ["l", 7, 55], ["d", 8, 55], ["d", 9, 55], ["m", 10, 55], ["d", 11, 55], ["q", 16, 55], ["d", 17, 55], ["d", 18, 55], ["d", 20, 55], ["d", 21, 55], ["q", 24, 55], ["b", 25, 55], ["l", 29, 55], ["b", 30, 55], ["q", 36, 55], ["q", 37, 55], ["q", 38, 55], ["q", 39, 55], ["q", 40, 55], ["q", 41, 55], ["q", 42, 55], ["q", 43, 55], ["q", 44, 55], ["q", 45, 55], ["q", 46, 55], ["q", 47, 55], ["q", 48, 55], ["q", 49, 55], ["q", 50, 55], ["q", 51, 55], ["q", 52, 55], ["q", 53, 55], ["q", 54, 55], ["q", 55, 55], ["q", 56, 55], ["q", 57, 55], ["q", 58, 55], ["q", 59, 55], ["q", 60, 55], ["m", 61, 55], ["m", 62, 55], ["m", 63, 55], ["m", 0, 56], ["m", 1, 56], ["b", 2, 56], ["m", 3, 56], ["m", 5, 56], ["m", 6, 56], ["m", 7, 56], ["d", 8, 56], ["m", 9, 56], ["d", 10, 56], ["d", 11, 56], ["d", 15, 56], ["q", 16, 56], ["d", 17, 56], ["d", 18, 56], ["d", 19, 56], ["d", 20, 56], ["l", 21, 56], ["b", 22, 56], ["b", 23, 56], ["q", 24, 56], ["l", 28, 56], ["b", 30, 56], ["m", 31, 56], ["m", 32, 56], ["m", 33, 56], ["q", 36, 56], ["q", 37, 56], ["q", 38, 56], ["q", 39, 56], ["q", 40, 56], ["q", 41, 56], ["q", 42, 56], ["q", 43, 56], ["q", 44, 56], ["q", 45, 56], ["q", 46, 56], ["q", 47, 56], ["q", 48, 56], ["q", 49, 56], ["q", 50, 56], ["q", 51, 56], ["q", 52, 56], ["q", 53, 56], ["q", 54, 56], ["q", 55, 56], ["q", 56, 56], ["q", 57, 56], ["q", 58, 56], ["q", 59, 56], ["q", 60, 56], ["m", 61, 56], ["m", 62, 56], ["m", 63, 56], ["m", 0, 57], ["m", 1, 57], ["m", 2, 57], ["m", 3, 57], ["m", 4, 57], ["m", 5, 57], ["m", 6, 57], ["b", 7, 57], ["b", 8, 57], ["b", 9, 57], ["g", 10, 57], ["d", 15, 57], ["q", 16, 57], ["d", 17, 57], ["d", 18, 57], ["d", 19, 57], ["b", 20, 57], ["d", 21, 57], ["q", 23, 57], ["m", 24, 57], ["m", 25, 57], ["d", 26, 57], ["d", 27, 57], ["d", 28, 57], ["d", 29, 57], ["d", 30, 57], ["m", 31, 57], ["m", 32, 57], ["m", 33, 57], ["q", 36, 57], ["q", 37, 57], ["q", 38, 57], ["q", 39, 57], ["q", 40, 57], ["q", 41, 57], ["q", 42, 57], ["q", 43, 57], ["q", 44, 57], ["q", 45, 57], ["q", 46, 57], ["q", 47, 57], ["q", 48, 57], ["q", 49, 57], ["q", 50, 57], ["q", 51, 57], ["q", 52, 57], ["q", 53, 57], ["q", 54, 57], ["q", 55, 57], ["q", 56, 57], ["q", 57, 57], ["q", 58, 57], ["q", 59, 57], ["q", 60, 57], ["m", 61, 57], ["m", 62, 57], ["m", 63, 57], ["m", 0, 58], ["m", 1, 58], ["m", 2, 58], ["m", 3, 58], ["m", 4, 58], ["m", 5, 58], ["m", 6, 58], ["b", 7, 58], ["b", 8, 58], ["b", 9, 58], ["b", 10, 58], ["b", 11, 58], ["b", 13, 58], ["d", 15, 58], ["q", 16, 58], ["d", 17, 58], ["d", 18, 58], ["d", 19, 58], ["q", 23, 58], ["m", 24, 58], ["d", 25, 58], ["d", 26, 58], ["d", 27, 58], ["d", 28, 58], ["d", 29, 58], ["d", 30, 58], ["d", 31, 58], ["d", 32, 58], ["m", 33, 58], ["g", 34, 58], ["m", 35, 58], ["q", 36, 58], ["q", 37, 58], ["q", 38, 58], ["q", 39, 58], ["q", 40, 58], ["q", 41, 58], ["q", 42, 58], ["q", 43, 58], ["q", 44, 58], ["q", 45, 58], ["q", 46, 58], ["q", 47, 58], ["q", 48, 58], ["q", 49, 58], ["q", 50, 58], ["q", 51, 58], ["q", 52, 58], ["q", 53, 58], ["q", 54, 58], ["q", 55, 58], ["q", 56, 58], ["q", 57, 58], ["q", 58, 58], ["q", 59, 58], ["q", 60, 58], ["m", 61, 58], ["m", 62, 58], ["m", 63, 58], ["m", 0, 59], ["m", 1, 59], ["m", 2, 59], ["m", 3, 59], ["m", 4, 59], ["m", 5, 59], ["m", 6, 59], ["m", 7, 59], ["m", 8, 59], ["m", 9, 59], ["g", 10, 59], ["b", 11, 59], ["b", 13, 59], ["b", 15, 59], ["b", 16, 59], ["q", 17, 59], ["q", 23, 59], ["d", 24, 59], ["d", 25, 59], ["d", 26, 59], ["d", 27, 59], ["d", 28, 59], ["d", 29, 59], ["d", 30, 59], ["d", 31, 59], ["d", 32, 59], ["d", 33, 59], ["g", 34, 59], ["g", 35, 59], ["q", 36, 59], ["q", 37, 59], ["q", 38, 59], ["q", 39, 59], ["q", 40, 59], ["q", 41, 59], ["q", 42, 59], ["q", 43, 59], ["q", 44, 59], ["q", 45, 59], ["q", 46, 59], ["q", 47, 59], ["q", 48, 59], ["q", 49, 59], ["q", 50, 59], ["q", 51, 59], ["q", 52, 59], ["q", 53, 59], ["q", 54, 59], ["q", 55, 59], ["q", 56, 59], ["q", 57, 59], ["q", 58, 59], ["q", 59, 59], ["q", 60, 59], ["m", 61, 59], ["m", 62, 59], ["m", 63, 59], ["m", 0, 60], ["m", 1, 60], ["m", 2, 60], ["m", 3, 60], ["m", 4, 60], ["m", 5, 60], ["m", 6, 60], ["m", 7, 60], ["m", 8, 60], ["m", 9, 60], ["m", 10, 60], ["l", 11, 60], ["m", 13, 60], ["g", 15, 60], ["g", 16, 60], ["q", 17, 60], ["q", 23, 60], ["m", 24, 60], ["m", 25, 60], ["d", 27, 60], ["d", 28, 60], ["d", 29, 60], ["d", 30, 60], ["d", 31, 60], ["d", 32, 60], ["d", 33, 60], ["d", 34, 60], ["g", 35, 60], ["q", 36, 60], ["q", 37, 60], ["q", 38, 60], ["q", 39, 60], ["q", 40, 60], ["q", 41, 60], ["q", 42, 60], ["q", 43, 60], ["q", 44, 60], ["q", 45, 60], ["q", 46, 60], ["q", 47, 60], ["q", 48, 60], ["q", 49, 60], ["q", 50, 60], ["q", 51, 60], ["q", 52, 60], ["q", 53, 60], ["q", 54, 60], ["q", 55, 60], ["q", 56, 60], ["q", 57, 60], ["q", 58, 60], ["q", 59, 60], ["q", 60, 60], ["m", 61, 60], ["m", 62, 60], ["m", 63, 60], ["m", 0, 61], ["m", 1, 61], ["m", 2, 61], ["m", 3, 61], ["m", 4, 61], ["m", 5, 61], ["m", 6, 61], ["m", 7, 61], ["m", 8, 61], ["m", 9, 61], ["d", 10, 61], ["m", 11, 61], ["m", 13, 61], ["g", 15, 61], ["g", 16, 61], ["q", 17, 61], ["m", 24, 61], ["m", 25, 61], ["g", 29, 61], ["g", 30, 61], ["g", 31, 61], ["g", 32, 61], ["g", 33, 61], ["g", 34, 61], ["m", 35, 61], ["b", 36, 61], ["d", 37, 61], ["m", 38, 61], ["m", 39, 61], ["d", 42, 61], ["d", 43, 61], ["d", 44, 61], ["d", 45, 61], ["m", 46, 61], ["m", 47, 61], ["m", 48, 61], ["m", 51, 61], ["m", 54, 61], ["m", 55, 61], ["m", 56, 61], ["m", 57, 61], ["m", 58, 61], ["m", 59, 61], ["m", 60, 61], ["m", 61, 61], ["m", 62, 61], ["m", 63, 61], ["m", 0, 62], ["m", 1, 62], ["m", 2, 62], ["m", 3, 62], ["m", 4, 62], ["m", 5, 62], ["m", 6, 62], ["m", 7, 62], ["m", 8, 62], ["m", 9, 62], ["d", 10, 62], ["m", 11, 62], ["m", 13, 62], ["m", 15, 62], ["m", 16, 62], ["q", 17, 62], ["m", 24, 62], ["m", 25, 62], ["g", 29, 62], ["g", 30, 62], ["g", 31, 62], ["g", 32, 62], ["g", 33, 62], ["m", 34, 62], ["l", 35, 62], ["b", 36, 62], ["d", 37, 62], ["b", 41, 62], ["b", 42, 62], ["d", 43, 62], ["d", 44, 62], ["m", 45, 62], ["d", 46, 62], ["m", 48, 62], ["m", 51, 62], ["m", 54, 62], ["m", 55, 62], ["m", 56, 62], ["m", 57, 62], ["m", 58, 62], ["m", 59, 62], ["m", 60, 62], ["m", 61, 62], ["m", 62, 62], ["m", 63, 62], ["m", 0, 63], ["m", 1, 63], ["m", 2, 63], ["m", 3, 63], ["m", 4, 63], ["m", 5, 63], ["m", 6, 63], ["m", 7, 63], ["m", 8, 63], ["m", 9, 63], ["m", 10, 63], ["m", 11, 63], ["m", 13, 63], ["m", 15, 63], ["m", 16, 63], ["b", 17, 63], ["m", 24, 63], ["m", 25, 63], ["m", 29, 63], ["m", 30, 63], ["m", 31, 63], ["m", 32, 63], ["m", 33, 63], ["m", 34, 63], ["m", 35, 63], ["m", 36, 63], ["m", 37, 63], ["m", 38, 63], ["m", 39, 63], ["m", 40, 63], ["b", 42, 63], ["m", 43, 63], ["m", 44, 63], ["m", 45, 63], ["m", 46, 63], ["m", 48, 63], ["m", 51, 63], ["m", 54, 63], ["m", 55, 63], ["m", 56, 63], ["m", 57, 63], ["m", 58, 63], ["m", 59, 63], ["m", 60, 63], ["m", 61, 63], ["m", 62, 63], ["m", 63, 63]];
+const TOTAL = PIXELS.length;
+
+const BUCKETS = 20;
+const BLOCK_TIME_SEC = 12;
+
+function nextU32(s) {
+  s = (s + 0x6D2B79F5) >>> 0;
+  let t = (s ^ (s >>> 15)) >>> 0;
+  t = Math.imul(t, (1 | s) >>> 0) >>> 0;
+  t = (t + Math.imul(t ^ (t >>> 7), (61 | t) >>> 0)) >>> 0;
+  return [s >>> 0, (t ^ (t >>> 14)) >>> 0];
+}
+function modU32(s, m) {
+  let v; [s, v] = nextU32(s); return [s, v % m];
+}
+const CV = [1000, 924, 707, 383, 0, -383, -707, -924];
+const SV = [0, 383, 707, 924, 1000, 924, 707, 383];
+
+let chunks = [], chunkSize = 0;
+
+function buildFromSeed(seedU32) {
+  let s = seedU32 >>> 0, v;
+  [s, v] = modU32(s, 4);
+  const K = [12, 20, 28, 40][v];
+  chunkSize = K;
+  const cx=[], cy=[], ai=[], el=[];
+  for (let c = 0; c < K; c++) {
+    [s, v] = modU32(s, 64); cx.push(v);
+    [s, v] = modU32(s, 64); cy.push(v);
+    [s, v] = modU32(s, 8);  ai.push(v);
+    [s, v] = modU32(s, 57); el.push(4 + v);
+  }
+  const order = Array.from({length: K}, (_, i) => i);
+  for (let i = K - 1; i > 0; i--) {
+    [s, v] = modU32(s, i + 1);
+    [order[i], order[v]] = [order[v], order[i]];
+  }
+  const cb = new Array(K);
+  for (let c = 0; c < K; c++) cb[order[c]] = Math.floor((c * BUCKETS) / K);
+  const buckets = new Array(TOTAL).fill(0);
+  for (let i = 0; i < TOTAL; i++) {
+    let px = PIXELS[i][1], py = PIXELS[i][2];
+    [s, v] = modU32(s, 7); px = Math.max(0, Math.min(63, px + v - 3));
+    [s, v] = modU32(s, 7); py = Math.max(0, Math.min(63, py + v - 3));
+    let bestD = Infinity, bestC = 0;
+    for (let c = 0; c < K; c++) {
+      const dx=px-cx[c], dy=py-cy[c];
+      const ct=CV[ai[c]], st=SV[ai[c]], eln=el[c];
+      const u=(dx*ct-dy*st)/1000, vv=(dx*st+dy*ct)/1000;
+      const d=(u/eln)*(u/eln)*100+vv*vv;
+      if (d < bestD) { bestD = d; bestC = c; }
+    }
+    buckets[i] = cb[bestC];
+  }
+  chunks = Array.from({length: BUCKETS}, () => []);
+  for (let i = 0; i < TOTAL; i++) chunks[buckets[i]].push(i);
+}
+
+const COLORS = {
+  k:'#000000', q:'#2a0b18', b:'#8a91a8',
+  d:'#23242a',  m:'#454954', g:'#666979', l:'#bec2d0'
+};
+
+function drawPixel(ctx, px, alpha) {
+  const hex = COLORS[px[0]];
+  const r=parseInt(hex.slice(1,3),16);
+  const g=parseInt(hex.slice(3,5),16);
+  const b=parseInt(hex.slice(5,7),16);
+  ctx.fillStyle = 'rgba('+r+','+g+','+b+','+alpha+')';
+  ctx.fillRect(px[1], px[2], 1, 1);
+}
+
+function draw(progress) {
+  currentProgress = progress;
+  const canvas = document.getElementById('c');
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#000';
+  ctx.fillRect(0, 0, 64, 64);
+  const visible = Math.floor(progress * BUCKETS);
+  const frac = (progress * BUCKETS) - visible;
+  for (let b = 0; b < visible; b++)
+    for (const i of chunks[b]) drawPixel(ctx, PIXELS[i], 1);
+  if (visible < BUCKETS)
+    for (const i of chunks[visible]) drawPixel(ctx, PIXELS[i], frac);
+}
+
+let seed=42, blockNum=0, startTime=null, _offsetMs=0;
+let animFrame=null, currentProgress=0;
+let connected=false, lastBlock=-1, blockTimestamp=0;
+
+function animate(ts) {
+  if (!startTime) startTime = ts - _offsetMs;
+  const elapsed = ts - startTime;
+  const progress = Math.min(elapsed / BLOCK_DURATION, 1);
+  draw(progress);
+  const pct = Math.floor(progress * 100);
+  document.getElementById('prog').style.width = pct + '%';
+  document.getElementById('reveal-val').textContent = pct + '%';
+  if (!animFrame || progress < 1) animFrame = requestAnimationFrame(animate);
+}
+
+function startBlock(block, s, offsetSec) {
+  if (animFrame) cancelAnimationFrame(animFrame);
+  blockNum = block; seed = s;
+  buildFromSeed(seed);
+  startTime = null;
+  _offsetMs = (offsetSec || 0) * 1000;
+  document.getElementById('block-num').textContent = '#' + blockNum;
+  document.getElementById('seed-val').textContent = seed;
+  document.getElementById('chunk-val').textContent = chunkSize + ' stripes';
+
+  // Blocks since mint counter
+  if (MINT_BLOCK > 0) {
+    const diff = block - MINT_BLOCK;
+    document.getElementById('blocks-since').textContent = diff.toLocaleString();
+  } else {
+    document.getElementById('blocks-since').textContent = '—';
+  }
+
+  animFrame = requestAnimationFrame(animate);
+}
+
+function setStatus(text, ok) {
+  document.getElementById('status-text').textContent = text;
+  document.getElementById('status-dot').className = 'dot' + (ok ? ' on' : '');
+}
+
+async function pollBlock() {
+  try {
+    const blk = await rpc('eth_getBlockByNumber', ['latest', false]);
+    const block = parseInt(blk.number, 16);
+    const ts    = parseInt(blk.timestamp, 16);
+    if (!connected) {
+      connected = true;
+      document.getElementById('chain-name').textContent = 'Sepolia';
+      setStatus('connected', true);
+    }
+    if (block > lastBlock) {
+      lastBlock = block;
+      blockTimestamp = ts;
+      const now = Date.now() / 1000;
+      const elapsed = Math.max(0, now - ts);
+      startBlock(block, block >>> 0, elapsed);
+    }
+  } catch(e) {
+    setStatus('rpc error — retrying', false);
+  }
+  setTimeout(pollBlock, 4000);
+}
+
+function savePNG() {
+  if (animFrame) cancelAnimationFrame(animFrame);
+  const src = document.getElementById('c');
+  const big = document.createElement('canvas');
+  big.width = 640; big.height = 640;
+  const ctx = big.getContext('2d');
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(src, 0, 0, 640, 640);
+  const pct = Math.floor(currentProgress * 100);
+  const link = document.createElement('a');
+  link.download = 'DTHT-6-block' + blockNum + '-' + pct + 'pct.png';
+  link.href = big.toDataURL('image/png');
+  link.click();
+  if (currentProgress < 1) {
+    startTime = performance.now() - (currentProgress * BLOCK_DURATION);
+    animFrame = requestAnimationFrame(animate);
   }
 }
 
-for (let i = 1; i <= 5; i++) {
-  setTimeout(function(id) { return function() { loadToken(id); }; }(i), (i-1) * 800);
+function saveSVG() {
+  if (!chunks.length) return;
+  const COLORS_HEX = {k:'#000',q:'#2a0b18',b:'#8a91a8',d:'#23242a',m:'#454954',g:'#666979',l:'#bec2d0'};
+  const visible = Math.floor(currentProgress * BUCKETS);
+  let rects = '';
+  for (let b = 0; b <= visible && b < BUCKETS; b++)
+    for (const i of chunks[b])
+      rects += '<rect fill="' + COLORS_HEX[PIXELS[i][0]] + '" x="' + (PIXELS[i][1]*10) + '" y="' + (PIXELS[i][2]*10) + '" width="10" height="10"/>';
+  const svg = '<svg viewBox="0 0 640 640" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges"><rect width="640" height="640" fill="#000"/>' + rects + '</svg>';
+  const blob = new Blob([svg], {type:'image/svg+xml'});
+  const link = document.createElement('a');
+  link.download = 'DTHT-6-block' + blockNum + '.svg';
+  link.href = URL.createObjectURL(blob);
+  link.click();
 }
 
+// Init
+buildFromSeed(42);
+_offsetMs = 0;
+animFrame = requestAnimationFrame(animate);
+pollBlock();
 </script>
 </body>
 </html>
