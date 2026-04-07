@@ -40,7 +40,6 @@ a { color: inherit; text-decoration: none; }
   width: 100%;
   height: 560px;
   overflow: hidden;
-  border-bottom: 1px solid var(--border);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -53,11 +52,7 @@ a { color: inherit; text-decoration: none; }
   height: 100%;
 }
 
-.header-title {
-  position: relative;
-  z-index: 2;
-  text-align: center;
-}
+/* header-title now in win95 block */
 
 .header-title-bg {
   position: absolute;
@@ -104,7 +99,6 @@ a { color: inherit; text-decoration: none; }
 /* ── TOKENS SECTION ─────────────────────────────────────── */
 .tokens-section {
   padding: 80px 40px;
-  border-bottom: 1px solid var(--border);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -191,9 +185,9 @@ a { color: inherit; text-decoration: none; }
   display: inline-flex;
   align-items: center;
   gap: 10px;
-  padding: 14px 28px;
+  padding: 18px 36px;
   border: 1px solid var(--border);
-  font-size: 10px;
+  font-size: 13px;
   letter-spacing: 0.25em;
   text-transform: uppercase;
   color: var(--mid);
@@ -261,9 +255,9 @@ a { color: inherit; text-decoration: none; }
   display: inline-flex;
   align-items: center;
   gap: 10px;
-  padding: 14px 28px;
+  padding: 18px 36px;
   border: 1px solid var(--border);
-  font-size: 10px;
+  font-size: 13px;
   letter-spacing: 0.25em;
   text-transform: uppercase;
   color: var(--mid);
@@ -472,15 +466,14 @@ footer {
 
   .token-slideshow {
     width: 100%;
-    max-width: 720px;
-    margin: 0 auto 48px;
-    position: relative;
+    margin-bottom: 0;
     overflow: hidden;
+    position: relative;
   }
 
   .token-slideshow iframe {
     width: 100%;
-    aspect-ratio: 1 / 1;
+    height: 45vh;
     display: block;
     border: none;
     background: #000;
@@ -496,6 +489,7 @@ footer {
     display: flex;
     justify-content: space-between;
     margin-top: 10px;
+    padding-left: 3%;
     font-size: 9px;
     letter-spacing: 0.2em;
     text-transform: uppercase;
@@ -504,6 +498,56 @@ footer {
 
   #slideshow-status {
     color: var(--dim);
+  }
+
+  .slideshow-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+  }
+  .slideshow-overlay .collection-link {
+    pointer-events: all;
+    background: #000;
+  }
+
+  .win95-close {
+    position: absolute;
+    top: -10px;
+    right: -10px;
+    width: 16px;
+    height: 14px;
+    background: var(--bright);
+    border: 1px solid var(--bright);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 9px;
+    font-family: var(--mono);
+    color: #000;
+    font-weight: bold;
+    line-height: 1;
+    z-index: 10;
+    user-select: none;
+    image-rendering: pixelated;
+    flex-shrink: 0;
+  }
+  .win95-close:active {
+    opacity: 0.7;
+  }
+  .header-title {
+    position: relative;
+    z-index: 2;
+    text-align: center;
+    transition: opacity 0.1s, transform 0.1s;
+  }
+  .header-title.closed {
+    opacity: 0;
+    pointer-events: none;
+    transform: scale(0.98);
   }
 </style>
 </head>
@@ -519,8 +563,9 @@ footer {
       <span></span><span></span><span></span>
     </div>
   </a>
-  <div class="header-title">
+  <div class="header-title" id="header-title">
     <div class="header-title-bg"></div>
+    <div class="win95-close" onclick="closeTitle()" title="Close">x</div>
     <h1>DEATH THESIS</h1>
     <div class="sub">Fully On-Chain &nbsp;·&nbsp; by UBK</div>
   </div>
@@ -560,18 +605,22 @@ footer {
     </p>
   </div>
 
-  <div class="token-slideshow">
-    <iframe id="slideshow-frame" scrolling="no"></iframe>
-    <div class="slideshow-meta">
-      <span id="slideshow-label">DEATH THESIS #1</span>
-      <span id="slideshow-status">loading…</span>
-    </div>
-  </div>
-
-  <a href="#" class="collection-link" id="opensea-link">
-    View Collection &nbsp;→
-  </a>
 </section>
+
+<div class="token-slideshow">
+  <iframe id="slideshow-frame" scrolling="no"></iframe>
+  <div class="slideshow-overlay">
+    <a href="#" class="collection-link" id="opensea-link">
+      View Collection &nbsp;→
+    </a>
+  </div>
+  <div class="slideshow-meta">
+    <span id="slideshow-label">DEATH THESIS #1</span>
+    <span id="slideshow-status">loading…</span>
+  </div>
+</div>
+
+
 
 <!-- TOKEN 6 -->
 <section class="token6-section">
@@ -879,10 +928,18 @@ async function rpc(method, params = []) {
     }
   }
 
-  function loop() {
-    step();
-    render();
-    frameCount++;
+  let lastFrameTime = 0;
+  const TARGET_FPS = 30;
+  const FRAME_INTERVAL = 1000 / TARGET_FPS;
+
+  function loop(ts) {
+    if (document.hidden) { requestAnimationFrame(loop); return; }
+    if (ts - lastFrameTime >= FRAME_INTERVAL) {
+      step();
+      render();
+      frameCount++;
+      lastFrameTime = ts;
+    }
     requestAnimationFrame(loop);
   }
 
@@ -933,6 +990,11 @@ for (let i = 1; i <= 5; i++) {
 }
 
 // ── TOKEN 6 ALGORITHM (exact port of contract V7) ─────────
+
+function closeTitle() {
+  document.getElementById('header-title').classList.add('closed');
+}
+
 </script>
 <script>
 // PIXELS data (2393 non-black pixels of token 6)
@@ -1167,7 +1229,7 @@ async function showSlide(tokenId) {
   try {
     const svg = await fetchSVG(tokenId);
     setTimeout(function() {
-      frame.srcdoc = '<!DOCTYPE html><html><head><style>*{margin:0;padding:0;}html,body{width:100%;height:100%;background:#000;overflow:hidden;}svg{width:100%;height:100%;display:block;}</style></head><body>' + svg + '</body></html>';
+      frame.srcdoc = '<!DOCTYPE html><html><head><style>*{margin:0;padding:0;}html,body{width:100%;height:100%;background:#000;overflow:hidden;display:flex;align-items:center;justify-content:center;}svg{width:100%;height:auto;flex-shrink:0;}</style></head><body>' + svg + '</body></html>';
       setTimeout(function() { frame.classList.add('visible'); }, 80);
       status.textContent = 'on-chain ✓';
     }, 600);
