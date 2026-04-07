@@ -38,7 +38,7 @@ a { color: inherit; text-decoration: none; }
 .header {
   position: relative;
   width: 100%;
-  height: 280px;
+  height: 560px;
   overflow: hidden;
   border-bottom: 1px solid var(--border);
   display: flex;
@@ -57,6 +57,13 @@ a { color: inherit; text-decoration: none; }
   position: relative;
   z-index: 2;
   text-align: center;
+}
+
+.header-title-bg {
+  position: absolute;
+  inset: -28px -48px;
+  background: #000;
+  z-index: -1;
 }
 
 .header-title h1 {
@@ -114,7 +121,7 @@ a { color: inherit; text-decoration: none; }
 
 .tokens-info {
   max-width: 720px;
-  margin-bottom: 60px;
+  margin-bottom: 28px;
   text-align: left;
 }
 
@@ -391,6 +398,113 @@ footer {
   letter-spacing: 0.2em;
   text-transform: uppercase;
 }
+
+  .system-diagram {
+    margin-top: 48px;
+    opacity: 0.85;
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    padding-left: 20%;
+  }
+
+  .diagram-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 16px;
+    font-size: 9px;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: var(--mid);
+    cursor: pointer;
+    background: none;
+    border: none;
+    font-family: var(--mono);
+    padding: 0;
+    transition: color 0.2s;
+  }
+  .diagram-toggle:hover { color: var(--bright); }
+  .diagram-toggle .arrow { transition: transform 0.3s; display: inline-block; }
+  .diagram-toggle.open .arrow { transform: rotate(90deg); }
+  .system-diagram { display: none; }
+  .system-diagram.visible { display: flex; }
+
+  .home-btn {
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 10;
+    width: 48px;
+    height: 48px;
+    cursor: pointer;
+    opacity: 0.7;
+    transition: opacity 0.2s;
+    text-decoration: none;
+    background: #000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .home-btn:hover { opacity: 1; }
+  .home-btn-x {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 3px;
+    width: 21px;
+    height: 21px;
+  }
+  .home-btn-x span {
+    display: block;
+    width: 100%;
+    height: 100%;
+    image-rendering: pixelated;
+  }
+  .home-btn-x span:nth-child(1),
+  .home-btn-x span:nth-child(3),
+  .home-btn-x span:nth-child(5),
+  .home-btn-x span:nth-child(7),
+  .home-btn-x span:nth-child(9) { background: white; }
+  .home-btn-x span:nth-child(2),
+  .home-btn-x span:nth-child(4),
+  .home-btn-x span:nth-child(6),
+  .home-btn-x span:nth-child(8) { background: transparent; }
+
+  .token-slideshow {
+    width: 100%;
+    max-width: 720px;
+    margin: 0 auto 48px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .token-slideshow iframe {
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    display: block;
+    border: none;
+    background: #000;
+    opacity: 0;
+    transition: opacity 1.5s ease;
+  }
+
+  .token-slideshow iframe.visible {
+    opacity: 1;
+  }
+
+  .slideshow-meta {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 10px;
+    font-size: 9px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--dim);
+  }
+
+  #slideshow-status {
+    color: var(--dim);
+  }
 </style>
 </head>
 <body>
@@ -398,7 +512,15 @@ footer {
 <!-- HEADER -->
 <header class="header">
   <canvas class="header-canvas" id="header-canvas"></canvas>
+  <a href="/" class="home-btn" title="Home">
+    <div class="home-btn-x">
+      <span></span><span></span><span></span>
+      <span></span><span></span><span></span>
+      <span></span><span></span><span></span>
+    </div>
+  </a>
   <div class="header-title">
+    <div class="header-title-bg"></div>
     <h1>DEATH THESIS</h1>
     <div class="sub">Fully On-Chain &nbsp;·&nbsp; by UBK</div>
   </div>
@@ -438,31 +560,16 @@ footer {
     </p>
   </div>
 
-  <div class="tokens-row">
-    <div class="token-card">
-      <iframe id="frame-1" scrolling="no"></iframe>
-      <div class="token-meta">DEATH THESIS #1<br><span class="token-status" id="status-1">loading…</span></div>
-    </div>
-    <div class="token-card">
-      <iframe id="frame-2" scrolling="no"></iframe>
-      <div class="token-meta">DEATH THESIS #2<br><span class="token-status" id="status-2">loading…</span></div>
-    </div>
-    <div class="token-card">
-      <iframe id="frame-3" scrolling="no"></iframe>
-      <div class="token-meta">DEATH THESIS #3<br><span class="token-status" id="status-3">loading…</span></div>
-    </div>
-    <div class="token-card">
-      <iframe id="frame-4" scrolling="no"></iframe>
-      <div class="token-meta">DEATH THESIS #4<br><span class="token-status" id="status-4">loading…</span></div>
-    </div>
-    <div class="token-card">
-      <iframe id="frame-5" scrolling="no"></iframe>
-      <div class="token-meta">DEATH THESIS #5<br><span class="token-status" id="status-5">loading…</span></div>
+  <div class="token-slideshow">
+    <iframe id="slideshow-frame" scrolling="no"></iframe>
+    <div class="slideshow-meta">
+      <span id="slideshow-label">DEATH THESIS #1</span>
+      <span id="slideshow-status">loading…</span>
     </div>
   </div>
 
   <a href="#" class="collection-link" id="opensea-link">
-    View on OpenSea &nbsp;→
+    View Collection &nbsp;→
   </a>
 </section>
 
@@ -475,6 +582,13 @@ footer {
     <!-- LEFT: text -->
     <div class="token6-text">
       <h2>The sixth piece<br>requires a sacrifice.</h2>
+      <p>
+        This token is different.<br>
+        It is a soul trapped in an infinite loop — one that knows exactly how the story ends, yet still refuses to surrender.
+        Across every version, every timeline, every repetition of the same inevitable end, it chooses to be whatever it damn well pleases. No fear of death. No bargaining with tomorrow.
+        It simply keeps moving. Keeps burning. Keeps deciding who it is, even as the loop drags it back to the beginning.
+      </p>
+
       <p>
         DEATH THESIS #6 cannot be minted. It can only be claimed by burning a token from a previous collection — an act of destruction that transforms one artifact into another. The burned token disappears forever. What remains is this.
       </p>
@@ -490,6 +604,67 @@ footer {
       <a href="#" class="burn-link" id="burn-link">
         Burn to Claim &nbsp;→
       </a>
+
+      <button class="diagram-toggle" id="diagram-btn" onclick="toggleDiagram()">
+        <span class="arrow">›</span> Contract architecture
+      </button>
+      <div class="system-diagram" id="system-diagram">
+<svg width="100%" viewBox="0 0 520 380" style="font-family:'Share Tech Mono',monospace">
+<defs>
+  <marker id="arr2" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+    <path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+  </marker>
+</defs>
+
+<!-- ETHEREUM CHAIN — rect pequeño -->
+<rect x="110" y="8" width="200" height="28" fill="none" stroke="white" stroke-width="0.6" opacity="0.35"/>
+<text x="210" y="20" text-anchor="middle" fill="white" font-size="8" opacity="0.5" letter-spacing="0.12em">ETHEREUM CHAIN</text>
+<text x="210" y="30" text-anchor="middle" fill="white" font-size="7" opacity="0.25" letter-spacing="0.06em">block.number · block.timestamp</text>
+<line x1="210" y1="36" x2="210" y2="50" stroke="white" stroke-width="0.7" opacity="0.3" marker-end="url(#arr2)"/>
+
+<!-- TOKEN 6 — rect grande -->
+
+<text x="210" y="71" text-anchor="middle" fill="white" font-size="9" opacity="0.9" letter-spacing="0.1em">TOKEN 6</text>
+<text x="210" y="86" text-anchor="middle" fill="white" font-size="8" opacity="0.4" letter-spacing="0.05em">tokenURI( ) · seed = block.number</text>
+<text x="210" y="100" text-anchor="middle" fill="white" font-size="7" opacity="0.25" letter-spacing="0.04em">progress = block.timestamp % 12</text>
+
+<!-- split lines -->
+<polyline points="155,108 155,126 80,126 80,138" fill="none" stroke="white" stroke-width="0.7" opacity="0.35" marker-end="url(#arr2)"/>
+<polyline points="265,108 265,126 340,126 340,138" fill="none" stroke="white" stroke-width="0.7" opacity="0.35" marker-end="url(#arr2)"/>
+
+<!-- PIXELDATA6 — rect pequeño -->
+
+<text x="80" y="153" text-anchor="middle" fill="white" font-size="8" opacity="0.7" letter-spacing="0.08em">PIXELDATA6</text>
+<text x="80" y="165" text-anchor="middle" fill="white" font-size="7" opacity="0.3" letter-spacing="0.04em">2393 px · (x,y)</text>
+
+<!-- PIXELCOLORS — rect pequeño -->
+
+<text x="340" y="153" text-anchor="middle" fill="white" font-size="8" opacity="0.7" letter-spacing="0.08em">PIXELCOLORS</text>
+<text x="340" y="165" text-anchor="middle" fill="white" font-size="7" opacity="0.3" letter-spacing="0.04em">7 colores · 1 byte/px</text>
+
+<!-- join lines -->
+<polyline points="80,174 80,194 190,194 190,206" fill="none" stroke="white" stroke-width="0.7" opacity="0.3" marker-end="url(#arr2)"/>
+<polyline points="340,174 340,194 230,194 230,206" fill="none" stroke="white" stroke-width="0.7" opacity="0.3"/>
+
+<!-- ALGORITHM — rect grande -->
+
+<text x="210" y="227" text-anchor="middle" fill="white" font-size="9" opacity="0.85" letter-spacing="0.1em">ALGORITHM</text>
+<text x="210" y="242" text-anchor="middle" fill="white" font-size="8" opacity="0.4" letter-spacing="0.05em">20 buckets · K clusters · mulberry32</text>
+<text x="210" y="256" text-anchor="middle" fill="white" font-size="7" opacity="0.25" letter-spacing="0.04em">jitter · Fisher-Yates shuffle</text>
+<line x1="210" y1="264" x2="210" y2="278" stroke="white" stroke-width="0.7" opacity="0.3" marker-end="url(#arr2)"/>
+
+<!-- SVG OUTPUT — rect pequeño -->
+
+<text x="210" y="290" text-anchor="middle" fill="white" font-size="8" opacity="0.55" letter-spacing="0.08em">SVG OUTPUT</text>
+<text x="210" y="300" text-anchor="middle" fill="white" font-size="7" opacity="0.25" letter-spacing="0.04em">base64 · data:image/svg+xml</text>
+<line x1="210" y1="306" x2="210" y2="320" stroke="white" stroke-width="0.7" opacity="0.3" marker-end="url(#arr2)"/>
+
+<!-- MANIFOLD — rect grande -->
+<rect x="100" y="320" width="220" height="44" fill="none" stroke="white" stroke-width="0.7" opacity="0.55"/>
+<text x="210" y="339" text-anchor="middle" fill="white" font-size="9" opacity="0.8" letter-spacing="0.1em">MANIFOLD ERC-1155</text>
+<text x="210" y="354" text-anchor="middle" fill="white" font-size="7" opacity="0.25" letter-spacing="0.04em">burn redeem · tokenURI extension</text>
+</svg>
+      </div>
     </div>
 
     <!-- RIGHT: live canvas -->
@@ -547,6 +722,7 @@ footer {
 </footer>
 
 <script>
+
 const SEPOLIA_RPC = 'https://ethereum-sepolia-rpc.publicnode.com';
 const DEATH_THESIS = '0xC1B420c7cF55F04CF83Ac146875dEbBA0A46fA60';
 const TOKEN6_CONTRACT = '0x41f56c7EB306696EEe32CccC9276148357e3f88E';
@@ -570,11 +746,11 @@ async function rpc(method, params = []) {
   const ctx = canvas.getContext('2d');
   ctx.imageSmoothingEnabled = false;
 
-  // Paleta token 6 — negro, rojo, gris
+  // Paleta token 6 — negro, gris, rojo (intercambiados)
   const PAL = [
     [0,0,0],         // 0 negro
-    [42,11,24],      // 1 granate oscuro
-    [69,73,84],      // 2 gris medio
+    [69,73,84],      // 1 gris medio (antes rojo)
+    [42,11,24],      // 2 granate oscuro (antes gris)
   ];
 
   const PIXEL = 6;   // tamaño de cada celda
@@ -951,6 +1127,75 @@ buildFromSeed(42);
 _offsetMs = 0;
 animFrame = requestAnimationFrame(animate);
 pollBlock();
+
+// ── TOKENS 1-5 SLIDESHOW ─────────────────────────────────────────────
+const svgCache = {};
+let slideshowIndex = 1;
+
+async function fetchSVG(tokenId) {
+  if (svgCache[tokenId]) return svgCache[tokenId];
+  const res = await fetch(SEPOLIA_RPC, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({
+      jsonrpc:'2.0', id:1, method:'eth_call',
+      params:[{ to: DEATH_THESIS, data: encodeTokenURISimple(tokenId) }, 'latest']
+    })
+  });
+  const data = await res.json();
+  if (data.error) throw new Error(data.error.message);
+  const hex = data.result.slice(2);
+  const len = parseInt(hex.slice(64, 128), 16);
+  const strHex = hex.slice(128, 128 + len * 2);
+  let uri = '';
+  for (let i = 0; i < strHex.length; i += 2)
+    uri += String.fromCharCode(parseInt(strHex.slice(i, i+2), 16));
+  const b64 = uri.split('base64,')[1];
+  const meta = JSON.parse(atob(b64));
+  const animUrl = meta.animation_url || meta.image;
+  const svg = atob(animUrl.split('base64,')[1]);
+  svgCache[tokenId] = svg;
+  return svg;
+}
+
+async function showSlide(tokenId) {
+  const frame = document.getElementById('slideshow-frame');
+  const label = document.getElementById('slideshow-label');
+  const status = document.getElementById('slideshow-status');
+  label.textContent = 'DEATH THESIS #' + tokenId;
+  frame.classList.remove('visible');
+  try {
+    const svg = await fetchSVG(tokenId);
+    setTimeout(function() {
+      frame.srcdoc = '<!DOCTYPE html><html><head><style>*{margin:0;padding:0;}html,body{width:100%;height:100%;background:#000;overflow:hidden;}svg{width:100%;height:100%;display:block;}</style></head><body>' + svg + '</body></html>';
+      setTimeout(function() { frame.classList.add('visible'); }, 80);
+      status.textContent = 'on-chain ✓';
+    }, 600);
+  } catch(e) {
+    status.textContent = 'error';
+  }
+}
+
+function nextSlide() {
+  showSlide(slideshowIndex);
+  slideshowIndex = slideshowIndex >= 5 ? 1 : slideshowIndex + 1;
+}
+
+for (let i = 1; i <= 5; i++) {
+  setTimeout(function(id){ return function(){ fetchSVG(id); }; }(i), (i-1) * 1500);
+}
+
+nextSlide();
+setInterval(nextSlide, 5000);
+
+// ── DIAGRAM TOGGLE ────────────────────────────────────────────────────
+function toggleDiagram() {
+  const btn = document.getElementById('diagram-btn');
+  const diag = document.getElementById('system-diagram');
+  btn.classList.toggle('open');
+  diag.classList.toggle('visible');
+}
+
 </script>
 </body>
 </html>
