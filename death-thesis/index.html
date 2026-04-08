@@ -1,6 +1,12 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<script>
+// Ocultar body inmediatamente si ?token=6 para evitar flash
+if (new URLSearchParams(window.location.search).get('token') === '6') {
+  document.documentElement.style.visibility = 'hidden';
+}
+</script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>DEATH THESIS</title>
@@ -550,6 +556,35 @@ footer {
     transform: scale(0.98);
   }
 </style>
+<script>
+if(new URLSearchParams(window.location.search).get('token')==='6'){
+  document.documentElement.style.cssText='background:#000';
+  document.addEventListener('DOMContentLoaded',function(){document.body.style.visibility='hidden';});
+}
+</script>
+<script>
+// Ocultar body inmediatamente si token=6 para evitar flash
+if (new URLSearchParams(window.location.search).get('token') === '6') {
+  document.write('<style>body{visibility:hidden!important}</style>');
+}
+</script>
+<style id="token6-hide">
+  /* Ocultar todo inmediatamente si ?token=6 */
+  body.token6-mode { visibility: hidden; background: #000; }
+</style>
+<script>
+  // Ejecutar ANTES del DOM — ocultar body si token=6
+  if (new URLSearchParams(location.search).get('token') === '6') {
+    document.documentElement.style.background = '#000';
+    document.write('<style>body{visibility:hidden;background:#000!important}*{background:#000}</style>');
+  }
+</script>
+<script>
+if(new URLSearchParams(location.search).get('token')==='6'){
+  document.documentElement.style.background='#000';
+  document.write('<style>body{visibility:hidden!important}</style>');
+}
+</script>
 </head>
 <body>
 
@@ -650,7 +685,7 @@ footer {
         The page you are reading is the canonical experience: synchronized in real time with the Ethereum chain. Marketplaces will show a snapshot — a single frame captured when they last called the contract. Here, you see it breathe.
       </p>
 
-      <a href="#" class="burn-link" id="burn-link">
+      <a href="https://manifold.xyz/@unbearable-knife/id/4072454384" class="burn-link" id="burn-link" target="_blank">
         Burn to Claim &nbsp;→
       </a>
 
@@ -816,11 +851,14 @@ footer {
           const iframe = document.createElement('iframe');
           iframe.srcdoc = htmlStr;
           iframe.style.cssText = 'width:100vmin;height:100vmin;border:none;display:block;margin:auto;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%)';
+          iframe.onload = () => { document.body.style.visibility = 'visible'; };
           document.body.appendChild(iframe);
+          document.body.style.visibility = 'visible';
         }
       } catch(e) { console.error(e); }
     }
 
+    document.documentElement.style.visibility = 'visible';
     loadAndRender();
     setInterval(loadAndRender, 12000);
   });
@@ -831,7 +869,7 @@ const MAINNET_RPC = 'https://ethereum-rpc.publicnode.com';
 const DEATH_THESIS = '0xc2f828f4622460315dd49387c98635be7cad1c29';
 const TOKEN6_CONTRACT = '0x41f56c7EB306696EEe32CccC9276148357e3f88E';
 const BLOCK_DURATION = 12000;
-const MINT_BLOCK = 0; // TODO: replace with actual mint block after mainnet deploy
+const MINT_BLOCK = 24832205; // block of token6 mint
 
 async function rpc(method, params = []) {
   const res = await fetch(MAINNET_RPC, {
