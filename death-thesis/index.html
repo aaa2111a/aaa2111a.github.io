@@ -610,7 +610,7 @@ footer {
 <div class="token-slideshow">
   <iframe id="slideshow-frame" scrolling="no"></iframe>
   <div class="slideshow-overlay">
-    <a href="#" class="collection-link" id="opensea-link">
+    <a href="https://opensea.io/collection/death-thesis" class="collection-link" id="opensea-link">
       View Collection &nbsp;→
     </a>
   </div>
@@ -772,14 +772,69 @@ footer {
 
 <script>
 
-const SEPOLIA_RPC = 'https://ethereum-sepolia-rpc.publicnode.com';
-const DEATH_THESIS = '0xC1B420c7cF55F04CF83Ac146875dEbBA0A46fA60';
+// ── TOKEN 6 EMBED MODE ─────────────────────────────────────────
+(function() {
+  const _params = new URLSearchParams(window.location.search);
+  if (_params.get('token') !== '6') return;
+
+  document.addEventListener('DOMContentLoaded', () => {
+    document.body.style.cssText = 'background:#000;margin:0;padding:0;overflow:hidden';
+
+    const RPC = 'https://eth-mainnet.g.alchemy.com/v2/pqee7eWA_-UoLVQMCTPDj';
+    const TOKEN6 = '0xaB5181b1172dCc992aBddf9a8ABa6EAa78d439Ca';
+    const MANIFOLD = '0xd04d418e8975ee21a9690132e5f39b98cf8633c3';
+
+    async function loadAndRender() {
+      try {
+        const addr = MANIFOLD.slice(2).toLowerCase().padStart(64, '0');
+        const tokenId = '1'.padStart(64, '0');
+        const data = '0xe9dc6375' + addr + tokenId;
+        const res = await fetch(RPC, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({
+            jsonrpc: '2.0', id: 1, method: 'eth_call',
+            params: [{ to: TOKEN6, data, gas: '0x1DCD6500' }, 'latest']
+          })
+        });
+        const json = await res.json();
+        if (json.error) return;
+        const hex = json.result.slice(2);
+        const len = parseInt(hex.slice(64, 128), 16);
+        const strHex = hex.slice(128, 128 + len * 2);
+        let uri = '';
+        for (let i = 0; i < strHex.length; i += 2)
+          uri += String.fromCharCode(parseInt(strHex.slice(i, i+2), 16));
+        const b64 = uri.split('base64,')[1];
+        const meta = JSON.parse(atob(b64));
+        if (meta.animation_url) {
+          // Extraer HTML del animation_url y ejecutarlo inline
+          const htmlB64 = meta.animation_url.split('base64,')[1];
+          const htmlStr = atob(htmlB64);
+          document.body.innerHTML = '';
+          // Crear iframe con srcdoc para evitar restricciones de file://
+          const iframe = document.createElement('iframe');
+          iframe.srcdoc = htmlStr;
+          iframe.style.cssText = 'width:100vmin;height:100vmin;border:none;display:block;margin:auto;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%)';
+          document.body.appendChild(iframe);
+        }
+      } catch(e) { console.error(e); }
+    }
+
+    loadAndRender();
+    setInterval(loadAndRender, 12000);
+  });
+})();
+
+
+const MAINNET_RPC = 'https://ethereum-rpc.publicnode.com';
+const DEATH_THESIS = '0xc2f828f4622460315dd49387c98635be7cad1c29';
 const TOKEN6_CONTRACT = '0x41f56c7EB306696EEe32CccC9276148357e3f88E';
 const BLOCK_DURATION = 12000;
 const MINT_BLOCK = 0; // TODO: replace with actual mint block after mainnet deploy
 
 async function rpc(method, params = []) {
-  const res = await fetch(SEPOLIA_RPC, {
+  const res = await fetch(MAINNET_RPC, {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({jsonrpc:'2.0', id:1, method, params})
@@ -956,7 +1011,7 @@ function encodeTokenURISimple(tokenId) {
 async function loadToken(tokenId) {
   const status = document.getElementById('status-' + tokenId);
   try {
-    const res = await fetch(SEPOLIA_RPC, {
+    const res = await fetch(MAINNET_RPC, {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({
@@ -1133,7 +1188,7 @@ async function pollBlock() {
     const ts    = parseInt(blk.timestamp, 16);
     if (!connected) {
       connected = true;
-      document.getElementById('chain-name').textContent = 'Sepolia';
+      document.getElementById('chain-name').textContent = 'Ethereum';
       setStatus('connected', true);
     }
     if (block > lastBlock) {
@@ -1196,7 +1251,7 @@ let slideshowIndex = 1;
 
 async function fetchSVG(tokenId) {
   if (svgCache[tokenId]) return svgCache[tokenId];
-  const res = await fetch(SEPOLIA_RPC, {
+  const res = await fetch(MAINNET_RPC, {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({
@@ -1257,6 +1312,7 @@ function toggleDiagram() {
   btn.classList.toggle('open');
   diag.classList.toggle('visible');
 }
+
 
 </script>
 </body>
