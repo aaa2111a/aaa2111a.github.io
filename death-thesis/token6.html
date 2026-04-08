@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DEATH THESIS #6</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #000; overflow: hidden; }
+iframe {
+  width: 100vmin;
+  height: 100vmin;
+  border: none;
+  display: block;
+  margin: auto;
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  image-rendering: pixelated;
+}
+</style>
+</head>
+<body>
+<script>
+const RPC = 'https://ethereum-rpc.publicnode.com';
+const TOKEN6 = '0xaB5181b1172dCc992aBddf9a8ABa6EAa78d439Ca';
+const MANIFOLD = '0xd04d418e8975ee21a9690132e5f39b98cf8633c3';
+
+async function loadAndRender() {
+  try {
+    const addr = MANIFOLD.slice(2).toLowerCase().padStart(64, '0');
+    const tokenId = '1'.padStart(64, '0');
+    const data = '0xe9dc6375' + addr + tokenId;
+
+    const res = await fetch(RPC, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        jsonrpc: '2.0', id: 1, method: 'eth_call',
+        params: [{ to: TOKEN6, data, gas: '0x1DCD6500' }, 'latest']
+      })
+    });
+    const json = await res.json();
+    if (json.error) return;
+
+    const hex = json.result.slice(2);
+    const len = parseInt(hex.slice(64, 128), 16);
+    const strHex = hex.slice(128, 128 + len * 2);
+    let uri = '';
+    for (let i = 0; i < strHex.length; i += 2)
+      uri += String.fromCharCode(parseInt(strHex.slice(i, i+2), 16));
+
+    const b64 = uri.split('base64,')[1];
+    const meta = JSON.parse(atob(b64));
+
+    if (meta.animation_url) {
+      const htmlB64 = meta.animation_url.split('base64,')[1];
+      const htmlStr = atob(htmlB64);
+      let iframe = document.querySelector('iframe');
+      if (!iframe) {
+        iframe = document.createElement('iframe');
+        document.body.appendChild(iframe);
+      }
+      iframe.srcdoc = htmlStr;
+    }
+  } catch(e) { console.error(e); }
+}
+
+async function loop() {
+  await loadAndRender();
+  setTimeout(loop, 5000);
+}
+
+loop();
+</script>
+</body>
+</html>
