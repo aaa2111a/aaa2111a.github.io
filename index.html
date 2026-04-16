@@ -1347,13 +1347,20 @@
         // decoder: override grid to single centered column
         var wrapper = document.querySelector('.grid-wrapper');
         var dtitle = document.getElementById('decoder-title');
-        if (cat === 'decoder' || cat === 'activity') {
-          if (dtitle) dtitle.style.display = cat === 'decoder' ? 'flex' : 'none';
+        if (cat === 'decoder') {
+          if (dtitle) dtitle.style.display = 'flex';
           _grid.style.gridTemplateColumns = '1fr';
           _grid.style.background = 'transparent';
           _grid.style.gap = '0';
           _grid.style.width = '100%';
           if (wrapper) wrapper.style.display = 'block';
+        } else if (cat === 'activity') {
+          if (dtitle) dtitle.style.display = 'none';
+          _grid.style.gridTemplateColumns = '1fr';
+          _grid.style.background = 'transparent';
+          _grid.style.gap = '0';
+          _grid.style.width = '100%';
+          if (wrapper) wrapper.style.display = '';
         } else {
           if (dtitle) dtitle.style.display = 'none';
           _grid.style.gridTemplateColumns = '';
