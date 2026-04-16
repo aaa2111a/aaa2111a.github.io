@@ -170,8 +170,8 @@ html, body { width:100%; height:100%; overflow:hidden; background:#000; }
 #world-zoom { position:absolute; top:0; left:0; transform-origin:0 0; }
 #world { position:absolute; top:0; left:0; width:4500px; height:4500px; transform-origin:0 0; will-change:transform; }
 
-/* ── Cluster card ── */
-.cluster-card {
+/* ── Modulo card ── */
+.modulo-card {
   position:absolute;
   width:700px;
   background:var(--node-bg);
@@ -181,7 +181,7 @@ html, body { width:100%; height:100%; overflow:hidden; background:#000; }
   box-shadow:var(--shadow-window);
   transition:box-shadow 0.2s, border-color 0.2s, background 0.3s;
 }
-.cluster-card:hover { box-shadow:var(--shadow-window-hover); }
+.modulo-card:hover { box-shadow:var(--shadow-window-hover); }
 
 /* titlebar — doubles as drag handle for the world pan */
 .card-tbar {
@@ -209,19 +209,19 @@ html, body { width:100%; height:100%; overflow:hidden; background:#000; }
   min-height:0;
 }
 
-.cluster-header {
+.modulo-header {
   padding:13px 15px 10px;
   border-bottom:0.5px solid var(--divider);
   flex-shrink:0;
 }
-.cluster-name {
+.modulo-name {
   font-family:'Times New Roman', Times, serif;
   font-size:32px; font-weight:200;
   color:var(--card-name);
   letter-spacing:.02em; margin-bottom:8px;
 
 }
-.cluster-stats-row { display:flex; gap:10px; flex-wrap:wrap; }
+.modulo-stats-row { display:flex; gap:10px; flex-wrap:wrap; }
 .cs-item { display:flex; flex-direction:column; gap:1px; }
 .cs-label { font-size:7.5px; color:var(--sl); font-family:monospace; text-transform:uppercase; letter-spacing:.07em; }
 .cs-value { font-size:16px; color:var(--sv); font-family:'Times New Roman', Times, serif; font-weight:500; letter-spacing:-.01em; }
@@ -278,6 +278,12 @@ html, body { width:100%; height:100%; overflow:hidden; background:#000; }
 .inv-panel::-webkit-scrollbar { width:3px; }
 .inv-panel::-webkit-scrollbar-track { background:transparent; }
 .inv-panel::-webkit-scrollbar-thumb { background:var(--divider); border-radius:2px; }
+.inv-panel-info {
+  padding:6px 15px 4px;
+  font-size:7.5px; font-family:monospace; color:var(--sl);
+  text-transform:uppercase; letter-spacing:.07em;
+  border-bottom:0.5px solid var(--divider);
+}
 
 .token-row {
   display:flex; flex-direction:column;
@@ -297,6 +303,12 @@ html, body { width:100%; height:100%; overflow:hidden; background:#000; }
 }
 .tr-arrow { margin-left:auto; font-size:7px; color:var(--addr-color); transition:transform 0.18s; flex-shrink:0; }
 .token-row.expanded .tr-arrow { transform:rotate(90deg); }
+/* Non-owned (locked) tokens — visible but not editable */
+.token-row.locked .tr-header { opacity:0.55; }
+.token-row.locked .tr-traits .dlang-btn { pointer-events:none; opacity:0.35; }
+.token-row.locked .speed-slider { pointer-events:none; opacity:0.35; }
+.token-row.locked .tr-colors-inline { pointer-events:none; opacity:0.35; }
+.token-row.locked .tr-trash { display:none; }
 .tr-traits { position:relative; display:none; padding:5px 15px 9px 24px; }
 .token-row.expanded .tr-traits { display:block; }
 /* Trash button — absolutely positioned at bottom-right of the expanded trait area,
@@ -431,6 +443,15 @@ html, body { width:100%; height:100%; overflow:hidden; background:#000; }
   background:currentColor;
   flex-shrink:0;
 }
+.card-settle-btn:hover .settle-sq {
+  animation:settle-spin 2s ease infinite;
+}
+@keyframes settle-spin {
+  0%   { transform:rotate(0deg); }
+  25%  { transform:rotate(90deg); }
+  75%  { transform:rotate(90deg); }
+  100% { transform:rotate(180deg); }
+}
 .card-settle-btn:hover {
   background:var(--settle-hbg);
   border-color:var(--settle-hborder);
@@ -526,7 +547,7 @@ html, body { width:100%; height:100%; overflow:hidden; background:#000; }
   border-right:none;
   height:auto; min-height:100%;
 }
-/* Stats panel (cluster-header) sin zoom — tamaño original */
+/* Stats panel (modulo-header) sin zoom — tamaño original */
 /* El resto del contenido agrandado al 140% */
 .card-left-expanded .featured-wrap,
 .card-left-expanded .token-list,
@@ -569,7 +590,7 @@ html, body { width:100%; height:100%; overflow:hidden; background:#000; }
   pointer-events:all;
   border-radius:10px;
   overflow:hidden;
-  /* Asymmetric shadow — only extends left/top/bottom so it can't bleed into the cluster card on the right */
+  /* Asymmetric shadow — only extends left/top/bottom so it can't bleed into the modulo card on the right */
   box-shadow:
     -2px  2px 3px  rgba(0,0,0,0.06),
     -6px  4px 11px rgba(0,0,0,0.08),
@@ -583,7 +604,7 @@ html, body { width:100%; height:100%; overflow:hidden; background:#000; }
   will-change:transform,opacity;
   transition:background 0.3s;
 }
-/* Inventory typography mirrors the cluster card:
+/* Inventory typography mirrors the modulo card:
    tbar (10px mono) · header label (7.5px mono uppercase) · token row (9px mono, 11px swatch) */
 #inventory-tbar {
   height:28px;
@@ -663,33 +684,66 @@ html, body { width:100%; height:100%; overflow:hidden; background:#000; }
   pointer-events:none; letter-spacing:.04em;
 }
 
-/* ── Cluster navigator ── */
-.cluster-nav {
-  position:absolute; top:50%; right:14px; z-index:200;
-  transform:translateY(-50%);
-  background:var(--minimap-bg);
+/* ── Modulo navigator (bottom bar with battery pillars) ── */
+.modulo-nav {
+  position:absolute; bottom:14px; left:50%; z-index:200;
+  transform:translateX(-50%);
+  background:var(--node-bg-solid);
   border:0.5px solid var(--minimap-border);
   border-radius:10px; overflow:hidden;
-  min-width:130px;
+  display:flex; align-items:center;
+  padding:10px 12px; gap:6px;
   transition:background 0.3s;
 }
-.cluster-nav-title {
-  font-size:9px; color:var(--stats-title); font-family:monospace;
-  letter-spacing:.06em; text-transform:uppercase;
-  padding:8px 10px 5px; opacity:.55;
-  border-bottom:0.5px solid var(--minimap-border);
-}
-.cluster-nav-item {
-  display:flex; align-items:center; gap:7px;
-  padding:7px 10px; cursor:pointer;
+.modulo-nav-item {
+  display:flex; flex-direction:column; align-items:center; gap:3px;
+  padding:5px 6px 4px; cursor:pointer;
+  border-radius:6px;
   transition:background 0.15s;
-  border-bottom:0.5px solid var(--minimap-border);
 }
-.cluster-nav-item:last-child { border-bottom:none; }
-.cluster-nav-item:hover { background:var(--pill-bg); }
-.cluster-nav-dot { width:6px; height:6px; border-radius:50%; flex-shrink:0; background:var(--dot-conn); }
-.cluster-nav-name { font-size:10px; color:var(--stats-title); font-family:monospace; }
-.cluster-nav-count { font-size:9px; color:var(--sl); font-family:monospace; margin-left:auto; }
+.modulo-nav-item:hover { background:var(--pill-bg); }
+/* Battery icon: 4 bars stacked vertically inside a rounded shell */
+.nav-battery {
+  width:18px; height:28px;
+  border:1px solid var(--sl);
+  border-radius:3px;
+  display:flex; flex-direction:column-reverse;
+  padding:2px;
+  gap:1.5px;
+}
+/* Each bar inside the battery */
+.nav-bar {
+  flex:1;
+  border-radius:1px;
+  background:transparent;
+  transition:background 0.2s;
+}
+/* Battery level states — grey for 1-3, red for full (4) */
+.nav-battery[data-level="1"] .nav-bar:nth-child(1) { background:#807c74; }
+.nav-battery[data-level="2"] .nav-bar:nth-child(1) { background:#807c74; }
+.nav-battery[data-level="2"] .nav-bar:nth-child(2) { background:#807c74; }
+.nav-battery[data-level="3"] .nav-bar:nth-child(1) { background:#807c74; }
+.nav-battery[data-level="3"] .nav-bar:nth-child(2) { background:#807c74; }
+.nav-battery[data-level="3"] .nav-bar:nth-child(3) { background:#807c74; }
+.nav-battery[data-level="4"] .nav-bar:nth-child(1) { background:#ff5f57; }
+.nav-battery[data-level="4"] .nav-bar:nth-child(2) { background:#ff5f57; }
+.nav-battery[data-level="4"] .nav-bar:nth-child(3) { background:#ff5f57; }
+.nav-battery[data-level="4"] .nav-bar:nth-child(4) { background:#ff5f57; }
+/* Border/nub: grey for levels 1-3, red for full */
+.nav-battery[data-level="1"],
+.nav-battery[data-level="2"],
+.nav-battery[data-level="3"] { border-color:#807c74; }
+.nav-battery[data-level="1"]::before,
+.nav-battery[data-level="2"]::before,
+.nav-battery[data-level="3"]::before { background:#807c74; }
+.nav-battery[data-level="4"] { border-color:#ff5f57; }
+.nav-battery[data-level="4"]::before { background:#ff5f57; }
+/* Module number label under the battery */
+.modulo-nav-label {
+  font-size:7px; font-family:monospace;
+  color:var(--sl); letter-spacing:.04em;
+  text-transform:uppercase;
+}
 
 /* ── Modal ── */
 .overlay {
@@ -713,10 +767,10 @@ html, body { width:100%; height:100%; overflow:hidden; background:#000; }
 <div class="root" id="root">
 
   <div class="topbar">
-    <span class="topbar-title">TokenCluster — v2</span>
+    <span class="topbar-title">by ubk</span>
     <div class="topbar-right">
       <span class="pill" id="pill-tokens">— tokens</span>
-      <span class="pill" id="pill-clusters">— clusters</span>
+      <span class="pill" id="pill-modulos">— modulos</span>
       <button class="toggle-btn" id="toggle">night</button>
     </div>
   </div>
@@ -761,9 +815,7 @@ html, body { width:100%; height:100%; overflow:hidden; background:#000; }
     </div>
   </div>
 
-  <div class="cluster-nav" id="cluster-nav">
-    <div class="cluster-nav-title">clusters</div>
-  </div>
+  <div class="modulo-nav" id="modulo-nav"></div>
 
   <div class="overlay" id="overlay">
     <div class="modal">
@@ -798,7 +850,71 @@ const COLS_DATA = [
   ['#ff003a','#40c0ff','#ffbd2e','#6363ff','#28c840','#ff63ff','#8b8b8b','#bfbcce'],
   ['#6363ff','#ff8c00','#28c840','#ff003a','#ffbd2e','#a040ff','#000000'],
 ];
-const SPEEDS  = [72,45,88,31,60,55,90,38,66,44,80,52];
+// ═══ Seeded PRNG (mulberry32) — deterministic token generation ═══
+function mulberry32(seed) {
+  return function() {
+    seed |= 0; seed = seed + 0x6D2B79F5 | 0;
+    let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+const _rng = mulberry32(42);
+function _weightedPick(options, weights) {
+  let r = _rng(), cum = 0;
+  for (let i = 0; i < options.length; i++) { cum += weights[i]; if (r < cum) return options[i]; }
+  return options[options.length - 1];
+}
+
+// ═══ Ownership — infrastructure for wallet connect ═══
+// SESSION_USER will be replaced by the connected wallet address.
+const SESSION_USER = '0xd3adb33f1234567890abcdef1234567890abcdef';
+const OTHER_USERS  = [
+  '0xaa11bb22cc33dd44ee55ff6677889900aabbccdd',
+  '0xbb22cc33dd44ee55ff6677889900aabbccddee11',
+  '0xcc33dd44ee55ff6677889900aabbccddeeff2233',
+];
+
+// ═══ TOKEN_DATA — 50 generative tokens ═══
+const TOTAL_TOKENS = 50;
+
+// Fisher-Yates shuffle to pick exactly 25 user-owned tokens
+const _userSet  = new Set();
+const _idxPool  = Array.from({ length: TOTAL_TOKENS }, (_, i) => i);
+for (let i = _idxPool.length - 1; i > 0; i--) {
+  const j = Math.floor(_rng() * (i + 1));
+  [_idxPool[i], _idxPool[j]] = [_idxPool[j], _idxPool[i]];
+}
+_idxPool.slice(0, 25).forEach(i => _userSet.add(i));
+
+const TOKEN_DATA = [];
+for (let i = 0; i < TOTAL_TOKENS; i++) {
+  const hasSz   = _rng() < 0.70;
+  const hasMode = _rng() < 0.60;
+  const hasRS   = _rng() < 0.40;
+  const hasRD   = _rng() < 0.30;
+  const hasBios = _rng() < 0.15;
+  const pal     = i % COLS_DATA.length;
+  TOKEN_DATA.push({
+    palette: pal,
+    sel:     Math.floor(_rng() * COLS_DATA[pal].length),
+    speed:   20 + Math.floor(_rng() * 71),
+    status:  _weightedPick(['connected','locked','unconnected'], [0.60, 0.20, 0.20]),
+    owner:   _userSet.has(i) ? SESSION_USER : OTHER_USERS[Math.floor(_rng() * OTHER_USERS.length)],
+    hasSz, hasMode, hasRS, hasRD, hasBios,
+    sz:   hasSz   ? _weightedPick(['sm','md','lg','xl'], [0.10,0.45,0.30,0.15]) : null,
+    mode: hasMode  ? _weightedPick(['feedback','shift','noise','modulo','balanced'], [0.30,0.15,0.25,0.10,0.20]) : null,
+    rs:   hasRS    ? _weightedPick(['sm','md','lg','xl'], [0.15,0.40,0.30,0.15]) : null,
+    rd:   hasRD    ? _weightedPick(['lo','md','hi','mx'], [0.30,0.35,0.25,0.10]) : null,
+    bios: hasBios  ? (_rng() < 0.70) : null,
+  });
+}
+
+function isOwnToken(tokenNum) {
+  const td = TOKEN_DATA[tokenNum];
+  return td && td.owner === SESSION_USER;
+}
+
 const BIOS_DATA = {
   es: [
     { title: 'guardar y salir',   msg: 'guardar config',       btns: ['si',  'no'] },
@@ -829,14 +945,14 @@ const BIOS_DATA = {
     { title: 'الخروج بدون حفظ',  msg: 'تجاهل التغييرات',     btns: ['نعم', 'لا'] },
   ],
 };
-const biosStates = {}; // { [clId]: { [slotIdx]: true|false|undefined } }
-function getBiosState(clId, slotIdx) { return biosStates[clId] ? biosStates[clId][slotIdx] : undefined; }
-function getBiosOn(clId, slotIdx) { return getBiosState(clId, slotIdx) === true; }
-function setBiosOn(clId, slotIdx, on) { if (!biosStates[clId]) biosStates[clId] = {}; biosStates[clId][slotIdx] = on; }
-function clearBiosState(clId, slotIdx) { if (biosStates[clId]) delete biosStates[clId][slotIdx]; }
-function clusterBiosOn(cl) { return cl.tokens.some((t, i) => getBiosOn(cl.id, i)); }
-function clusterBiosStatText(cl) {
-  const set = cl.tokens.map((t, i) => getBiosState(cl.id, i)).filter(s => s !== undefined);
+const biosStates = {}; // { [modId]: { [slotIdx]: true|false|undefined } }
+function getBiosState(modId, slotIdx) { return biosStates[modId] ? biosStates[modId][slotIdx] : undefined; }
+function getBiosOn(modId, slotIdx) { return getBiosState(modId, slotIdx) === true; }
+function setBiosOn(modId, slotIdx, on) { if (!biosStates[modId]) biosStates[modId] = {}; biosStates[modId][slotIdx] = on; }
+function clearBiosState(modId, slotIdx) { if (biosStates[modId]) delete biosStates[modId][slotIdx]; }
+function moduloBiosOn(mod) { return mod.tokens.some((t, i) => getBiosOn(mod.id, i)); }
+function moduloBiosStatText(mod) {
+  const set = mod.tokens.map((t, i) => getBiosState(mod.id, i)).filter(s => s !== undefined);
   if (!set.length) return '-';
   const hasOn = set.some(s => s === true);
   const hasOff = set.some(s => s === false);
@@ -844,70 +960,66 @@ function clusterBiosStatText(cl) {
   return hasOn ? 'on' : 'off';
 }
 
-const tokenModes = {}; // { [clId]: { [slotIdx]: modeName } }
-const clusterModeSetters = {};
+const tokenModes = {}; // { [modId]: { [slotIdx]: modeName } }
+const moduloModeSetters = {};
 const MODE_ABBR = { feedback:'fb', shift:'sh', noise:'no', modulo:'mo', balanced:'bal' };
 
-const tokenSizes = {}; // { [clId]: { [slotIdx]: sizeName } }
-const clusterSizeSetters = {};
+const tokenSizes = {}; // { [modId]: { [slotIdx]: sizeName } }
+const moduloSizeSetters = {};
 const SIZE_SCALES = { sm:0.4, md:1.0, lg:2.0, xl:3.5 };
-function getTokenSize(clId, slotIdx) { return (tokenSizes[clId] && tokenSizes[clId][slotIdx] != null) ? tokenSizes[clId][slotIdx] : null; }
-function setTokenSize(clId, slotIdx, s) { if (!tokenSizes[clId]) tokenSizes[clId] = {}; tokenSizes[clId][slotIdx] = s; }
-function clearTokenSize(clId, slotIdx) { if (tokenSizes[clId]) delete tokenSizes[clId][slotIdx]; }
-function clusterDistinctSizes(cl) {
-  const seen = new Set(); cl.tokens.forEach((_, i) => { const v = getTokenSize(cl.id, i); if (v !== null) seen.add(v); }); return [...seen];
+function getTokenSize(modId, slotIdx) { return (tokenSizes[modId] && tokenSizes[modId][slotIdx] != null) ? tokenSizes[modId][slotIdx] : null; }
+function setTokenSize(modId, slotIdx, s) { if (!tokenSizes[modId]) tokenSizes[modId] = {}; tokenSizes[modId][slotIdx] = s; }
+function clearTokenSize(modId, slotIdx) { if (tokenSizes[modId]) delete tokenSizes[modId][slotIdx]; }
+function moduloDistinctSizes(mod) {
+  const seen = new Set(); mod.tokens.forEach((_, i) => { const v = getTokenSize(mod.id, i); if (v !== null) seen.add(v); }); return [...seen];
 }
-function clusterDominantSize(cl) {
+function moduloDominantSize(mod) {
   const tally = {};
-  cl.tokens.forEach((t, i) => { const s = getTokenSize(cl.id, i); if (s !== null) tally[s] = (tally[s] || 0) + 1; });
+  mod.tokens.forEach((t, i) => { const s = getTokenSize(mod.id, i); if (s !== null) tally[s] = (tally[s] || 0) + 1; });
   const entries = Object.entries(tally);
   return entries.length ? entries.sort((a,b) => b[1]-a[1])[0][0] : null;
 }
 
 const tokenRectSizes = {};
-const clusterRectSizeSetters = {};
+const moduloRectSizeSetters = {};
 const RS_PARAMS = {
   sm: { min:4,  max:20 },
   md: { min:10, max:30 },
   lg: { min:20, max:50 },
   xl: { min:40, max:80 },
 };
-function getTokenRectSize(clId, i) { return (tokenRectSizes[clId] && tokenRectSizes[clId][i] != null) ? tokenRectSizes[clId][i] : null; }
-function setTokenRectSize(clId, i, v) { if (!tokenRectSizes[clId]) tokenRectSizes[clId] = {}; tokenRectSizes[clId][i] = v; }
-function clearTokenRectSize(clId, i) { if (tokenRectSizes[clId]) delete tokenRectSizes[clId][i]; }
-function clusterDistinctRectSizes(cl) {
-  const seen = new Set(); cl.tokens.forEach((_, i) => { const v = getTokenRectSize(cl.id, i); if (v !== null) seen.add(v); }); return [...seen];
+function getTokenRectSize(modId, i) { return (tokenRectSizes[modId] && tokenRectSizes[modId][i] != null) ? tokenRectSizes[modId][i] : null; }
+function setTokenRectSize(modId, i, v) { if (!tokenRectSizes[modId]) tokenRectSizes[modId] = {}; tokenRectSizes[modId][i] = v; }
+function clearTokenRectSize(modId, i) { if (tokenRectSizes[modId]) delete tokenRectSizes[modId][i]; }
+function moduloDistinctRectSizes(mod) {
+  const seen = new Set(); mod.tokens.forEach((_, i) => { const v = getTokenRectSize(mod.id, i); if (v !== null) seen.add(v); }); return [...seen];
 }
 
 const tokenRectDensities = {};
-const clusterRectDensitySetters = {};
-const clusterBiosTriggers = {}; // clId → (slotIdx) => pickText(slotIdx)
+const moduloRectDensitySetters = {};
+const moduloBiosTriggers = {}; // modId → (slotIdx) => pickText(slotIdx)
 const RD_PARAMS = {
   lo: { offMin:5000, offMax:12000, onMin:500,  onMax:1500  },
   md: { offMin:1000, offMax:6000,  onMin:1500, onMax:6500  },
   hi: { offMin:200,  offMax:1000,  onMin:3000, onMax:8000  },
   mx: { offMin:50,   offMax:200,   onMin:5000, onMax:12000 },
 };
-function getTokenRectDensity(clId, i) { return (tokenRectDensities[clId] && tokenRectDensities[clId][i] != null) ? tokenRectDensities[clId][i] : null; }
-function setTokenRectDensity(clId, i, v) { if (!tokenRectDensities[clId]) tokenRectDensities[clId] = {}; tokenRectDensities[clId][i] = v; }
-function clearTokenRectDensity(clId, i) { if (tokenRectDensities[clId]) delete tokenRectDensities[clId][i]; }
+function getTokenRectDensity(modId, i) { return (tokenRectDensities[modId] && tokenRectDensities[modId][i] != null) ? tokenRectDensities[modId][i] : null; }
+function setTokenRectDensity(modId, i, v) { if (!tokenRectDensities[modId]) tokenRectDensities[modId] = {}; tokenRectDensities[modId][i] = v; }
+function clearTokenRectDensity(modId, i) { if (tokenRectDensities[modId]) delete tokenRectDensities[modId][i]; }
 
-function clusterDistinctRectDensities(cl) {
-  const seen = new Set(); cl.tokens.forEach((_, i) => { const v = getTokenRectDensity(cl.id, i); if (v !== null) seen.add(v); }); return [...seen];
+function moduloDistinctRectDensities(mod) {
+  const seen = new Set(); mod.tokens.forEach((_, i) => { const v = getTokenRectDensity(mod.id, i); if (v !== null) seen.add(v); }); return [...seen];
 }
-function getTokenMode(clId, slotIdx) { return tokenModes[clId] ? (tokenModes[clId][slotIdx] ?? null) : null; }
-function setTokenMode(clId, slotIdx, m) { if (!tokenModes[clId]) tokenModes[clId] = {}; tokenModes[clId][slotIdx] = m; }
-function clearTokenMode(clId, slotIdx) { if (tokenModes[clId]) delete tokenModes[clId][slotIdx]; }
-function clusterDistinctModes(cl) {
+function getTokenMode(modId, slotIdx) { return tokenModes[modId] ? (tokenModes[modId][slotIdx] ?? null) : null; }
+function setTokenMode(modId, slotIdx, m) { if (!tokenModes[modId]) tokenModes[modId] = {}; tokenModes[modId][slotIdx] = m; }
+function clearTokenMode(modId, slotIdx) { if (tokenModes[modId]) delete tokenModes[modId][slotIdx]; }
+function moduloDistinctModes(mod) {
   const seen = new Set();
-  cl.tokens.forEach((t, i) => { const m = getTokenMode(cl.id, i); if (m !== null) seen.add(m); });
+  mod.tokens.forEach((t, i) => { const m = getTokenMode(mod.id, i); if (m !== null) seen.add(m); });
   return [...seen];
 }
-const STATUS = ['connected','connected','locked','connected','unconnected',
-                'connected','connected','locked','unconnected','connected','connected','unconnected'];
-const STXT   = ['cluster_01','cluster_01','locked 11h','cluster_02','—',
-                'cluster_02','cluster_03','locked 3h','—','cluster_03','cluster_01','—'];
-const SEL    = [2,0,3,1,-1,2,0,3,-1,1,2,-1];
+// STATUS, STXT, SEL, SPEEDS — replaced by TOKEN_DATA generative system
 
 // ── World layout ──
 const WCX     = 2250; // horizontal center
@@ -916,17 +1028,17 @@ const COL_W   = 1100;
 const ROW_H   = 818;
 const STAGGER = 550;
 
-const CLUSTERS = [
-  { id:'cluster_01', cx:WCX - COL_W,           cy:WCY - ROW_H,    tokens:[0] },
-  { id:'cluster_02', cx:WCX,                    cy:WCY - ROW_H,    tokens:[0,1] },
-  { id:'cluster_03', cx:WCX + COL_W,            cy:WCY - ROW_H,    tokens:[0,1,2], dtPalette:true },
-  { id:'cluster_04', cx:WCX - COL_W + STAGGER,  cy:WCY,            tokens:[0,1,2,3] },
-  { id:'cluster_05', cx:WCX         + STAGGER,  cy:WCY,            tokens:[0,1,2,3,4] },
-  { id:'cluster_06', cx:WCX - COL_W,            cy:WCY + ROW_H,    tokens:[0,1,2,3,4,5] },
-  { id:'cluster_07', cx:WCX,                    cy:WCY + ROW_H,    tokens:[0,1,2,3,4,5,6] },
-  { id:'cluster_08', cx:WCX + COL_W,            cy:WCY + ROW_H,    tokens:[0,1,2,3,4,5,6,7] },
-  { id:'cluster_09', cx:WCX - COL_W + STAGGER,  cy:WCY + ROW_H*2,  tokens:[0,1,2,3] },
-  { id:'cluster_10', cx:WCX         + STAGGER,  cy:WCY + ROW_H*2,  tokens:[0,1,2,3,4,5] },
+const MODULOS = [
+  { id:'modulo_01', cx:WCX - COL_W,           cy:WCY - ROW_H,    tokens:[0] },
+  { id:'modulo_02', cx:WCX,                    cy:WCY - ROW_H,    tokens:[1,2] },
+  { id:'modulo_03', cx:WCX + COL_W,            cy:WCY - ROW_H,    tokens:[3,4,5], dtPalette:true },
+  { id:'modulo_04', cx:WCX - COL_W + STAGGER,  cy:WCY,            tokens:[6,7] },
+  { id:'modulo_05', cx:WCX         + STAGGER,  cy:WCY,            tokens:[8,9,10] },
+  { id:'modulo_06', cx:WCX - COL_W,            cy:WCY + ROW_H,    tokens:[11,12,13] },
+  { id:'modulo_07', cx:WCX,                    cy:WCY + ROW_H,    tokens:[14,15,16] },
+  { id:'modulo_08', cx:WCX + COL_W,            cy:WCY + ROW_H,    tokens:[17,18] },
+  { id:'modulo_09', cx:WCX - COL_W + STAGGER,  cy:WCY + ROW_H*2,  tokens:[19,20,21] },
+  { id:'modulo_10', cx:WCX         + STAGGER,  cy:WCY + ROW_H*2,  tokens:[22,23,24] },
 ];
 
 const CARD_W = 700;
@@ -938,26 +1050,30 @@ const CARD_H = 418; // 28px tbar + 390px body
 let isNight = false;
 const nodeColors  = {};
 const featuredIdx = {};
-const clusterAnimUpdaters  = {};
-const clusterCanvasResizers = {};
-const clusterTextResetters  = {};
-const clusterSpeedSetters   = {};
-const clusterTokenOps       = {}; // { [clId]: [ops0, ops1, ...] }
-let   expandedClusterId    = null;
+const moduloAnimUpdaters  = {};
+const moduloCanvasResizers = {};
+const moduloTextResetters  = {};
+const moduloSpeedSetters   = {};
+const moduloTokenOps       = {}; // { [modId]: [ops0, ops1, ...] }
+let   expandedModuloId    = null;
 
 // ═══ Inventory state ═══
-const INVENTORY_START = 100;
-const INVENTORY_COUNT = 14;
-const tokenInventory  = Array.from({ length: INVENTORY_COUNT }, (_, i) => INVENTORY_START + i);
-let   inventoryClusterId  = null; // floating window (non-expand mode)
+// Inventory = user-owned tokens NOT already placed in a modulo.
+const _placed = new Set(MODULOS.flatMap(m => m.tokens));
+const tokenInventory = [];
+for (let i = 0; i < TOTAL_TOKENS; i++) {
+  if (isOwnToken(i) && !_placed.has(i)) tokenInventory.push(i);
+}
+tokenInventory.sort((a, b) => a - b);
+let   inventoryModuloId  = null; // floating window (non-expand mode)
 let   _invBtnEl           = null;
-let   inlineInventoryClId = null; // inline panel inside card-left-expanded
+let   inlineInventoryModId = null; // inline panel inside card-left-expanded
 
 // ═══════════════════════════════════════════════════════
 // HELPERS
 // ═══════════════════════════════════════════════════════
-function fakeAddr(clusterId, slotIdx) {
-  const seed = clusterId + '_' + slotIdx;
+function fakeAddr(moduloId, slotIdx) {
+  const seed = moduloId + '_' + slotIdx;
   let h = 5381;
   for (let i = 0; i < seed.length; i++) h = ((h << 5) + h) ^ seed.charCodeAt(i);
   let addr = '0x';
@@ -971,32 +1087,32 @@ function fakeAddr(clusterId, slotIdx) {
 
 function shortAddr(full) { return full.slice(0,6) + '…' + full.slice(-4); }
 
-// Default color for a bare token (used in inventory tiles before the token joins a cluster)
+// Default color for a bare token (used in inventory tiles before the token joins a modulo)
 function tokenDefaultColor(tokenNum) {
-  const palette = COLS_DATA[tokenNum % COLS_DATA.length];
-  const d = SEL[tokenNum % SEL.length];
-  const idx = d >= 0 ? Math.min(d, palette.length - 1) : 0;
-  return palette[idx];
+  const td = TOKEN_DATA[tokenNum];
+  if (!td) return '#807c74';
+  return COLS_DATA[td.palette][Math.max(0, td.sel)];
 }
 
-function clusterLabel(id) {
+function moduloLabel(id) {
   return id.replace('_',' ').replace(/\b\w/g, c => c.toUpperCase());
 }
 
-function getSelIdx(clusterId, slotIdx) {
-  const stored = nodeColors[clusterId] && nodeColors[clusterId][slotIdx];
+function getSelIdx(moduloId, slotIdx) {
+  const stored = nodeColors[moduloId] && nodeColors[moduloId][slotIdx];
   if (stored !== undefined && stored >= 0) return stored;
   if (stored === -1) return 0; // deselected — fall back to first color for animation
-  const cl = CLUSTERS.find(c => c.id === clusterId);
-  const ti = cl.tokens[slotIdx];
-  const d  = SEL[ti % SEL.length];
-  return d >= 0 ? d : 0;
+  const mod = MODULOS.find(c => c.id === moduloId);
+  const ti = mod.tokens[slotIdx];
+  const td = TOKEN_DATA[ti];
+  return td ? Math.max(0, td.sel) : 0;
 }
 
-function getSelectedColor(clusterId, slotIdx) {
-  const cl = CLUSTERS.find(c => c.id === clusterId);
-  const ti = cl.tokens[slotIdx];
-  return COLS_DATA[ti % COLS_DATA.length][getSelIdx(clusterId, slotIdx)];
+function getSelectedColor(moduloId, slotIdx) {
+  const mod = MODULOS.find(c => c.id === moduloId);
+  const ti = mod.tokens[slotIdx];
+  const td = TOKEN_DATA[ti];
+  return COLS_DATA[td ? td.palette : 0][getSelIdx(moduloId, slotIdx)];
 }
 
 // ═══════════════════════════════════════════════════════
@@ -1005,21 +1121,29 @@ function getSelectedColor(clusterId, slotIdx) {
 const world     = document.getElementById('world');
 const worldZoom = document.getElementById('world-zoom');
 
-function buildCluster(cl) {
-  // Init state
-  featuredIdx[cl.id]  = 0;
-  nodeColors[cl.id]   = {};
-  cl.tokens.forEach((t, i) => {
-    const d = SEL[t % SEL.length];
-    nodeColors[cl.id][i] = d >= 0 ? d : 0;
-  });
+function _initTokenTraits(modId, slotIdx, tokenNum) {
+  const td = TOKEN_DATA[tokenNum];
+  if (!td) return;
+  nodeColors[modId][slotIdx] = td.sel >= 0 ? td.sel : 0;
+  if (td.sz)           setTokenSize(modId, slotIdx, td.sz);
+  if (td.mode)         setTokenMode(modId, slotIdx, td.mode);
+  if (td.rs)           setTokenRectSize(modId, slotIdx, td.rs);
+  if (td.rd)           setTokenRectDensity(modId, slotIdx, td.rd);
+  if (td.bios !== null) setBiosOn(modId, slotIdx, td.bios);
+}
 
-  const animId = `anim-${cl.id}`;
+function buildModulo(mod) {
+  // Init state
+  featuredIdx[mod.id]  = 0;
+  nodeColors[mod.id]   = {};
+  mod.tokens.forEach((t, i) => _initTokenTraits(mod.id, i, t));
+
+  const animId = `anim-${mod.id}`;
   const card   = document.createElement('div');
-  card.className = 'cluster-card';
-  card.id        = `card-${cl.id}`;
-  card.style.left = (cl.cx - CARD_W / 2) + 'px';
-  card.style.top  = (cl.cy - CARD_H / 2) + 'px';
+  card.className = 'modulo-card';
+  card.id        = `card-${mod.id}`;
+  card.style.left = (mod.cx - CARD_W / 2) + 'px';
+  card.style.top  = (mod.cy - CARD_H / 2) + 'px';
 
   card.innerHTML = `
     <div class="card-tbar">
@@ -1027,7 +1151,7 @@ function buildCluster(cl) {
       <span class="card-tbar-title"></span>
     </div>
     <div class="card-body">
-      <div class="card-left" id="left-${cl.id}"></div>
+      <div class="card-left" id="left-${mod.id}"></div>
       <div class="card-right">
         <canvas id="${animId}"></canvas>
         <button class="card-settle-btn"><span class="settle-txt">SETTLE</span><span class="settle-sq"></span></button>
@@ -1037,57 +1161,59 @@ function buildCluster(cl) {
   world.appendChild(card);
 
   // Settle
-  card.querySelector('.card-settle-btn').addEventListener('click', openModal);
+  // card.querySelector('.card-settle-btn').addEventListener('click', openModal);
 
   // Green dot → expand animation
   card.querySelector('.dot.g').addEventListener('click', e => {
     e.stopPropagation();
-    openExpand(cl.id, card);
+    openExpand(mod.id, card);
   });
 
   // Build left panel
-  buildLeft(cl);
+  buildLeft(mod);
 
   // Animation
-  setTimeout(() => startAnim(animId, cl), 80);
+  setTimeout(() => startAnim(animId, mod), 80);
 }
 
-function buildLeft(cl) {
-  const leftEl = document.getElementById(`left-${cl.id}`);
+function buildLeft(mod) {
+  const leftEl = document.getElementById(`left-${mod.id}`);
   if (!leftEl) return;
 
-  const fi   = featuredIdx[cl.id];
-  const ti   = cl.tokens[fi];
-  const st   = STATUS[ti % STATUS.length];
-  const stxt = STXT[ti % STXT.length];
-  const full = fakeAddr(cl.id, fi);
-  const spd  = Math.round(cl.tokens.reduce((a, t) => a + SPEEDS[t % SPEEDS.length], 0) / cl.tokens.length);
-  const dlangs = clusterBiosOn(cl) ? 'ON' : 'OFF';
+  const fi   = featuredIdx[mod.id];
+  const ti   = mod.tokens[fi];
+  const td   = TOKEN_DATA[ti] || {};
+  const st   = td.status || 'connected';
+  const full = fakeAddr(mod.id, fi);
+  const spd  = mod.tokens.length
+    ? Math.round(mod.tokens.reduce((a, t) => a + (TOKEN_DATA[t] ? TOKEN_DATA[t].speed : 50), 0) / mod.tokens.length)
+    : 0;
+  const dlangs = moduloBiosOn(mod) ? 'ON' : 'OFF';
 
   leftEl.innerHTML = `
-    <div class="cluster-header">
-      <div class="cluster-name">${cl.id.replace('cluster_','')}:STATS</div>
-      <div class="cluster-stats-row">
-        <div class="cs-item"><div class="cs-label">Tokens</div><div class="cs-value">${cl.tokens.length}/8</div></div>
-        <div class="cs-item"><div class="cs-label">Colors</div><div class="cs-value">${cl.tokens.length}</div></div>
-        <div class="cs-item"><div class="cs-label">Speed</div><div class="cs-value" id="spd-${cl.id}">${spd}</div></div>
-        <div class="cs-item"><div class="cs-label">Size</div><div class="cs-value" id="sz-${cl.id}">-</div></div>
-        <div class="cs-item"><div class="cs-label">Mode</div><div class="cs-value" id="mstat-${cl.id}">${clusterDistinctModes(cl).map(m=>MODE_ABBR[m]||m).join('/')}</div></div>
-        <div class="cs-item"><div class="cs-label">RS</div><div class="cs-value" id="rs-${cl.id}">${clusterDistinctRectSizes(cl).join('/')}</div></div>
-        <div class="cs-item"><div class="cs-label">RD</div><div class="cs-value" id="rd-${cl.id}">${clusterDistinctRectDensities(cl).join('/')}</div></div>
-        <div class="cs-item"><div class="cs-label">BIOS</div><div class="cs-value" id="dstat-${cl.id}">${dlangs}</div></div>
+    <div class="modulo-header">
+      <div class="modulo-name">${mod.id.replace('modulo_','')}:STATS</div>
+      <div class="modulo-stats-row">
+        <div class="cs-item"><div class="cs-label">Tokens</div><div class="cs-value">${mod.tokens.length}/8</div></div>
+        <div class="cs-item"><div class="cs-label">Colors</div><div class="cs-value">${mod.tokens.length}</div></div>
+        <div class="cs-item"><div class="cs-label">Speed</div><div class="cs-value" id="spd-${mod.id}">${spd}</div></div>
+        <div class="cs-item"><div class="cs-label">Size</div><div class="cs-value" id="sz-${mod.id}">-</div></div>
+        <div class="cs-item"><div class="cs-label">Mode</div><div class="cs-value" id="mstat-${mod.id}">${moduloDistinctModes(mod).map(m=>MODE_ABBR[m]||m).join('/')}</div></div>
+        <div class="cs-item"><div class="cs-label">RS</div><div class="cs-value" id="rs-${mod.id}">${moduloDistinctRectSizes(mod).join('/')}</div></div>
+        <div class="cs-item"><div class="cs-label">RD</div><div class="cs-value" id="rd-${mod.id}">${moduloDistinctRectDensities(mod).join('/')}</div></div>
+        <div class="cs-item"><div class="cs-label">BIOS</div><div class="cs-value" id="dstat-${mod.id}">${dlangs}</div></div>
       </div>
     </div>
-    <div class="token-list" id="tlist-${cl.id}"></div>
-    <div class="inv-panel" id="inv-panel-${cl.id}"></div>
-    <div class="add-row${cl.tokens.length >= 8 ? ' disabled' : ''}" id="add-${cl.id}">+</div>`;
+    <div class="token-list" id="tlist-${mod.id}"></div>
+    <div class="inv-panel" id="inv-panel-${mod.id}"></div>
+    <div class="add-row${mod.tokens.length >= 8 ? ' disabled' : ''}" id="add-${mod.id}">+</div>`;
 
-  buildTokenList(cl);
+  buildTokenList(mod);
 
   // Wire the + button to toggle the inventory.
   // - In expand mode: toggle the inline panel that grows upward from the +.
   // - Otherwise: toggle the floating inventory window.
-  const addBtn = document.getElementById(`add-${cl.id}`);
+  const addBtn = document.getElementById(`add-${mod.id}`);
   if (addBtn) {
     addBtn.addEventListener('click', e => {
       e.stopPropagation();
@@ -1095,12 +1221,12 @@ function buildLeft(cl) {
       // Dismiss the "add new token" tooltip on click and keep it hidden until
       // the cursor leaves and re-enters the button.
       addBtn.classList.add('tooltip-off');
-      if (expandedClusterId === cl.id) {
-        if (inlineInventoryClId === cl.id) closeInlineInventory(cl.id);
-        else                               openInlineInventory(cl.id);
+      if (expandedModuloId === mod.id) {
+        if (inlineInventoryModId === mod.id) closeInlineInventory(mod.id);
+        else                               openInlineInventory(mod.id);
       } else {
-        if (inventoryClusterId === cl.id) closeInventory();
-        else                              openInventory(cl.id, addBtn);
+        if (inventoryModuloId === mod.id) closeInventory();
+        else                              openInventory(mod.id, addBtn);
       }
     });
     addBtn.addEventListener('mouseleave', () => addBtn.classList.remove('tooltip-off'));
@@ -1109,10 +1235,10 @@ function buildLeft(cl) {
   // If the inline inventory was open before buildLeft replaced the DOM, restore
   // it into the freshly-created panel WITHOUT triggering the open transition
   // (avoids the flicker you'd get from max-height animating 0 → 600 again).
-  if (inlineInventoryClId === cl.id) {
-    const panel = document.getElementById(`inv-panel-${cl.id}`);
+  if (inlineInventoryModId === mod.id) {
+    const panel = document.getElementById(`inv-panel-${mod.id}`);
     if (panel) {
-      renderInlineInventory(cl.id);
+      renderInlineInventory(mod.id);
       panel.style.transition = 'none';
       panel.classList.add('open');
       // force reflow so the instant 'open' is committed before transitions return
@@ -1122,58 +1248,60 @@ function buildLeft(cl) {
   }
 
   // Update stats after buildTokenList (all states start null/unset)
-  const mstatEl = document.getElementById(`mstat-${cl.id}`);
-  if (mstatEl) { const m = clusterDistinctModes(cl); mstatEl.textContent = m.length ? m.map(x => MODE_ABBR[x]||x).join('/') : '-'; }
-  const dstatEl = document.getElementById(`dstat-${cl.id}`);
-  if (dstatEl) dstatEl.textContent = clusterBiosStatText(cl);
-  const szstatEl = document.getElementById(`sz-${cl.id}`);
-  if (szstatEl) szstatEl.textContent = clusterDominantSize(cl) || '-';
-  const rsstatEl = document.getElementById(`rs-${cl.id}`);
-  if (rsstatEl) { const r = clusterDistinctRectSizes(cl); rsstatEl.textContent = r.length ? r.join('/') : '-'; }
-  const rdstatEl = document.getElementById(`rd-${cl.id}`);
-  if (rdstatEl) { const r = clusterDistinctRectDensities(cl); rdstatEl.textContent = r.length ? r.join('/') : '-'; }
+  const mstatEl = document.getElementById(`mstat-${mod.id}`);
+  if (mstatEl) { const m = moduloDistinctModes(mod); mstatEl.textContent = m.length ? m.map(x => MODE_ABBR[x]||x).join('/') : '-'; }
+  const dstatEl = document.getElementById(`dstat-${mod.id}`);
+  if (dstatEl) dstatEl.textContent = moduloBiosStatText(mod);
+  const szstatEl = document.getElementById(`sz-${mod.id}`);
+  if (szstatEl) szstatEl.textContent = moduloDominantSize(mod) || '-';
+  const rsstatEl = document.getElementById(`rs-${mod.id}`);
+  if (rsstatEl) { const r = moduloDistinctRectSizes(mod); rsstatEl.textContent = r.length ? r.join('/') : '-'; }
+  const rdstatEl = document.getElementById(`rd-${mod.id}`);
+  if (rdstatEl) { const r = moduloDistinctRectDensities(mod); rdstatEl.textContent = r.length ? r.join('/') : '-'; }
 }
 
-function buildRowColors(cl, slotIdx, container) {
-  const t   = cl.tokens[slotIdx];
-  const sel = getSelIdx(cl.id, slotIdx);
+function buildRowColors(mod, slotIdx, container) {
+  const t   = mod.tokens[slotIdx];
+  const sel = getSelIdx(mod.id, slotIdx);
   container.innerHTML = '';
-  COLS_DATA[t % COLS_DATA.length].forEach((c, j) => {
+  COLS_DATA[(TOKEN_DATA[t] ? TOKEN_DATA[t].palette : t % COLS_DATA.length)].forEach((c, j) => {
     const d = document.createElement('div');
     d.className = 'cdot'
       + (j === sel ? ' sel' : '');
     d.style.background = c;
     d.addEventListener('click', e => {
       e.stopPropagation();
-      nodeColors[cl.id][slotIdx] = (nodeColors[cl.id][slotIdx] === j) ? -1 : j;
-      buildRowColors(cl, slotIdx, container);
-      const swatch = document.querySelector(`#tlist-${cl.id} .token-row:nth-child(${slotIdx+1}) .tr-swatch`);
-      if (swatch) swatch.style.background = getSelectedColor(cl.id, slotIdx);
-      if (clusterAnimUpdaters[cl.id]) clusterAnimUpdaters[cl.id]();
+      nodeColors[mod.id][slotIdx] = (nodeColors[mod.id][slotIdx] === j) ? -1 : j;
+      buildRowColors(mod, slotIdx, container);
+      const swatch = document.querySelector(`#tlist-${mod.id} .token-row:nth-child(${slotIdx+1}) .tr-swatch`);
+      if (swatch) swatch.style.background = getSelectedColor(mod.id, slotIdx);
+      if (moduloAnimUpdaters[mod.id]) moduloAnimUpdaters[mod.id]();
     });
     container.appendChild(d);
   });
 }
 
-function buildTokenList(cl) {
-  const list = document.getElementById(`tlist-${cl.id}`);
+function buildTokenList(mod) {
+  const list = document.getElementById(`tlist-${mod.id}`);
   if (!list) return;
   list.innerHTML = '';
 
-  cl.tokens.forEach((t, i) => {
-    const full  = fakeAddr(cl.id, i);
-    const st    = STATUS[t % STATUS.length];
-    const color = getSelectedColor(cl.id, i);
-    const spd     = SPEEDS[t % SPEEDS.length];
+  mod.tokens.forEach((t, i) => {
+    const td    = TOKEN_DATA[t] || {};
+    const own   = isOwnToken(t);
+    const full  = fakeAddr(mod.id, i);
+    const st    = td.status || 'connected';
+    const color = getSelectedColor(mod.id, i);
+    const spd   = td.speed || 50;
     const row = document.createElement('div');
-    row.className = 'token-row';
+    row.className = 'token-row' + (own ? '' : ' locked');
 
     // Header (always visible)
     const header = document.createElement('div');
     header.className = 'tr-header';
     header.innerHTML = `
       <div class="sdot ${st==='locked'?'lock':st==='connected'?'conn':'on'}"></div>
-      <span class="tr-idx">#${String(i+1).padStart(2,'0')}</span>
+      <span class="tr-idx">#${String(t).padStart(2,'0')}</span>
       <div class="tr-swatch" style="background:${color};"></div>
       <span class="tr-addr">${shortAddr(full)}</span>
       <span class="tr-arrow">▸</span>`;
@@ -1239,15 +1367,15 @@ function buildTokenList(cl) {
     const colorDots = document.createElement('div');
     colorDots.className = 'tr-colors-inline';
     colorLine.appendChild(colorLabel); colorLine.appendChild(colorDots);
-    buildRowColors(cl, i, colorDots);
+    buildRowColors(mod, i, colorDots);
     colorBody.appendChild(colorLine);
 
     // ── DT ──────────────────────────────────
     const dtBody = makeGroup('DT');
 
     const initOps = Math.max(1, Math.round(spd / 90 * 28));
-    if (!clusterTokenOps[cl.id]) clusterTokenOps[cl.id] = [];
-    clusterTokenOps[cl.id][i] = initOps;
+    if (!moduloTokenOps[mod.id]) moduloTokenOps[mod.id] = [];
+    moduloTokenOps[mod.id][i] = initOps;
     const speedRow = document.createElement('div');
     speedRow.className = 'tr-trait-line speed-row';
     speedRow.innerHTML = `<span class="tr-trait-label">S.</span><input type="range" class="speed-slider" min="1" max="28" value="${initOps}"><span class="speed-val">${initOps}</span>`;
@@ -1257,89 +1385,102 @@ function buildTokenList(cl) {
       e.stopPropagation();
       const ops = parseInt(slider.value);
       speedVal.textContent = ops;
-      clusterTokenOps[cl.id][i] = ops;
-      const total = clusterTokenOps[cl.id].reduce((a, v) => a + (v || 0), 0);
-      if (clusterSpeedSetters[cl.id]) clusterSpeedSetters[cl.id](total);
-      const statEl = document.getElementById(`spd-${cl.id}`);
+      moduloTokenOps[mod.id][i] = ops;
+      const total = moduloTokenOps[mod.id].reduce((a, v) => a + (v || 0), 0);
+      if (moduloSpeedSetters[mod.id]) moduloSpeedSetters[mod.id](total);
+      const statEl = document.getElementById(`spd-${mod.id}`);
       if (statEl) statEl.textContent = total;
     });
     dtBody.appendChild(speedRow);
 
-    const { row: szRow, btns: szBtns } = makeRow('Sz.');
-    makeBtnGroup(szBtns, [{label:'small',value:'sm'},{label:'medium',value:'md'},{label:'large',value:'lg'},{label:'x-large',value:'xl'}], getTokenSize(cl.id, i), v => {
-      if (v === null) clearTokenSize(cl.id, i); else setTokenSize(cl.id, i, v);
-      if (clusterSizeSetters[cl.id]) clusterSizeSetters[cl.id](clusterDominantSize(cl));
-      const el = document.getElementById(`sz-${cl.id}`); if (el) el.textContent = clusterDominantSize(cl) || '-';
-    });
-    dtBody.appendChild(szRow);
-
-    const { row: modeRow, btns: modeBtns } = makeRow('M.');
-    makeBtnGroup(modeBtns, ['feedback','shift','noise','modulo','balanced'], getTokenMode(cl.id, i), v => {
-      if (v === null) clearTokenMode(cl.id, i); else setTokenMode(cl.id, i, v);
-      if (clusterModeSetters[cl.id]) clusterModeSetters[cl.id]();
-    });
-    dtBody.appendChild(modeRow);
-
-    // ── Shift ────────────────────────────────
-    const shiftBody = makeGroup('Shift');
-
-    const { row: rsRow, btns: rsBtns } = makeRow('RS.');
-    makeBtnGroup(rsBtns, [{label:'small',value:'sm'},{label:'medium',value:'md'},{label:'large',value:'lg'},{label:'x-large',value:'xl'}], getTokenRectSize(cl.id, i), v => {
-      if (v === null) clearTokenRectSize(cl.id, i); else setTokenRectSize(cl.id, i, v);
-      if (clusterRectSizeSetters[cl.id]) clusterRectSizeSetters[cl.id]();
-    });
-    shiftBody.appendChild(rsRow);
-
-    const { row: rdRow, btns: rdBtns } = makeRow('RD.');
-    makeBtnGroup(rdBtns, [{label:'low',value:'lo'},{label:'medium',value:'md'},{label:'high',value:'hi'},{label:'max',value:'mx'}], getTokenRectDensity(cl.id, i), v => {
-      if (v === null) clearTokenRectDensity(cl.id, i); else setTokenRectDensity(cl.id, i, v);
-      if (clusterRectDensitySetters[cl.id]) clusterRectDensitySetters[cl.id]();
-    });
-    shiftBody.appendChild(rdRow);
-
-    // ── BIOS ─────────────────────────────────
-    const biosBody = makeGroup('BIOS');
-    const desireLine = document.createElement('div');
-    desireLine.className = 'tr-trait-line';
-    desireLine.id = `dline-${cl.id}-${i}`;
-    const curState = getBiosState(cl.id, i);
-    desireLine.innerHTML = `<div class="dlang-btns"><button class="dlang-btn${curState===true?' active':''}" data-val="on">ON</button><button class="dlang-btn${curState===false?' active':''}" data-val="off">OFF</button></div>`;
-    desireLine.querySelectorAll('.dlang-btn').forEach(btn => {
-      btn.addEventListener('click', e => {
-        e.stopPropagation();
-        const val = btn.dataset.val === 'on';
-        const current = getBiosState(cl.id, i);
-        if (current === val) {
-          clearBiosState(cl.id, i);
-        } else {
-          setBiosOn(cl.id, i, val);
-          if (val && clusterBiosTriggers[cl.id]) clusterBiosTriggers[cl.id](i);
-        }
-        const newState = getBiosState(cl.id, i);
-        desireLine.querySelectorAll('.dlang-btn').forEach(b => {
-          b.classList.toggle('active', newState === true && b.dataset.val === 'on' || newState === false && b.dataset.val === 'off');
-        });
-        const statEl = document.getElementById(`dstat-${cl.id}`);
-        if (statEl) statEl.textContent = clusterBiosStatText(cl);
+    if (td.hasSz) {
+      const { row: szRow, btns: szBtns } = makeRow('Sz.');
+      makeBtnGroup(szBtns, [{label:'small',value:'sm'},{label:'medium',value:'md'},{label:'large',value:'lg'},{label:'x-large',value:'xl'}], getTokenSize(mod.id, i), v => {
+        if (v === null) clearTokenSize(mod.id, i); else setTokenSize(mod.id, i, v);
+        if (moduloSizeSetters[mod.id]) moduloSizeSetters[mod.id](moduloDominantSize(mod));
+        const el = document.getElementById(`sz-${mod.id}`); if (el) el.textContent = moduloDominantSize(mod) || '-';
       });
-    });
-    biosBody.appendChild(desireLine);
+      dtBody.appendChild(szRow);
+    }
 
-    // Trash button — independent of any trait group. Lives directly inside
-    // .tr-traits so removing BIOS (or any group) won't take it with it.
-    const trash = document.createElement('button');
-    trash.className = 'tr-trash' + (cl.tokens.length <= 1 ? ' disabled' : '');
-    trash.title = 'remove token';
-    trash.innerHTML = '<svg viewBox="0 0 12 14" width="10" height="12">'
-      + '<path d="M1 3h10M4 3V1.5h4V3M2.5 3l0.5 9.5h6l0.5-9.5M5 5v5M7 5v5" '
-      + 'stroke="currentColor" fill="none" stroke-width="0.9" '
-      + 'stroke-linecap="round" stroke-linejoin="round"/></svg>';
-    trash.addEventListener('click', e => {
-      e.stopPropagation();
-      if (trash.classList.contains('disabled')) return;
-      removeTokenFromCluster(cl.id, i);
-    });
-    traits.appendChild(trash);
+    if (td.hasMode) {
+      const { row: modeRow, btns: modeBtns } = makeRow('M.');
+      makeBtnGroup(modeBtns, ['feedback','shift','noise','modulo','balanced'], getTokenMode(mod.id, i), v => {
+        if (v === null) clearTokenMode(mod.id, i); else setTokenMode(mod.id, i, v);
+        if (moduloModeSetters[mod.id]) moduloModeSetters[mod.id]();
+      });
+      dtBody.appendChild(modeRow);
+    }
+
+    // ── Shift (only if token has RS or RD) ───
+    if (td.hasRS || td.hasRD) {
+      const shiftBody = makeGroup('Shift');
+
+      if (td.hasRS) {
+        const { row: rsRow, btns: rsBtns } = makeRow('RS.');
+        makeBtnGroup(rsBtns, [{label:'small',value:'sm'},{label:'medium',value:'md'},{label:'large',value:'lg'},{label:'x-large',value:'xl'}], getTokenRectSize(mod.id, i), v => {
+          if (v === null) clearTokenRectSize(mod.id, i); else setTokenRectSize(mod.id, i, v);
+          if (moduloRectSizeSetters[mod.id]) moduloRectSizeSetters[mod.id]();
+        });
+        shiftBody.appendChild(rsRow);
+      }
+
+      if (td.hasRD) {
+        const { row: rdRow, btns: rdBtns } = makeRow('RD.');
+        makeBtnGroup(rdBtns, [{label:'low',value:'lo'},{label:'medium',value:'md'},{label:'high',value:'hi'},{label:'max',value:'mx'}], getTokenRectDensity(mod.id, i), v => {
+          if (v === null) clearTokenRectDensity(mod.id, i); else setTokenRectDensity(mod.id, i, v);
+          if (moduloRectDensitySetters[mod.id]) moduloRectDensitySetters[mod.id]();
+        });
+        shiftBody.appendChild(rdRow);
+      }
+    }
+
+    // ── BIOS (only if token has hasBios) ─────
+    if (td.hasBios) {
+      const biosBody = makeGroup('BIOS');
+      const desireLine = document.createElement('div');
+      desireLine.className = 'tr-trait-line';
+      desireLine.id = `dline-${mod.id}-${i}`;
+      const curState = getBiosState(mod.id, i);
+      desireLine.innerHTML = `<div class="dlang-btns"><button class="dlang-btn${curState===true?' active':''}" data-val="on">ON</button><button class="dlang-btn${curState===false?' active':''}" data-val="off">OFF</button></div>`;
+      desireLine.querySelectorAll('.dlang-btn').forEach(btn => {
+        btn.addEventListener('click', e => {
+          e.stopPropagation();
+          const val = btn.dataset.val === 'on';
+          const current = getBiosState(mod.id, i);
+          if (current === val) {
+            clearBiosState(mod.id, i);
+          } else {
+            setBiosOn(mod.id, i, val);
+            if (val && moduloBiosTriggers[mod.id]) moduloBiosTriggers[mod.id](i);
+          }
+          const newState = getBiosState(mod.id, i);
+          desireLine.querySelectorAll('.dlang-btn').forEach(b => {
+            b.classList.toggle('active', newState === true && b.dataset.val === 'on' || newState === false && b.dataset.val === 'off');
+          });
+          const statEl = document.getElementById(`dstat-${mod.id}`);
+          if (statEl) statEl.textContent = moduloBiosStatText(mod);
+        });
+      });
+      biosBody.appendChild(desireLine);
+    }
+
+    // Trash button — only for user-owned tokens. Independent of any trait group.
+    if (own) {
+      const trash = document.createElement('button');
+      trash.className = 'tr-trash' + (mod.tokens.length <= 1 ? ' disabled' : '');
+      trash.title = 'remove token';
+      trash.innerHTML = '<svg viewBox="0 0 12 14" width="10" height="12">'
+        + '<path d="M1 3h10M4 3V1.5h4V3M2.5 3l0.5 9.5h6l0.5-9.5M5 5v5M7 5v5" '
+        + 'stroke="currentColor" fill="none" stroke-width="0.9" '
+        + 'stroke-linecap="round" stroke-linejoin="round"/></svg>';
+      trash.addEventListener('click', e => {
+        e.stopPropagation();
+        if (trash.classList.contains('disabled')) return;
+        removeTokenFromModulo(mod.id, i);
+      });
+      traits.appendChild(trash);
+    }
 
     row.appendChild(header);
     row.appendChild(traits);
@@ -1378,7 +1519,7 @@ function startGlobalLoop() {
   requestAnimationFrame(loop);
 }
 
-function startAnim(canvasId, cl) {
+function startAnim(canvasId, mod) {
   const canvas = document.getElementById(canvasId);
   if (!canvas) return;
 
@@ -1422,8 +1563,8 @@ function startAnim(canvasId, cl) {
         for (let i = 0; i < _txtInst.length; i++) _txtInst[i] = null;
     }
   }
-  clusterCanvasResizers[cl.id] = resizeCanvas;
-  clusterTextResetters[cl.id]  = () => { for (let i = 0; i < _txtInst.length; i++) _txtInst[i] = null; };
+  moduloCanvasResizers[mod.id] = resizeCanvas;
+  moduloTextResetters[mod.id]  = () => { for (let i = 0; i < _txtInst.length; i++) _txtInst[i] = null; };
 
   const DT_PAL = [[0,0,0],[69,73,84],[42,11,24]];
   let PAL = [];
@@ -1436,9 +1577,9 @@ function startAnim(canvasId, cl) {
       : _txtPalIdx;
   }
   function updatePalette() {
-    PAL = cl.dtPalette ? DT_PAL : cl.tokens.reduce((acc, t, si) => {
-      if (nodeColors[cl.id][si] === -1) return acc; // deselected — excluded from palette
-      const hex = COLS_DATA[t % COLS_DATA.length][getSelIdx(cl.id, si)];
+    PAL = mod.dtPalette ? DT_PAL : mod.tokens.reduce((acc, t, si) => {
+      if (nodeColors[mod.id][si] === -1) return acc; // deselected — excluded from palette
+      const hex = COLS_DATA[(TOKEN_DATA[t] ? TOKEN_DATA[t].palette : t % COLS_DATA.length)][getSelIdx(mod.id, si)];
       acc.push([parseInt(hex.slice(1,3),16), parseInt(hex.slice(3,5),16), parseInt(hex.slice(5,7),16)]);
       return acc;
     }, []);
@@ -1450,14 +1591,14 @@ function startAnim(canvasId, cl) {
     }
     _pickTxtColors();
   }
-  clusterAnimUpdaters[cl.id] = updatePalette;
+  moduloAnimUpdaters[mod.id] = updatePalette;
   updatePalette();
 
   // idx wraps toroidally on the FULL grid
   function idx(c, r) { return ((r+GRID_ROWS)%GRID_ROWS)*GRID_COLS+((c+GRID_COLS)%GRID_COLS); }
 
   // makeRect spawns anywhere in the full grid, size scaled by _sizeScale
-  let _sizeScale = SIZE_SCALES[clusterDominantSize(cl)] || 1.0;
+  let _sizeScale = SIZE_SCALES[moduloDominantSize(mod)] || 1.0;
   function makeRect() {
     return { x:Math.floor(Math.random()*GRID_COLS), y:Math.floor(Math.random()*GRID_ROWS),
              w:2+Math.floor(Math.random()*Math.max(1,Math.round(12*_sizeScale))),
@@ -1502,10 +1643,10 @@ function startAnim(canvasId, cl) {
   const RECT_COUNT = 10;
   let rectShifts = [];
 
-  let _rsDistinct = clusterDistinctRectSizes(cl);
+  let _rsDistinct = moduloDistinctRectSizes(mod);
   let _rsCycleIdx = 0, _rsCycleFrames = 0;
   let _rsSize = _rsDistinct[0] || 'md';
-  let _rdDistinct = clusterDistinctRectDensities(cl);
+  let _rdDistinct = moduloDistinctRectDensities(mod);
   let _rdCycleIdx = 0, _rdCycleFrames = 0;
   let _rdDensity = _rdDistinct[0] || 'md';
   function makeRandomRect() {
@@ -1696,8 +1837,8 @@ function startAnim(canvasId, cl) {
   }
 
   function pickText(slotIdx) {
-    if (slotIdx === undefined) slotIdx = Math.floor(Math.random() * cl.tokens.length);
-    const t       = cl.tokens[slotIdx];
+    if (slotIdx === undefined) slotIdx = Math.floor(Math.random() * mod.tokens.length);
+    const t       = mod.tokens[slotIdx];
     const entries = BIOS_DATA['en'];
     const entry   = entries[t % entries.length];
     const s       = 1;
@@ -1922,7 +2063,7 @@ function startAnim(canvasId, cl) {
     balanced: [0.30, 0.25, 0.20, 0.25],
   };
   const CYCLE_FRAMES = 300; // 5s at 60fps
-  let _cycleModes = clusterDistinctModes(cl);
+  let _cycleModes = moduloDistinctModes(mod);
   let _cycleIdx   = 0;
   let _cycleFrames = 0;
   let _dtMode = _cycleModes[0] || 'balanced';
@@ -1965,7 +2106,7 @@ function startAnim(canvasId, cl) {
     _churnDither();
     _txtFrame++;
     if (_txtFrame % BIOS_CYCLE === 0) {
-      const onIdxs = cl.tokens.map((t, i) => i).filter(i => getBiosOn(cl.id, i));
+      const onIdxs = mod.tokens.map((t, i) => i).filter(i => getBiosOn(mod.id, i));
       if (onIdxs.length === 1) {
         pickText(onIdxs[0]);
       } else if (onIdxs.length > 1) {
@@ -2004,7 +2145,7 @@ function startAnim(canvasId, cl) {
   }
   function render() {
     paintTo(canvas, ctx);
-    if (expandedClusterId === cl.id) {
+    if (expandedModuloId === mod.id) {
       const ec = document.getElementById('expand-canvas');
       if (ec) {
         const ectx = ec.getContext('2d');
@@ -2017,31 +2158,31 @@ function startAnim(canvasId, cl) {
   let isVisible = true;
   const observer = new IntersectionObserver(e => { isVisible=e[0].isIntersecting; }, { threshold:0 });
   observer.observe(canvas);
-  const initDtOps = clusterTokenOps[cl.id] ? clusterTokenOps[cl.id].reduce((a, v) => a + (v || 0), 0) : 14;
+  const initDtOps = moduloTokenOps[mod.id] ? moduloTokenOps[mod.id].reduce((a, v) => a + (v || 0), 0) : 14;
   const animObj = { step, render, stampBios: _stampBiosToGrid, applyRects: applyRectShifts, dtOps: initDtOps, isVisibleFn:()=>isVisible };
   globalAnims.push(animObj);
-  clusterSpeedSetters[cl.id] = (ops) => { animObj.dtOps = ops; };
-  clusterSizeSetters[cl.id]        = (sz) => { _sizeScale  = SIZE_SCALES[sz]  || 1.0; };
-  clusterRectSizeSetters[cl.id] = () => {
-    _rsDistinct = clusterDistinctRectSizes(cl);
+  moduloSpeedSetters[mod.id] = (ops) => { animObj.dtOps = ops; };
+  moduloSizeSetters[mod.id]        = (sz) => { _sizeScale  = SIZE_SCALES[sz]  || 1.0; };
+  moduloRectSizeSetters[mod.id] = () => {
+    _rsDistinct = moduloDistinctRectSizes(mod);
     _rsCycleIdx = 0; _rsCycleFrames = 0; _rsSize = _rsDistinct[0] || 'md';
-    const el = document.getElementById(`rs-${cl.id}`);
+    const el = document.getElementById(`rs-${mod.id}`);
     if (el) el.textContent = _rsDistinct.length ? _rsDistinct.join('/') : '-';
   };
-  clusterRectDensitySetters[cl.id] = () => {
-    _rdDistinct = clusterDistinctRectDensities(cl);
+  moduloRectDensitySetters[mod.id] = () => {
+    _rdDistinct = moduloDistinctRectDensities(mod);
     _rdCycleIdx = 0; _rdCycleFrames = 0; _rdDensity = _rdDistinct[0] || 'md';
-    const el = document.getElementById(`rd-${cl.id}`);
+    const el = document.getElementById(`rd-${mod.id}`);
     if (el) el.textContent = _rdDistinct.length ? _rdDistinct.join('/') : '-';
   };
-  clusterModeSetters[cl.id] = () => {
-    _cycleModes = clusterDistinctModes(cl);
+  moduloModeSetters[mod.id] = () => {
+    _cycleModes = moduloDistinctModes(mod);
     _cycleIdx = 0; _cycleFrames = 0;
     _dtMode = _cycleModes[0] || 'balanced';
-    const statEl = document.getElementById(`mstat-${cl.id}`);
+    const statEl = document.getElementById(`mstat-${mod.id}`);
     if (statEl) statEl.textContent = _cycleModes.length ? _cycleModes.map(m => MODE_ABBR[m] || m).join('/') : '-';
   };
-  clusterBiosTriggers[cl.id] = (slotIdx) => pickText(slotIdx);
+  moduloBiosTriggers[mod.id] = (slotIdx) => pickText(slotIdx);
 }
 
 // ═══════════════════════════════════════════════════════
@@ -2051,16 +2192,16 @@ const viewport = document.getElementById('viewport');
 let tx=0, ty=0, scale=1, dragging=false, dsx=0, dsy=0, dtx=0, dty=0;
 let _panRAF=null;
 
-// Zoom limits: MIN = fit all clusters, MAX = 2.5×
+// Zoom limits: MIN = fit all modulos, MAX = 2.5×
 const MAX_SCALE = 2.5;
 let   MIN_SCALE = 0.3; // recalculated on init/resize
 
 function calcMinScale() {
   const pad = 80;
-  const minCx = Math.min(...CLUSTERS.map(c => c.cx)) - CARD_W/2 - pad;
-  const maxCx = Math.max(...CLUSTERS.map(c => c.cx)) + CARD_W/2 + pad;
-  const minCy = Math.min(...CLUSTERS.map(c => c.cy)) - CARD_H/2 - pad;
-  const maxCy = Math.max(...CLUSTERS.map(c => c.cy)) + CARD_H/2 + pad;
+  const minCx = Math.min(...MODULOS.map(c => c.cx)) - CARD_W/2 - pad;
+  const maxCx = Math.max(...MODULOS.map(c => c.cx)) + CARD_W/2 + pad;
+  const minCy = Math.min(...MODULOS.map(c => c.cy)) - CARD_H/2 - pad;
+  const maxCy = Math.max(...MODULOS.map(c => c.cy)) + CARD_H/2 + pad;
   return Math.min(viewport.offsetWidth  / (maxCx - minCx),
                   viewport.offsetHeight / (maxCy - minCy));
 }
@@ -2101,15 +2242,15 @@ function initCamera() {
   MIN_SCALE = calcMinScale() * 1.5;
   scale = NAV_SCALE;
   const vw = viewport.offsetWidth, vh = viewport.offsetHeight;
-  // Start centered on the first cluster at 1:1 scale
-  const first = CLUSTERS[0];
+  // Start centered on the first modulo at 1:1 scale
+  const first = MODULOS[0];
   setTransform(vw/2 - first.cx * scale, vh/2 - first.cy * scale, scale);
 }
 
 // ── Wheel zoom (zoom toward cursor) ──
 viewport.addEventListener('wheel', e => {
   // If the event originates inside a scrollable element, let it scroll natively
-  // (checked first so the cluster card's token list stays scrollable even when
+  // (checked first so the modulo card's token list stays scrollable even when
   // the inventory is open).
   let el = e.target;
   while (el && el !== viewport) {
@@ -2120,7 +2261,7 @@ viewport.addEventListener('wheel', e => {
     el = el.parentElement;
   }
   // Block world-zoom when expand or inventory is open
-  if (expandedClusterId || inventoryClusterId) { e.preventDefault(); return; }
+  if (expandedModuloId || inventoryModuloId) { e.preventDefault(); return; }
   e.preventDefault();
   const factor   = e.deltaY < 0 ? 1.08 : 1/1.08;
   const newScale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, scale * factor));
@@ -2134,14 +2275,14 @@ viewport.addEventListener('wheel', e => {
   const worldY = (mouseY - ty) / scale;
 
   setTransform(mouseX - worldX * newScale, mouseY - worldY * newScale, newScale);
-  Object.values(clusterCanvasResizers).forEach(fn => fn(newScale));
+  Object.values(moduloCanvasResizers).forEach(fn => fn(newScale));
 }, { passive: false });
 
 // Drag: allow pan from background OR card titlebars; block from card interactive content
 viewport.addEventListener('mousedown', e => {
-  if (expandedClusterId || inventoryClusterId) return;
+  if (expandedModuloId || inventoryModuloId) return;
   const blocked = e.target.closest(
-    '.tr-colors-inline,.token-list,.add-row,.card-settle-btn,.overlay,.cluster-nav,.minimap,.fps-counter,#inventory-overlay'
+    '.tr-colors-inline,.token-list,.add-row,.card-settle-btn,.overlay,.modulo-nav,.minimap,.fps-counter,#inventory-overlay'
   );
   if (blocked) return;
   dragging=true; viewport.classList.add('dragging');
@@ -2154,7 +2295,7 @@ window.addEventListener('mousemove', e => {
 window.addEventListener('mouseup', () => { dragging=false; viewport.classList.remove('dragging'); });
 
 viewport.addEventListener('touchstart', e => {
-  if (expandedClusterId || inventoryClusterId) return;
+  if (expandedModuloId || inventoryModuloId) return;
   const blocked = e.target.closest(
     '.tr-colors-inline,.token-list,.add-row,.card-settle-btn,.overlay,#inventory-overlay'
   );
@@ -2186,9 +2327,9 @@ function _drawMinimapNow() {
   const WSIZE=4500, mm=Math.min(cw/WSIZE,ch/WSIZE)*0.88; // mm = minimap px/world-px
   const ox=(cw-WSIZE*mm)/2, oy=(ch-WSIZE*mm)/2;
 
-  // Draw cluster card rects
-  CLUSTERS.forEach(cl => {
-    const rx=ox+(cl.cx-CARD_W/2)*mm, ry=oy+(cl.cy-CARD_H/2)*mm;
+  // Draw modulo card rects
+  MODULOS.forEach(mod => {
+    const rx=ox+(mod.cx-CARD_W/2)*mm, ry=oy+(mod.cy-CARD_H/2)*mm;
     const rw=CARD_W*mm, rh=CARD_H*mm;
     ctx.fillStyle=isNight?'rgba(99,99,255,0.35)':'rgba(50,50,180,0.25)';
     ctx.fillRect(rx,ry,rw,rh);
@@ -2211,11 +2352,12 @@ function _drawMinimapNow() {
 // ═══════════════════════════════════════════════════════
 const NAV_SCALE = 1.8; // scale used on page load and when navigating via menu
 
-function flyToCluster(cl) {
+function flyToModulo(mod) {
+  if (expandedModuloId) return;
   const vw=viewport.offsetWidth, vh=viewport.offsetHeight;
   const targetScale = NAV_SCALE;
-  const targetX = vw/2 - cl.cx * targetScale;
-  const targetY = vh/2 - cl.cy * targetScale;
+  const targetX = vw/2 - mod.cx * targetScale;
+  const targetY = vh/2 - mod.cy * targetScale;
   const startX=tx, startY=ty, startScale=scale;
   const dx=targetX-startX, dy=targetY-startY, ds=targetScale-startScale;
   const duration=420, start=performance.now();
@@ -2225,7 +2367,7 @@ function flyToCluster(cl) {
     const e=ease(t);
     const curScale = startScale+ds*e;
     setTransform(startX+dx*e, startY+dy*e, curScale);
-    Object.values(clusterCanvasResizers).forEach(fn => fn(curScale));
+    Object.values(moduloCanvasResizers).forEach(fn => fn(curScale));
     if (t<1) requestAnimationFrame(step);
   }
   requestAnimationFrame(step);
@@ -2255,14 +2397,14 @@ expandTab.addEventListener('click', e => {
   setExpandSidebar(!_expandSidebarOpen);
 });
 
-function openExpand(clusterId, cardEl) {
-  if (expandedClusterId) return; // guard: already open
+function openExpand(moduloId, cardEl) {
+  if (expandedModuloId) return; // guard: already open
   // Close the inventory first — they share the same screen space and expanding
-  // a cluster shouldn't leave the inventory floating over the expanded canvas.
-  if (inventoryClusterId) closeInventory();
-  expandedClusterId = clusterId;
+  // a modulo shouldn't leave the inventory floating over the expanded canvas.
+  if (inventoryModuloId) closeInventory();
+  expandedModuloId = moduloId;
   _expandCardEl = cardEl || null;
-  document.getElementById('expand-tbar-title').textContent = clusterId;
+  document.getElementById('expand-tbar-title').textContent = moduloId;
 
   const PIXEL = 6, GRID_COLS = 450, GRID_ROWS = 250;
   const dispW = Math.min(window.innerWidth * 0.96, (window.innerHeight * 0.90 - 28) * 1.78);
@@ -2275,7 +2417,7 @@ function openExpand(clusterId, cardEl) {
   expandCanvas.style.height = '';
 
   // Move card-left into sidebar
-  const cardLeft = document.getElementById(`left-${clusterId}`);
+  const cardLeft = document.getElementById(`left-${moduloId}`);
   if (cardLeft) {
     _expandLeftParent = cardLeft.parentElement;
     cardLeft.classList.add('card-left-expanded');
@@ -2309,7 +2451,7 @@ function openExpand(clusterId, cardEl) {
   expandWindow.style.opacity    = '1';
 }
 
-function _restoreCardLeft(clusterId) {
+function _restoreCardLeft(moduloId) {
   const cardLeft = expandSidebarIn.querySelector('.card-left-expanded');
   if (cardLeft && _expandLeftParent) {
     cardLeft.classList.remove('card-left-expanded');
@@ -2321,13 +2463,13 @@ function _restoreCardLeft(clusterId) {
 }
 
 function closeExpand() {
-  const clusterId = expandedClusterId;
+  const moduloId = expandedModuloId;
   // Close any open inline inventory so it doesn't persist into the regular card view.
   // snap=true: bypass max-height transition since card-left is about to be relocated.
-  if (inlineInventoryClId) closeInlineInventory(inlineInventoryClId, true);
+  if (inlineInventoryModId) closeInlineInventory(inlineInventoryModId, true);
   // Restore card-left and unlock pan immediately (before animation)
-  _restoreCardLeft(clusterId);
-  expandedClusterId = null;
+  _restoreCardLeft(moduloId);
+  expandedModuloId = null;
 
   if (_expandCardEl) {
     const cardEl    = _expandCardEl;
@@ -2388,16 +2530,23 @@ function _buildInventoryTile(tokenNum, onClick) {
 }
 
 // ── Inline inventory (in-place panel inside card-left-expanded) ─────────
-function renderInlineInventory(clId) {
-  const cl = CLUSTERS.find(c => c.id === clId);
-  const panel = document.getElementById(`inv-panel-${clId}`);
-  if (!cl || !panel) return;
+function renderInlineInventory(modId) {
+  const mod = MODULOS.find(c => c.id === modId);
+  const panel = document.getElementById(`inv-panel-${modId}`);
+  if (!mod || !panel) return;
   panel.innerHTML = '';
-  const full = cl.tokens.length >= 8;
+
+  // Info header: available tokens + slots
+  const info = document.createElement('div');
+  info.className = 'inv-panel-info';
+  info.textContent = `${tokenInventory.length} available · slots ${mod.tokens.length}/8`;
+  panel.appendChild(info);
+
+  const full = mod.tokens.length >= 8;
   if (full) {
     const m = document.createElement('div');
     m.className = 'inv-empty';
-    m.textContent = 'cluster full (8/8)';
+    m.textContent = 'modulo full (8/8)';
     panel.appendChild(m);
     return;
   }
@@ -2410,27 +2559,24 @@ function renderInlineInventory(clId) {
   }
   tokenInventory.forEach(tokenNum => {
     panel.appendChild(_buildInventoryTile(tokenNum, tn => {
-      addTokenToCluster(clId, tn);
-      // buildLeft (called by addTokenToCluster) re-creates the panel and the
-      // restore-open hook at the end of buildLeft handles re-rendering +
-      // re-opening without transition. Nothing else to do here.
+      addTokenToModulo(modId, tn);
     }));
   });
 }
 
-function openInlineInventory(clId) {
-  if (inlineInventoryClId && inlineInventoryClId !== clId) {
-    closeInlineInventory(inlineInventoryClId);
+function openInlineInventory(modId) {
+  if (inlineInventoryModId && inlineInventoryModId !== modId) {
+    closeInlineInventory(inlineInventoryModId);
   }
-  inlineInventoryClId = clId;
-  const panel = document.getElementById(`inv-panel-${clId}`);
+  inlineInventoryModId = modId;
+  const panel = document.getElementById(`inv-panel-${modId}`);
   if (!panel) return;
-  renderInlineInventory(clId);
+  renderInlineInventory(modId);
   panel.classList.add('open');
 }
 
-function closeInlineInventory(clId, snap) {
-  const id = clId || inlineInventoryClId;
+function closeInlineInventory(modId, snap) {
+  const id = modId || inlineInventoryModId;
   if (!id) return;
   const panel = document.getElementById(`inv-panel-${id}`);
   if (panel) {
@@ -2446,22 +2592,22 @@ function closeInlineInventory(clId, snap) {
       setTimeout(() => { if (panel && !panel.classList.contains('open')) panel.innerHTML = ''; }, 350);
     }
   }
-  if (inlineInventoryClId === id) inlineInventoryClId = null;
+  if (inlineInventoryModId === id) inlineInventoryModId = null;
 }
 
 function renderInventoryGrid() {
-  const cl = CLUSTERS.find(c => c.id === inventoryClusterId);
-  if (!cl) return;
-  const full = cl.tokens.length >= 8;
+  const mod = MODULOS.find(c => c.id === inventoryModuloId);
+  if (!mod) return;
+  const full = mod.tokens.length >= 8;
   inventoryGrid.innerHTML = '';
   inventoryTitle.textContent = '';
   inventoryCount.textContent =
-    `${tokenInventory.length} available · target ${cl.tokens.length}/8`;
+    `${tokenInventory.length} available · slots ${mod.tokens.length}/8`;
 
   if (full) {
     const msg = document.createElement('div');
     msg.className = 'inv-empty';
-    msg.textContent = 'cluster full (8/8)';
+    msg.textContent = 'modulo full (8/8)';
     inventoryGrid.appendChild(msg);
   } else if (tokenInventory.length === 0) {
     const msg = document.createElement('div');
@@ -2470,11 +2616,11 @@ function renderInventoryGrid() {
     inventoryGrid.appendChild(msg);
   } else {
     tokenInventory.forEach(tokenNum => {
-      // addTokenToCluster already re-renders the grid at the end via the
-      // "if (inventoryClusterId === clId) renderInventoryGrid()" hook,
+      // addTokenToModulo already re-renders the grid at the end via the
+      // "if (inventoryModuloId === modId) renderInventoryGrid()" hook,
       // so no second call is needed here.
       inventoryGrid.appendChild(_buildInventoryTile(tokenNum, tn => {
-        addTokenToCluster(inventoryClusterId, tn);
+        addTokenToModulo(inventoryModuloId, tn);
       }));
     });
   }
@@ -2488,22 +2634,22 @@ function renderInventoryGrid() {
 }
 
 // Re-anchors the inventory window so its bottom stays aligned with the + button
-// and its right edge stays next to the cluster card. Called after content
+// and its right edge stays next to the modulo card. Called after content
 // changes (add/remove token) so the window shrinks/grows from the top.
 function _positionInventoryToBtn() {
   // Refresh the cached + button — buildLeft replaces DOM nodes, so the
-  // stored reference may be stale after addTokenToCluster.
+  // stored reference may be stale after addTokenToModulo.
   let btnEl = _invBtnEl;
   if (!btnEl || !btnEl.isConnected) {
-    btnEl = document.getElementById(`add-${inventoryClusterId}`);
+    btnEl = document.getElementById(`add-${inventoryModuloId}`);
     if (btnEl) _invBtnEl = btnEl;
   }
   if (!btnEl) return;
 
   const cardLeft    = btnEl.closest('.card-left');
-  const clusterCard = btnEl.closest('.cluster-card');
+  const moduloCard = btnEl.closest('.modulo-card');
   const anchorRect  = (cardLeft || btnEl).getBoundingClientRect();
-  const cardRect    = (clusterCard || cardLeft || btnEl).getBoundingClientRect();
+  const cardRect    = (moduloCard || cardLeft || btnEl).getBoundingClientRect();
   const btnRect     = btnEl.getBoundingClientRect();
 
   // Cap to card height (pre-zoom CSS pixels because the window has zoom:scale)
@@ -2518,7 +2664,7 @@ function _positionInventoryToBtn() {
   let left = anchorRect.left - GAP - winW;
   let top  = btnRect.bottom - winH;
 
-  // Clamp vertically to the cluster card bounds
+  // Clamp vertically to the modulo card bounds
   if (top < cardRect.top)           top = cardRect.top;
   if (top + winH > cardRect.bottom) top = cardRect.bottom - winH;
 
@@ -2534,51 +2680,51 @@ function _positionInventoryToBtn() {
   inventoryWindow.style.top  = ((top  - ovRect.top ) / scale) + 'px';
 }
 
-function addTokenToCluster(clId, tokenNum) {
-  const cl = CLUSTERS.find(c => c.id === clId);
-  if (!cl || cl.tokens.length >= 8) return;
+function addTokenToModulo(modId, tokenNum) {
+  if (!isOwnToken(tokenNum)) return; // can only add your own tokens
+  const mod = MODULOS.find(c => c.id === modId);
+  if (!mod || mod.tokens.length >= 8) return;
   const invIdx = tokenInventory.indexOf(tokenNum);
   if (invIdx === -1) return;
 
-  // Move from inventory → cluster
+  // Move from inventory → modulo
   tokenInventory.splice(invIdx, 1);
-  const slotIdx = cl.tokens.length;
-  cl.tokens.push(tokenNum);
+  const slotIdx = mod.tokens.length;
+  mod.tokens.push(tokenNum);
 
-  // Init default color selection for new slot
-  const d = SEL[tokenNum % SEL.length];
-  if (!nodeColors[clId]) nodeColors[clId] = {};
-  nodeColors[clId][slotIdx] = d >= 0 ? d : 0;
+  // Init color + pre-set traits from TOKEN_DATA
+  if (!nodeColors[modId]) nodeColors[modId] = {};
+  _initTokenTraits(modId, slotIdx, tokenNum);
 
   // Rebuild left panel (stats + token list + add-row).
-  // buildTokenList re-inits clusterTokenOps[clId][i] for every slot including the new one.
-  buildLeft(cl);
+  // buildTokenList re-inits moduloTokenOps[modId][i] for every slot including the new one.
+  buildLeft(mod);
 
   // Refresh animation palette so the new color joins the mix
-  if (clusterAnimUpdaters[clId]) clusterAnimUpdaters[clId]();
+  if (moduloAnimUpdaters[modId]) moduloAnimUpdaters[modId]();
 
   // Push fresh total ops to the animation so dtOps reflects the new token
-  if (clusterSpeedSetters[clId] && clusterTokenOps[clId]) {
-    const total = clusterTokenOps[clId].reduce((a, v) => a + (v || 0), 0);
-    clusterSpeedSetters[clId](total);
-    const statEl = document.getElementById(`spd-${clId}`);
+  if (moduloSpeedSetters[modId] && moduloTokenOps[modId]) {
+    const total = moduloTokenOps[modId].reduce((a, v) => a + (v || 0), 0);
+    moduloSpeedSetters[modId](total);
+    const statEl = document.getElementById(`spd-${modId}`);
     if (statEl) statEl.textContent = total;
   }
 
-  // Update navigator count
-  const navItem = document.querySelector(`#cluster-nav [data-clid="${clId}"] .cluster-nav-count`);
-  if (navItem) navItem.textContent = `${cl.tokens.length}n`;
+  // Update navigator battery + global counter
+  updateNavBattery(modId, mod.tokens.length);
+  updatePillTokens();
 
-  // If the floating inventory is open for this cluster, refresh its grid so
+  // If the floating inventory is open for this modulo, refresh its grid so
   // the added token disappears from the tile list
-  if (inventoryClusterId === clId) renderInventoryGrid();
+  if (inventoryModuloId === modId) renderInventoryGrid();
 }
 
 // Shift all numerically-keyed entries in an object down one position, dropping
 // the entry at `removedIdx`. Used to keep per-slot state maps aligned after
-// removing a token from a cluster.
-function _shiftSlotMapDown(map, clId, removedIdx) {
-  const obj = map && map[clId];
+// removing a token from a modulo.
+function _shiftSlotMapDown(map, modId, removedIdx) {
+  const obj = map && map[modId];
   if (!obj) return;
   const keys = Object.keys(obj).map(Number).sort((a, b) => a - b);
   for (const idx of keys) {
@@ -2590,64 +2736,65 @@ function _shiftSlotMapDown(map, clId, removedIdx) {
   }
 }
 
-function removeTokenFromCluster(clId, slotIdx) {
-  const cl = CLUSTERS.find(c => c.id === clId);
-  if (!cl) return;
-  if (slotIdx < 0 || slotIdx >= cl.tokens.length) return;
-  if (cl.tokens.length <= 1) return; // keep at least 1 token per cluster
+function removeTokenFromModulo(modId, slotIdx) {
+  const mod = MODULOS.find(c => c.id === modId);
+  if (!mod) return;
+  if (slotIdx < 0 || slotIdx >= mod.tokens.length) return;
+  if (!isOwnToken(mod.tokens[slotIdx])) return; // can only remove your own tokens
+  if (mod.tokens.length <= 1) return; // keep at least 1 token per modulo
 
-  const [tokenNum] = cl.tokens.splice(slotIdx, 1);
+  const [tokenNum] = mod.tokens.splice(slotIdx, 1);
 
-  // If it was a virgin inventory token, send it back to the pool
-  if (tokenNum >= INVENTORY_START && !tokenInventory.includes(tokenNum)) {
+  // Return user-owned token to inventory
+  if (isOwnToken(tokenNum) && !tokenInventory.includes(tokenNum)) {
     tokenInventory.push(tokenNum);
     tokenInventory.sort((a, b) => a - b);
   }
 
   // Shift all per-slot state maps down so the remaining slots stay aligned
-  _shiftSlotMapDown(nodeColors,         clId, slotIdx);
-  _shiftSlotMapDown(tokenModes,         clId, slotIdx);
-  _shiftSlotMapDown(tokenSizes,         clId, slotIdx);
-  _shiftSlotMapDown(tokenRectSizes,     clId, slotIdx);
-  _shiftSlotMapDown(tokenRectDensities, clId, slotIdx);
-  _shiftSlotMapDown(biosStates,         clId, slotIdx);
-  // clusterTokenOps is a regular array — splice handles the shift
-  if (clusterTokenOps[clId]) clusterTokenOps[clId].splice(slotIdx, 1);
+  _shiftSlotMapDown(nodeColors,         modId, slotIdx);
+  _shiftSlotMapDown(tokenModes,         modId, slotIdx);
+  _shiftSlotMapDown(tokenSizes,         modId, slotIdx);
+  _shiftSlotMapDown(tokenRectSizes,     modId, slotIdx);
+  _shiftSlotMapDown(tokenRectDensities, modId, slotIdx);
+  _shiftSlotMapDown(biosStates,         modId, slotIdx);
+  // moduloTokenOps is a regular array — splice handles the shift
+  if (moduloTokenOps[modId]) moduloTokenOps[modId].splice(slotIdx, 1);
 
   // Keep featuredIdx in range
-  if (featuredIdx[clId] != null && featuredIdx[clId] >= cl.tokens.length) {
-    featuredIdx[clId] = Math.max(0, cl.tokens.length - 1);
+  if (featuredIdx[modId] != null && featuredIdx[modId] >= mod.tokens.length) {
+    featuredIdx[modId] = Math.max(0, mod.tokens.length - 1);
   }
 
   // Rebuild the left panel and animation state
-  buildLeft(cl);
-  if (clusterAnimUpdaters[clId]) clusterAnimUpdaters[clId]();
+  buildLeft(mod);
+  if (moduloAnimUpdaters[modId]) moduloAnimUpdaters[modId]();
 
-  if (clusterSpeedSetters[clId] && clusterTokenOps[clId]) {
-    const total = clusterTokenOps[clId].reduce((a, v) => a + (v || 0), 0);
-    clusterSpeedSetters[clId](total);
-    const statEl = document.getElementById(`spd-${clId}`);
+  if (moduloSpeedSetters[modId] && moduloTokenOps[modId]) {
+    const total = moduloTokenOps[modId].reduce((a, v) => a + (v || 0), 0);
+    moduloSpeedSetters[modId](total);
+    const statEl = document.getElementById(`spd-${modId}`);
     if (statEl) statEl.textContent = total;
   }
 
-  // Update navigator count
-  const navItem = document.querySelector(`#cluster-nav [data-clid="${clId}"] .cluster-nav-count`);
-  if (navItem) navItem.textContent = `${cl.tokens.length}n`;
+  // Update navigator battery + global counter
+  updateNavBattery(modId, mod.tokens.length);
+  updatePillTokens();
 
-  // If the inventory is currently open for this cluster, refresh it so the
+  // If the inventory is currently open for this modulo, refresh it so the
   // returned token shows up (and the count reflects the freed slot)
-  if (inventoryClusterId === clId) renderInventoryGrid();
+  if (inventoryModuloId === modId) renderInventoryGrid();
 }
 
-function openInventory(clusterId, btnEl) {
-  if (expandedClusterId) return;
-  // No-op if already open for this exact cluster
-  if (inventoryClusterId === clusterId) return;
-  // If open for a DIFFERENT cluster, snap-close it first so we can switch cleanly.
+function openInventory(moduloId, btnEl) {
+  if (expandedModuloId) return;
+  // No-op if already open for this exact modulo
+  if (inventoryModuloId === moduloId) return;
+  // If open for a DIFFERENT modulo, snap-close it first so we can switch cleanly.
   // We can't call closeInventory() here because it starts a 0.26s FLIP-back
   // transition whose transitionend handler would tear down the overlay right
   // after we reopen it.
-  if (inventoryClusterId) {
+  if (inventoryModuloId) {
     inventoryWindow.style.transition = 'none';
     inventoryWindow.style.transform  = '';
     inventoryWindow.style.opacity    = '1';
@@ -2655,10 +2802,10 @@ function openInventory(clusterId, btnEl) {
     inventoryWindow.style.top        = '0px';
     inventoryWindow.style.zoom       = '';
     inventoryOverlay.classList.remove('active');
-    inventoryClusterId = null;
+    inventoryModuloId = null;
     _invBtnEl          = null;
   }
-  inventoryClusterId = clusterId;
+  inventoryModuloId = moduloId;
   _invBtnEl = btnEl || null;
   renderInventoryGrid();
 
@@ -2669,17 +2816,17 @@ function openInventory(clusterId, btnEl) {
   inventoryWindow.style.left       = '0px';
   inventoryWindow.style.top        = '0px';
   // Match the world's zoom so the inventory's 9px text renders at the same
-  // visual size as the cluster card's 9px text (which lives inside #world-zoom)
+  // visual size as the modulo card's 9px text (which lives inside #world-zoom)
   inventoryWindow.style.zoom       = String(scale);
   inventoryOverlay.classList.add('active');
 
   if (!btnEl) return;
 
-  // Measure the card-left panel, the containing cluster card, and the + button
+  // Measure the card-left panel, the containing modulo card, and the + button
   const cardLeft     = btnEl.closest('.card-left');
-  const clusterCard  = btnEl.closest('.cluster-card');
+  const moduloCard  = btnEl.closest('.modulo-card');
   const anchorRect   = (cardLeft || btnEl).getBoundingClientRect();
-  const cardRect     = (clusterCard || cardLeft || btnEl).getBoundingClientRect();
+  const cardRect     = (moduloCard || cardLeft || btnEl).getBoundingClientRect();
   const btnRect      = btnEl.getBoundingClientRect();
 
   // Cap the window's height (in its own zoom units) so it can never exceed the card
@@ -2697,7 +2844,7 @@ function openInventory(clusterId, btnEl) {
   let left = anchorRect.left - GAP - winW;
   let top  = btnRect.bottom - winH;
 
-  // Clamp vertically to the cluster card bounds — inventory never escapes the card
+  // Clamp vertically to the modulo card bounds — inventory never escapes the card
   if (top < cardRect.top)                     top = cardRect.top;
   if (top + winH > cardRect.bottom)           top = cardRect.bottom - winH;
 
@@ -2733,18 +2880,18 @@ function openInventory(clusterId, btnEl) {
 }
 
 function closeInventory() {
-  if (!inventoryClusterId) return;
-  const clId  = inventoryClusterId;
+  if (!inventoryModuloId) return;
+  const modId  = inventoryModuloId;
   const btnEl = _invBtnEl;
 
   // Unlock pan immediately
-  inventoryClusterId = null;
+  inventoryModuloId = null;
   _invBtnEl = null;
 
   // Prefer the live + button from the (possibly rebuilt) card
   const liveBtn = btnEl && btnEl.isConnected
     ? btnEl
-    : document.getElementById(`add-${clId}`);
+    : document.getElementById(`add-${modId}`);
 
   if (liveBtn) {
     const finalRect = inventoryWindow.getBoundingClientRect();
@@ -2781,19 +2928,45 @@ inventoryOverlay.addEventListener('click', e => {
   if (e.target === inventoryOverlay) closeInventory();
 });
 
+// Battery level: maps token count → 1..4 bars + color
+// 0-1 → level 1 (green, 1 bar)
+// 2-3 → level 2 (green, 2 bars)
+// 4-7 → level 3 (yellow, 3 bars)
+// 8   → level 4 (red, 4 bars)
+function batteryLevel(tokenCount) {
+  if (tokenCount <= 1) return 1;
+  if (tokenCount <= 3) return 2;
+  if (tokenCount <= 7) return 3;
+  return 4;
+}
+
 function buildNavigator() {
-  const nav=document.getElementById('cluster-nav');
-  CLUSTERS.forEach(cl => {
+  const nav=document.getElementById('modulo-nav');
+  MODULOS.forEach(mod => {
     const item=document.createElement('div');
-    item.className='cluster-nav-item';
-    item.dataset.clid = cl.id;
+    item.className='modulo-nav-item';
+    item.dataset.clid = mod.id;
+    const lvl = batteryLevel(mod.tokens.length);
+    const num = mod.id.replace('modulo_','');
     item.innerHTML=`
-      <div class="cluster-nav-dot"></div>
-      <span class="cluster-nav-name">${cl.id.replace('_',' ')}</span>
-      <span class="cluster-nav-count">${cl.tokens.length}n</span>`;
-    item.addEventListener('click', () => flyToCluster(cl));
+      <div class="nav-battery" data-level="${lvl}">
+        <div class="nav-bar"></div>
+        <div class="nav-bar"></div>
+        <div class="nav-bar"></div>
+        <div class="nav-bar"></div>
+      </div>
+      <span class="modulo-nav-label">${num}</span>`;
+    item.addEventListener('click', () => flyToModulo(mod));
     nav.appendChild(item);
   });
+}
+
+// Updates the battery level and navigator label for a single modulo after add/remove
+function updateNavBattery(modId, tokenCount) {
+  const item = document.querySelector(`#modulo-nav [data-clid="${modId}"]`);
+  if (!item) return;
+  const battery = item.querySelector('.nav-battery');
+  if (battery) battery.dataset.level = batteryLevel(tokenCount);
 }
 
 // ═══════════════════════════════════════════════════════
@@ -2990,14 +3163,17 @@ function startBgDither() {
 // ═══════════════════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════════════════
-CLUSTERS.forEach(buildCluster);
+MODULOS.forEach(buildModulo);
 buildNavigator();
 startGlobalLoop();
 startBgDither();
 
-const totalTokens=CLUSTERS.reduce((a,c)=>a+c.tokens.length,0);
-document.getElementById('pill-tokens').textContent=`${totalTokens} tokens`;
-document.getElementById('pill-clusters').textContent=`${CLUSTERS.length} clusters`;
+function updatePillTokens() {
+  const placed = MODULOS.reduce((a,c) => a + c.tokens.length, 0);
+  document.getElementById('pill-tokens').textContent = `${placed}/${TOTAL_TOKENS} tokens`;
+}
+updatePillTokens();
+document.getElementById('pill-modulos').textContent=`${MODULOS.length} modulos`;
 
 document.getElementById('toggle').addEventListener('click', toggleMode);
 document.getElementById('overlay').addEventListener('click', e => {
