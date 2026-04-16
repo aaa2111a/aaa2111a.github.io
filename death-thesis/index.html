@@ -581,7 +581,7 @@ footer {
 
     <!-- LEFT: text -->
     <div class="token6-text">
-      <h2>The sixth piece<br>requires a sacrifice.</h2>
+      <h2>The sixth piece<br>was earned through destruction.</h2>
       <p>
         This token is different.<br>
         It is a soul trapped in an infinite loop — one that knows exactly how the story ends, yet still refuses to surrender.
@@ -590,7 +590,7 @@ footer {
       </p>
 
       <p>
-        DEATH THESIS #6 cannot be minted. It can only be claimed by burning a token from a previous collection — an act of destruction that transforms one artifact into another. The burned token disappears forever. What remains is this.
+        DEATH THESIS #6 was not minted. It was claimed by burning a token from a previous collection — an act of destruction that transformed one artifact into another. The burned token is gone forever. What remains is this.
       </p>
 
       <h3>The Reveal</h3>
@@ -737,7 +737,15 @@ footer {
 
 <script>
 
-const SEPOLIA_RPC = 'https://ethereum-rpc.publicnode.com';
+const RPC_ENDPOINTS = [
+  'https://ethereum-rpc.publicnode.com',
+  'https://eth.drpc.org',
+];
+const WS_ENDPOINTS = [
+  'wss://ethereum-rpc.publicnode.com',
+  'wss://eth.drpc.org',
+];
+const SEPOLIA_RPC = RPC_ENDPOINTS[0]; // kept for tokens 1-5 calls
 const DEATH_THESIS = '0xc2f828f4622460315dd49387c98635be7cad1c29';
 const TOKEN6_CONTRACT = '0xaB5181b1172dCc992aBddf9a8ABa6EAa78d439Ca';
 const BLOCK_DURATION = 12000;
@@ -1078,28 +1086,88 @@ function setStatus(text, ok) {
   document.getElementById('status-dot').className = 'dot' + (ok ? ' on' : '');
 }
 
-async function pollBlock() {
-  try {
-    const blk = await rpc('eth_getBlockByNumber', ['latest', false]);
-    const block = parseInt(blk.number, 16);
-    const ts    = parseInt(blk.timestamp, 16);
-    if (!connected) {
-      connected = true;
-      document.getElementById('chain-name').textContent = 'Mainnet';
-      setStatus('connected', true);
-    }
-    if (block > lastBlock) {
-      lastBlock = block;
-      blockTimestamp = ts;
-      const now = Date.now() / 1000;
-      const elapsed = Math.max(0, now - ts);
-      startBlock(block, block >>> 0, elapsed);
-    }
-  } catch(e) {
-    setStatus('rpc error — retrying', false);
+function handleNewHead(block, ts) {
+  if (!connected) {
+    connected = true;
+    document.getElementById('chain-name').textContent = 'Mainnet';
+    setStatus('connected', true);
   }
-  setTimeout(pollBlock, 4000);
+  if (block > lastBlock) {
+    lastBlock = block;
+    blockTimestamp = ts;
+    const now = Date.now() / 1000;
+    const elapsed = Math.max(0, now - ts);
+    startBlock(block, block >>> 0, elapsed);
+  }
 }
+
+// ── MULTI-PROVIDER BLOCK FEED ─────────────────────────────────────────
+let _wsActive = 0; // count of live WebSockets
+let _pollTimer = null;
+
+function _openWS(url) {
+  const ws = new WebSocket(url);
+
+  ws.onopen = function() {
+    _wsActive++;
+    if (_pollTimer) { clearTimeout(_pollTimer); _pollTimer = null; }
+    ws.send(JSON.stringify({jsonrpc:'2.0', id:1, method:'eth_subscribe', params:['newHeads']}));
+    setStatus('connected', true);
+  };
+
+  ws.onmessage = function(e) {
+    try {
+      const data = JSON.parse(e.data);
+      if (data.params && data.params.result) {
+        const h = data.params.result;
+        handleNewHead(parseInt(h.number, 16), parseInt(h.timestamp, 16));
+      }
+    } catch(_) {}
+  };
+
+  ws.onerror = function() { ws.close(); };
+
+  ws.onclose = function() {
+    _wsActive = Math.max(0, _wsActive - 1);
+    if (_wsActive === 0) {
+      setStatus('reconnecting…', false);
+      _startPollFallback();
+    }
+    setTimeout(function() { _openWS(url); }, 5000);
+  };
+}
+
+function startWebSocket() {
+  WS_ENDPOINTS.forEach(_openWS);
+}
+
+async function _rpcRace(method, params) {
+  return Promise.any(RPC_ENDPOINTS.map(url =>
+    fetch(url, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({jsonrpc:'2.0', id:1, method, params})
+    }).then(r => r.json()).then(d => { if (d.error) throw new Error(); return d.result; })
+  ));
+}
+
+function _startPollFallback() {
+  if (_pollTimer) return;
+  async function poll() {
+    if (_wsActive > 0) { _pollTimer = null; return; }
+    try {
+      const blk = await _rpcRace('eth_getBlockByNumber', ['latest', false]);
+      handleNewHead(parseInt(blk.number, 16), parseInt(blk.timestamp, 16));
+    } catch(e) {
+      setStatus('rpc error — retrying', false);
+    }
+    _pollTimer = setTimeout(poll, 2000);
+  }
+  poll();
+}
+
+// kept for tokens 1-5 (single call, no race needed)
+async function pollBlock() {}
 
 function savePNG() {
   if (animFrame) cancelAnimationFrame(animFrame);
@@ -1140,7 +1208,7 @@ function saveSVG() {
 buildFromSeed(42);
 _offsetMs = 0;
 animFrame = requestAnimationFrame(animate);
-pollBlock();
+startWebSocket();
 
 // ── TOKENS 1-5 SLIDESHOW ─────────────────────────────────────────────
 const svgCache = {};
