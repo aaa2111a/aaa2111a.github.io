@@ -362,6 +362,17 @@ html, body { width:100%; height:100%; overflow:hidden; background:#000; }
 .desire-words { font-size:8px; color:var(--sl); font-family:monospace; line-height:1.6; }
 .tr-idx { font-size:9px; font-family:monospace; color:var(--sl); min-width:22px; flex-shrink:0; }
 .tr-addr { font-size:9px; font-family:monospace; color:var(--addr-color); flex:1; }
+.tr-rank { font-size:7.5px; font-family:monospace; color:var(--sl); letter-spacing:.07em; text-transform:uppercase; flex-shrink:0; }
+/* Identity info row inside .tr-traits — ID + RANK displayed as read-only */
+.tr-ident {
+  display:flex; align-items:center; gap:6px;
+  padding:4px 0 8px;
+  border-bottom:0.5px solid var(--divider);
+  margin-bottom:5px;
+}
+.tr-ident-label { font-size:7.5px; font-family:monospace; color:var(--sl); letter-spacing:.07em; text-transform:uppercase; }
+.tr-ident-val { font-size:9px; font-family:monospace; color:var(--sv); letter-spacing:.02em; }
+.tr-ident-sep { font-size:8px; color:var(--sl); opacity:.5; }
 .tr-swatch { width:11px; height:11px; border-radius:50%; border:0.5px solid var(--node-border); flex-shrink:0; }
 
 .add-row {
@@ -887,6 +898,15 @@ for (let i = _idxPool.length - 1; i > 0; i--) {
 }
 _idxPool.slice(0, 25).forEach(i => _userSet.add(i));
 
+// Rank assignment — unique permutation of [1..TOTAL_TOKENS], no duplicates.
+// The PRNG is seeded so ranks are deterministic but unpredictable from mint order.
+const _rankPool = Array.from({ length: TOTAL_TOKENS }, (_, i) => i + 1);
+for (let i = _rankPool.length - 1; i > 0; i--) {
+  const j = Math.floor(_rng() * (i + 1));
+  [_rankPool[i], _rankPool[j]] = [_rankPool[j], _rankPool[i]];
+}
+// _rankPool[tokenId] = rank (1..TOTAL_TOKENS), unique
+
 const TOKEN_DATA = [];
 for (let i = 0; i < TOTAL_TOKENS; i++) {
   const hasSz   = _rng() < 0.70;
@@ -901,6 +921,7 @@ for (let i = 0; i < TOTAL_TOKENS; i++) {
     speed:   20 + Math.floor(_rng() * 71),
     status:  _weightedPick(['connected','locked','unconnected'], [0.60, 0.20, 0.20]),
     owner:   _userSet.has(i) ? SESSION_USER : OTHER_USERS[Math.floor(_rng() * OTHER_USERS.length)],
+    rank:    _rankPool[i],
     hasSz, hasMode, hasRS, hasRD, hasBios,
     sz:   hasSz   ? _weightedPick(['sm','md','lg','xl'], [0.10,0.45,0.30,0.15]) : null,
     mode: hasMode  ? _weightedPick(['feedback','shift','noise','modulo','balanced'], [0.30,0.15,0.25,0.10,0.20]) : null,
@@ -1040,6 +1061,14 @@ const MODULOS = [
   { id:'modulo_09', cx:WCX - COL_W + STAGGER,  cy:WCY + ROW_H*2,  tokens:[19,20,21] },
   { id:'modulo_10', cx:WCX         + STAGGER,  cy:WCY + ROW_H*2,  tokens:[22,23,24] },
 ];
+
+// Sort each modulo's tokens by rank ascending (lowest rank first)
+MODULOS.forEach(mod => {
+  mod.tokens.sort((a, b) =>
+    ((TOKEN_DATA[a] && TOKEN_DATA[a].rank) || 9999) -
+    ((TOKEN_DATA[b] && TOKEN_DATA[b].rank) || 9999)
+  );
+});
 
 const CARD_W = 700;
 const CARD_H = 418; // 28px tbar + 390px body
@@ -1296,12 +1325,13 @@ function buildTokenList(mod) {
     const row = document.createElement('div');
     row.className = 'token-row' + (own ? '' : ' locked');
 
-    // Header (always visible)
+    // Header (always visible) — shows rank instead of ID
     const header = document.createElement('div');
     header.className = 'tr-header';
+    const rank = td.rank || '—';
     header.innerHTML = `
       <div class="sdot ${st==='locked'?'lock':st==='connected'?'conn':'on'}"></div>
-      <span class="tr-idx">#${String(t).padStart(2,'0')}</span>
+      <span class="tr-idx">R#${String(rank).padStart(2,'0')}</span>
       <div class="tr-swatch" style="background:${color};"></div>
       <span class="tr-addr">${shortAddr(full)}</span>
       <span class="tr-arrow">▸</span>`;
@@ -1309,6 +1339,15 @@ function buildTokenList(mod) {
     // Traits (shown when expanded)
     const traits = document.createElement('div');
     traits.className = 'tr-traits';
+
+    // Identity info — read-only ID + RANK at the top of the expanded panel
+    const idInfo = document.createElement('div');
+    idInfo.className = 'tr-ident';
+    idInfo.innerHTML = `
+      <span class="tr-ident-label">ID</span><span class="tr-ident-val">#${String(t).padStart(2,'0')}</span>
+      <span class="tr-ident-sep">·</span>
+      <span class="tr-ident-label">RANK</span><span class="tr-ident-val">R#${String(rank).padStart(2,'0')}</span>`;
+    traits.appendChild(idInfo);
 
     function makeGroup(name) {
       const g = document.createElement('div');
@@ -1577,17 +1616,26 @@ function startAnim(canvasId, mod) {
       : _txtPalIdx;
   }
   function updatePalette() {
-    PAL = mod.dtPalette ? DT_PAL : mod.tokens.reduce((acc, t, si) => {
-      if (nodeColors[mod.id][si] === -1) return acc; // deselected — excluded from palette
-      const hex = COLS_DATA[(TOKEN_DATA[t] ? TOKEN_DATA[t].palette : t % COLS_DATA.length)][getSelIdx(mod.id, si)];
-      acc.push([parseInt(hex.slice(1,3),16), parseInt(hex.slice(3,5),16), parseInt(hex.slice(5,7),16)]);
-      return acc;
-    }, []);
-    if (PAL.length === 0) PAL = [[0,0,0]]; // safety: at least one color
-    // Re-seed full grid
+    if (mod.dtPalette) {
+      PAL = DT_PAL;
+    } else {
+      // One PAL slot per selected token, sorted by rank ascending.
+      // Rank determines ORDER (PAL[0] = rank 1, PAL[1] = rank 2, ...) but NOT
+      // slot count — distribution is perfectly equal 1/N per token.
+      const ranked = mod.tokens
+        .map((t, si) => ({ t, si, rank: (TOKEN_DATA[t] && TOKEN_DATA[t].rank) || 9999 }))
+        .filter(({ si }) => nodeColors[mod.id][si] !== -1)
+        .sort((a, b) => a.rank - b.rank);
+      PAL = ranked.map(({ t, si }) => {
+        const hex = COLS_DATA[(TOKEN_DATA[t] ? TOKEN_DATA[t].palette : t % COLS_DATA.length)][getSelIdx(mod.id, si)];
+        return [parseInt(hex.slice(1,3),16), parseInt(hex.slice(3,5),16), parseInt(hex.slice(5,7),16)];
+      });
+    }
+    if (PAL.length === 0) PAL = [[0,0,0]]; // safety
+
+    // Re-seed grid uniformly: each token gets exactly 1/N of the cells.
     for (let i = 0; i < grid.length; i++) {
-      const r = Math.random();
-      grid[i] = r < 0.55 ? 0 : r < 0.85 ? 1 % PAL.length : (2 % PAL.length) || 0;
+      grid[i] = Math.floor(Math.random() * PAL.length);
     }
     _pickTxtColors();
   }
@@ -1608,8 +1656,8 @@ function startAnim(canvasId, mod) {
   function animNoise() {
     const r=makeRect();
     for (let dy=0;dy<r.h;dy++) for (let dx=0;dx<r.w;dx++) {
-      const v=Math.random()<0.55?0:Math.floor(Math.random()*(PAL.length-1))+1;
-      next[idx(r.x+dx,r.y+dy)]=v%PAL.length;
+      // Uniform random across all PAL slots — no bias toward PAL[0]
+      next[idx(r.x+dx,r.y+dy)] = Math.floor(Math.random() * PAL.length);
     }
   }
   function animShift() {
@@ -2519,8 +2567,9 @@ function _buildInventoryTile(tokenNum, onClick) {
   const tile = document.createElement('div');
   tile.className = 'inv-tile';
   const color = tokenDefaultColor(tokenNum);
+  const rank  = (TOKEN_DATA[tokenNum] && TOKEN_DATA[tokenNum].rank) || 0;
   tile.innerHTML = `
-    <span class="inv-tile-id">#${String(tokenNum).padStart(4,'0')}</span>
+    <span class="inv-tile-id">R#${String(rank).padStart(2,'0')}</span>
     <div class="inv-tile-swatch" style="background:${color}"></div>`;
   tile.addEventListener('click', ev => {
     ev.stopPropagation();
@@ -2689,10 +2738,33 @@ function addTokenToModulo(modId, tokenNum) {
 
   // Move from inventory → modulo
   tokenInventory.splice(invIdx, 1);
-  const slotIdx = mod.tokens.length;
-  mod.tokens.push(tokenNum);
 
-  // Init color + pre-set traits from TOKEN_DATA
+  // Find rank-sorted insertion position (ascending rank)
+  const newRank = (TOKEN_DATA[tokenNum] && TOKEN_DATA[tokenNum].rank) || 9999;
+  let slotIdx = mod.tokens.length;
+  for (let i = 0; i < mod.tokens.length; i++) {
+    const r = (TOKEN_DATA[mod.tokens[i]] && TOKEN_DATA[mod.tokens[i]].rank) || 9999;
+    if (newRank < r) { slotIdx = i; break; }
+  }
+
+  // Shift all per-slot state maps UP from the insertion point to make room
+  _shiftSlotMapUp(nodeColors,         modId, slotIdx);
+  _shiftSlotMapUp(tokenModes,         modId, slotIdx);
+  _shiftSlotMapUp(tokenSizes,         modId, slotIdx);
+  _shiftSlotMapUp(tokenRectSizes,     modId, slotIdx);
+  _shiftSlotMapUp(tokenRectDensities, modId, slotIdx);
+  _shiftSlotMapUp(biosStates,         modId, slotIdx);
+  if (moduloTokenOps[modId]) moduloTokenOps[modId].splice(slotIdx, 0, 0);
+
+  // Keep featuredIdx in range (shift up if it's at or after insert point)
+  if (featuredIdx[modId] != null && featuredIdx[modId] >= slotIdx) {
+    featuredIdx[modId]++;
+  }
+
+  // Insert token at the rank-sorted position
+  mod.tokens.splice(slotIdx, 0, tokenNum);
+
+  // Init color + pre-set traits from TOKEN_DATA at the new slot
   if (!nodeColors[modId]) nodeColors[modId] = {};
   _initTokenTraits(modId, slotIdx, tokenNum);
 
@@ -2731,6 +2803,20 @@ function _shiftSlotMapDown(map, modId, removedIdx) {
     if (idx === removedIdx) { delete obj[idx]; continue; }
     if (idx > removedIdx) {
       obj[idx - 1] = obj[idx];
+      delete obj[idx];
+    }
+  }
+}
+
+// Shift all numerically-keyed entries at `fromIdx` or above UP one position,
+// to make room for an insertion. Iterates descending to avoid collisions.
+function _shiftSlotMapUp(map, modId, fromIdx) {
+  const obj = map && map[modId];
+  if (!obj) return;
+  const keys = Object.keys(obj).map(Number).sort((a, b) => b - a); // descending
+  for (const idx of keys) {
+    if (idx >= fromIdx) {
+      obj[idx + 1] = obj[idx];
       delete obj[idx];
     }
   }
