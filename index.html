@@ -649,7 +649,7 @@
 
     /* ── Activity feed ── */
     .activity-wrap {
-      padding: 48px 0;
+      padding: 0;
       width: 100%;
     }
     .activity-inner {
@@ -657,7 +657,7 @@
       margin: 0 auto;
     }
     .activity-title {
-      font-size: 11px;
+      font-size: 14px;
       letter-spacing: 0.18em;
       text-transform: uppercase;
       color: var(--muted);
@@ -685,15 +685,15 @@
       background: #111;
     }
     .activity-table td {
-      padding: 12px 8px;
-      font-size: 11px;
+      padding: 14px 10px;
+      font-size: 14px;
       font-family: 'DM Mono', monospace;
       color: var(--muted);
       vertical-align: middle;
     }
     .activity-table td.col-name {
       color: var(--fg);
-      font-size: 12px;
+      font-size: 15px;
     }
     .activity-table td.col-price {
       color: #ff003b;
@@ -707,19 +707,19 @@
       white-space: nowrap;
     }
     .activity-table td.col-collection {
-      font-size: 10px;
+      font-size: 13px;
       color: #555;
-      max-width: 130px;
+      max-width: 160px;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
     }
     .activity-header-row td {
-      font-size: 10px;
+      font-size: 13px;
       letter-spacing: 0.1em;
       text-transform: uppercase;
       color: #444;
-      padding-bottom: 8px;
+      padding-bottom: 10px;
       border-bottom: 1px solid #222;
     }
   </style>
@@ -1347,8 +1347,8 @@
         // decoder: override grid to single centered column
         var wrapper = document.querySelector('.grid-wrapper');
         var dtitle = document.getElementById('decoder-title');
-        if (cat === 'decoder') {
-          if (dtitle) dtitle.style.display = 'flex';
+        if (cat === 'decoder' || cat === 'activity') {
+          if (dtitle) dtitle.style.display = cat === 'decoder' ? 'flex' : 'none';
           _grid.style.gridTemplateColumns = '1fr';
           _grid.style.background = 'transparent';
           _grid.style.gap = '0';
