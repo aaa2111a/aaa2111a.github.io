@@ -1490,28 +1490,29 @@ const svgDecoder = (() => {
 </script>
 
 <script>
-  // ── OpenSea API key (instant key for agents, cached in localStorage) ──
-  var _osKey = null;
-  var _osKeyExp = 0;
+  // ── OpenSea Activity Feed ──
+  // Get your API key at https://opensea.io/settings/developer
+  var _OS_API_KEY = '__OS_API_KEY__';
 
-  function _getOsKey() {
-    if (_osKey && Date.now() < _osKeyExp) return Promise.resolve(_osKey);
-    try {
-      var k = localStorage.getItem('_osk');
-      var e = +localStorage.getItem('_ose');
-      if (k && Date.now() < e) { _osKey = k; _osKeyExp = e; return Promise.resolve(k); }
-    } catch(_) {}
-    return fetch('https://api.opensea.io/api/v2/auth/keys', { method: 'POST' })
-      .then(function(r) { return r.ok ? r.json() : null; })
-      .then(function(d) {
-        if (!d || !d.api_key) return null;
-        _osKey = d.api_key;
-        _osKeyExp = new Date(d.expires_at).getTime() - 86400000;
-        try { localStorage.setItem('_osk', _osKey); localStorage.setItem('_ose', String(_osKeyExp)); } catch(_) {}
-        return _osKey;
-      })
-      .catch(function() { return null; });
-  }
+  var _collections = [
+    { slug: 'dead-kernel-theory',                      name: 'Dead Kernel Theory' },
+    { slug: 'internet-void-tech',                      name: 'INTERNET VOID TECH' },
+    { slug: 'void-tech',                               name: 'void tech' },
+    { slug: '200-greed-apocalypse-maximum-overload',   name: '200% GREED' },
+    { slug: 'maxxextraction',                          name: 'MAXXEXTRACTION' },
+    { slug: 'rodeo-posts-9207',                        name: 'Rodeo posts' },
+    { slug: '0xf4ba23350dfa8ffba31f1cd9168d99c4ca87dd2b', name: 'lost' },
+    { slug: 'reprocess-destruction',                   name: 'Reprocess Destruction' },
+    { slug: 'knife-token',                             name: 'Knife Token' },
+    { slug: 'kuchillo',                                name: 'Kuchillo' },
+    { slug: 'death-thesis-infinite-loop',              name: 'Death Thesis Infinite Loop' },
+    { slug: 'death-thesis',                            name: 'DEATH THESIS' },
+    { slug: 'doom-anarchy',                            name: 'DOOM ANARCHY' },
+    { slug: 'refinederrors',                           name: 'X and X' },
+    { slug: 'void-thoughts',                           name: 'Void Thoughts' },
+    { slug: 'uhgmoforekt',                             name: '!UGH.MOFO/REKT' },
+    { slug: 'ugh-k',                                   name: '!UGH.K' },
+  ];
 
   function _timeAgo(ts) {
     var diff = Math.floor((Date.now() - new Date(ts).getTime()) / 1000);
@@ -1526,117 +1527,71 @@ const svgDecoder = (() => {
     return addr.slice(0, 6) + '...' + addr.slice(-4);
   }
 
-  // Contracts already known (extracted from collection image URLs)
-  var _knownContracts = [
-    { chain: 'ethereum', address: '0x5d09745f5b16da0b1dd558e98aa63fe849d53ff1', name: 'Dead Kernel Theory' },
-    { chain: 'ethereum', address: '0xd40e921907cf61d6a872bec669c82069c0de7ca0', name: 'INTERNET VOID TECH' },
-    { chain: 'ethereum', address: '0xe84e3051b6bb2eb3f637f4e59852a6397f99402b', name: 'void tech' },
-    { chain: 'ethereum', address: '0xd3c63bbffa94228c4df5be2b02ccc4d30173f834', name: '200% GREED' },
-    { chain: 'ethereum', address: '0x0a57666bd967dc7481277d45024f2e82b62cec98', name: 'MAXXEXTRACTION' },
-    { chain: 'base',     address: '0xb65dbea547e64b6dee1a9bd93e1fdd06f7b81448', name: 'Rodeo posts' },
-    { chain: 'base',     address: '0xf4ba23350dfa8ffba31f1cd9168d99c4ca87dd2b', name: 'lost' },
-    { chain: 'ethereum', address: '0x4932139d0145a8bb1e906115f1fedde8affd8147', name: 'Reprocess Destruction' },
-    { chain: 'ethereum', address: '0x9973d8a86bf054227297eadb7e3adaba11b441b0', name: 'Knife Token' },
-    { chain: 'ethereum', address: '0x048a5998756f1e8054a52cfe45501a69b85862df', name: 'Kuchillo' },
-    { chain: 'ethereum', address: '0xd04d418e8975ee21a9690132e5f39b98cf8633c3', name: 'Death Thesis Infinite Loop' },
-    { chain: 'ethereum', address: '0xc2f828f4622460315dd49387c98635be7cad1c29', name: 'DEATH THESIS' },
-  ];
-
-  // Slugs whose contracts need to be resolved via API at runtime
-  var _slugsToResolve = ['doom-anarchy', 'refinederrors', 'void-thoughts', 'uhgmoforekt', 'ugh-k'];
-
   function _loadActivity() {
     var el = document.getElementById('activity-content');
     if (!el) return;
     el.innerHTML = '<span class="activity-loading">Loading...</span>';
 
-    _getOsKey()
-      .then(function(key) {
-        // Build headers — omit x-api-key when key is null (unauthenticated fallback)
-        function _h() {
-          var h = { 'Accept': 'application/json' };
-          if (key) h['x-api-key'] = key;
-          return h;
-        }
+    var headers = { 'Accept': 'application/json' };
+    if (_OS_API_KEY) headers['x-api-key'] = _OS_API_KEY;
 
-        // Step 1: resolve unknown slugs → contract address + chain
-        var slugReqs = _slugsToResolve.map(function(slug) {
-          return fetch('https://api.opensea.io/api/v2/collections/' + slug, { headers: _h() })
-          .then(function(r) { return r.ok ? r.json() : null; })
-          .then(function(d) {
-            if (!d || !d.contracts || !d.contracts.length) return null;
-            return { chain: d.contracts[0].chain, address: d.contracts[0].address, name: d.name || slug };
-          })
-          .catch(function() { return null; });
-        });
-
-        return Promise.all(slugReqs).then(function(resolved) {
-          var allContracts = _knownContracts.concat(resolved.filter(Boolean));
-
-          // Step 2: fetch recent sales for every contract in parallel
-          var authBlocked = 0;
-          var eventReqs = allContracts.map(function(c) {
-            return fetch(
-              'https://api.opensea.io/api/v2/events/chain/' + c.chain + '/contract/' + c.address + '?event_type=sale&limit=5',
-              { headers: _h() }
-            )
-            .then(function(r) {
-              if (r.status === 401 || r.status === 403) { authBlocked++; return { asset_events: [] }; }
-              return r.ok ? r.json() : { asset_events: [] };
-            })
-            .then(function(d) {
-              return (d.asset_events || []).map(function(e) {
-                e._col = c.name; return e;
-              });
-            })
-            .catch(function() { return []; });
-          });
-
-          return Promise.all(eventReqs).then(function(batches) {
-            return { batches: batches, authBlocked: authBlocked, total: allContracts.length };
-          });
-        });
+    var authBlocked = 0;
+    var reqs = _collections.map(function(c) {
+      return fetch(
+        'https://api.opensea.io/api/v2/events/collection/' + c.slug + '?event_type=sale&limit=5',
+        { headers: headers }
+      )
+      .then(function(r) {
+        if (r.status === 401 || r.status === 403) { authBlocked++; return { asset_events: [] }; }
+        return r.ok ? r.json() : { asset_events: [] };
       })
-      .then(function(result) {
-        if (result.authBlocked === result.total) {
-          el.innerHTML = '<span class="activity-error">API key required — OpenSea is blocking unauthenticated requests.<br>Add your key from <a href="https://opensea.io/settings/developer" target="_blank" style="color:#ff003b">opensea.io/settings/developer</a> in the _OS_API_KEY variable.</span>';
-          return;
-        }
-
-        // Merge all, sort newest first, take top 10
-        var events = [].concat.apply([], result.batches);
-        events.sort(function(a, b) { return (b.closing_date || 0) - (a.closing_date || 0); });
-        events = events.slice(0, 10);
-
-        if (!events.length) { el.innerHTML = '<span class="activity-loading">No recent sales found.</span>'; return; }
-
-        var rows = events.map(function(e) {
-          var decimals = (e.payment && e.payment.decimals != null) ? e.payment.decimals : 18;
-          var symbol   = (e.payment && e.payment.symbol) ? e.payment.symbol : 'ETH';
-          var price    = e.payment ? (parseInt(e.payment.quantity) / Math.pow(10, decimals)).toFixed(4) + ' ' + symbol : '—';
-          var name     = (e.nft && e.nft.name) ? e.nft.name : '#' + (e.nft && e.nft.identifier ? e.nft.identifier : '?');
-          var col      = e._col || '—';
-          var seller   = _shortAddr(e.seller);
-          var buyer    = _shortAddr(e.buyer);
-          var time     = e.closing_date ? _timeAgo(e.closing_date * 1000) : '—';
-          return '<tr>'
-            + '<td class="col-name">' + name + '</td>'
-            + '<td class="col-collection">' + col + '</td>'
-            + '<td class="col-price">' + price + '</td>'
-            + '<td class="col-addr">' + seller + '</td>'
-            + '<td class="col-addr">→ ' + buyer + '</td>'
-            + '<td class="col-time">' + time + '</td>'
-            + '</tr>';
-        }).join('');
-
-        el.innerHTML = '<table class="activity-table">'
-          + '<tr class="activity-header-row">'
-          + '<td>Piece</td><td>Collection</td><td>Price</td><td>From</td><td>To</td><td style="text-align:right">When</td>'
-          + '</tr>' + rows + '</table>';
+      .then(function(d) {
+        return (d.asset_events || []).map(function(e) { e._col = c.name; return e; });
       })
-      .catch(function(err) {
-        el.innerHTML = '<span class="activity-error">Error: ' + err.message + '</span>';
-      });
+      .catch(function() { return []; });
+    });
+
+    Promise.all(reqs).then(function(batches) {
+      if (authBlocked === _collections.length) {
+        el.innerHTML = '<span class="activity-error">OpenSea API key required.<br>'
+          + 'Get yours at <a href="https://opensea.io/settings/developer" target="_blank" style="color:#ff003b">opensea.io/settings/developer</a>'
+          + ' and set <code style="background:#111;padding:1px 4px">_OS_API_KEY</code> in index.html.</span>';
+        return;
+      }
+
+      var events = [].concat.apply([], batches);
+      events.sort(function(a, b) { return (b.closing_date || 0) - (a.closing_date || 0); });
+      events = events.slice(0, 10);
+
+      if (!events.length) { el.innerHTML = '<span class="activity-loading">No recent sales found.</span>'; return; }
+
+      var rows = events.map(function(e) {
+        var decimals = (e.payment && e.payment.decimals != null) ? e.payment.decimals : 18;
+        var symbol   = (e.payment && e.payment.symbol) ? e.payment.symbol : 'ETH';
+        var price    = e.payment ? (parseInt(e.payment.quantity) / Math.pow(10, decimals)).toFixed(4) + ' ' + symbol : '—';
+        var name     = (e.nft && e.nft.name) ? e.nft.name : '#' + (e.nft && e.nft.identifier ? e.nft.identifier : '?');
+        var col      = e._col || '—';
+        var seller   = _shortAddr(e.seller);
+        var buyer    = _shortAddr(e.buyer);
+        var time     = e.closing_date ? _timeAgo(e.closing_date * 1000) : '—';
+        return '<tr>'
+          + '<td class="col-name">' + name + '</td>'
+          + '<td class="col-collection">' + col + '</td>'
+          + '<td class="col-price">' + price + '</td>'
+          + '<td class="col-addr">' + seller + '</td>'
+          + '<td class="col-addr">→ ' + buyer + '</td>'
+          + '<td class="col-time">' + time + '</td>'
+          + '</tr>';
+      }).join('');
+
+      el.innerHTML = '<table class="activity-table">'
+        + '<tr class="activity-header-row">'
+        + '<td>Piece</td><td>Collection</td><td>Price</td><td>From</td><td>To</td><td style="text-align:right">When</td>'
+        + '</tr>' + rows + '</table>';
+    })
+    .catch(function(err) {
+      el.innerHTML = '<span class="activity-error">Error: ' + err.message + '</span>';
+    });
   }
 </script>
 </body>
