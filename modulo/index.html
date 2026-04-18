@@ -5,7 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>TokenCluster — v2</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Ultra&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/mp4-muxer@5.1.3/build/mp4-muxer.js"></script>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -154,12 +156,12 @@ html, body { width:100%; height:100%; overflow:hidden; background:#000; }
   display:flex; align-items:center; justify-content:space-between;
   padding:0 14px;
   backdrop-filter:blur(10px);
-  transition:background 0.3s;
+  transition:background 0.3s, backdrop-filter 0.3s;
 }
 .topbar-title { font-size:12px; color:var(--topbar-text); letter-spacing:.04em; font-weight:500; }
 .topbar-right  { display:flex; align-items:center; gap:7px; }
 .pill { font-size:10px; padding:2px 9px; border-radius:20px; border:0.5px solid var(--pill-border); color:var(--pill-color); background:var(--pill-bg); }
-.toggle-btn { padding:3px 11px; border-radius:20px; border:0.5px solid var(--toggle-border); background:var(--toggle-bg); color:var(--toggle-color); font-size:10px; cursor:pointer; letter-spacing:.04em; transition:all 0.2s; }
+.toggle-btn { padding:3px 11px; border-radius:20px; border:0.5px solid var(--toggle-border); background:var(--toggle-bg); color:var(--toggle-color); font-size:10px; cursor:pointer; letter-spacing:.04em; transition:background 0.2s, color 0.2s, border-color 0.2s; }
 
 /* ── Infinite canvas ── */
 #viewport { position:absolute; top:34px; left:0; right:0; bottom:0; overflow:hidden; cursor:grab; z-index:2; }
@@ -179,7 +181,7 @@ html, body { width:100%; height:100%; overflow:hidden; background:#000; }
   border-radius:11px;
   overflow:hidden;
   box-shadow:var(--shadow-window);
-  transition:box-shadow 0.2s, border-color 0.2s, background 0.3s;
+  transition:border-color 0.2s, background 0.3s;
 }
 .modulo-card:hover { box-shadow:var(--shadow-window-hover); }
 
@@ -238,12 +240,29 @@ html, body { width:100%; height:100%; overflow:hidden; background:#000; }
 .ft-full-addr { font-size:7.5px; font-family:monospace; color:var(--addr-color); word-break:break-all; line-height:1.45; }
 .ft-row-label { font-size:7.5px; color:var(--sl); font-family:monospace; text-transform:uppercase; letter-spacing:.05em; margin-bottom:4px; }
 .tr-colors-inline { display:flex; flex-wrap:wrap; gap:5px; margin-bottom:6px; }
-.cdot { width:13px; height:13px; border-radius:50%; border:1.5px solid transparent; flex-shrink:0; cursor:pointer; transition:transform 0.1s, opacity 0.1s; }
+.cdot { width:13px; height:13px; border-radius:50%; border:1.5px solid transparent; flex-shrink:0; cursor:pointer; transition:transform 0.1s, opacity 0.1s; position:relative; }
 .cdot:hover { transform:scale(1.18); }
+.cdot::after {
+  content:attr(data-name);
+  position:absolute;
+  bottom:calc(100% + 5px);
+  left:50%; transform:translateX(-50%);
+  padding:2px 5px;
+  background:var(--tbar-bg);
+  border:0.5px solid var(--divider);
+  border-radius:3px;
+  font-size:7px; font-family:monospace;
+  color:var(--sl); letter-spacing:.05em;
+  white-space:nowrap;
+  pointer-events:none;
+  opacity:0;
+  transition:opacity 0.12s 0.6s;
+  z-index:50;
+}
+.cdot:hover::after { opacity:1; }
 .cdot.sel { border-color:rgba(0,0,0,0.55); }
 .cdot.black { border-color:rgba(255,255,255,0.4); }
 .night .cdot.sel { border-color:rgba(255,255,255,0.85); }
-.cdot.dim { opacity:.22; }
 .ft-status-row { display:flex; align-items:center; gap:4px; }
 .sdot { width:5px; height:5px; border-radius:50%; flex-shrink:0; }
 .sdot.on{background:#28c840;} .sdot.conn{background:var(--dot-conn);} .sdot.lock{background:var(--dot-lock);}
@@ -302,14 +321,25 @@ html, body { width:100%; height:100%; overflow:hidden; background:#000; }
   padding-left:13px;
 }
 .tr-arrow { margin-left:auto; font-size:7px; color:var(--addr-color); transition:transform 0.18s; flex-shrink:0; }
+.tr-tags { display:flex; gap:3px; margin-left:5px; flex-shrink:0; }
+.tr-tag { font-size:8px; font-family:monospace; letter-spacing:.04em; color:var(--addr-color); border:0.5px solid var(--node-border); border-radius:4px; padding:1px 4px; }
 .token-row.expanded .tr-arrow { transform:rotate(90deg); }
-/* Non-owned (locked) tokens — visible but not editable */
-.token-row.locked .tr-header { opacity:0.55; }
-.token-row.locked .tr-traits .dlang-btn { pointer-events:none; opacity:0.35; }
-.token-row.locked .speed-slider { pointer-events:none; opacity:0.35; }
-.token-row.locked .tr-colors-inline { pointer-events:none; opacity:0.35; }
+/* Non-owned (locked) tokens — header stays legible, the expanded panel dims.
+   The swatch next to the rank keeps full opacity so the actual color renders
+   faithfully; the rank/address text is dimmed as a subtle "locked" signal.
+   The entire .tr-traits expanded panel is dimmed + non-interactive. */
+.token-row.locked .tr-addr,
+.token-row.locked .tr-idx { opacity:0.55; }
+.token-row.locked .tr-traits { pointer-events:none; opacity:0.5; }
+/* Allow color dots to receive hover on locked tokens so the tooltip still
+   shows; clicks are short-circuited in the cdot handler via isOwnToken. */
+.token-row.locked .tr-colors-inline { pointer-events:auto; }
+.token-row.locked .cdot { cursor:default; }
+.token-row.locked .cdot:hover { transform:none; }
 .token-row.locked .tr-trash { display:none; }
 .tr-traits { position:relative; display:none; padding:5px 15px 9px 24px; }
+/* Extra bottom room so the absolute trash button never overlaps trait rows */
+.tr-traits.has-trash { padding-bottom:32px; }
 .token-row.expanded .tr-traits { display:block; }
 /* Trash button — absolutely positioned at bottom-right of the expanded trait area,
    independent of any trait group so it survives if BIOS (or any group) is removed */
@@ -351,6 +381,7 @@ html, body { width:100%; height:100%; overflow:hidden; background:#000; }
 .dlang-btns { display:flex; gap:4px; flex-wrap:wrap; }
 .tg { border-top:0.5px solid var(--divider); }
 .tr-traits .tg:first-child { border-top:none; }
+.tr-ident + .tg { border-top:none; }
 .tg-hdr { display:flex; align-items:center; gap:5px; padding:4px 0; cursor:pointer; user-select:none; }
 .tg-name { font-size:7px; font-family:monospace; color:var(--sl); letter-spacing:.08em; text-transform:uppercase; }
 .tg-arrow { font-size:7px; color:var(--sl); display:inline-block; transition:transform .15s; }
@@ -373,7 +404,10 @@ html, body { width:100%; height:100%; overflow:hidden; background:#000; }
 .tr-ident-label { font-size:7.5px; font-family:monospace; color:var(--sl); letter-spacing:.07em; text-transform:uppercase; }
 .tr-ident-val { font-size:9px; font-family:monospace; color:var(--sv); letter-spacing:.02em; }
 .tr-ident-sep { font-size:8px; color:var(--sl); opacity:.5; }
-.tr-swatch { width:11px; height:11px; border-radius:50%; border:0.5px solid var(--node-border); flex-shrink:0; }
+.tr-swatch { width:11px; height:11px; border-radius:50%; border:0.5px solid var(--node-border); flex-shrink:0; box-sizing:border-box; }
+/* Empty state: slot deselected — hollow ring matches the address text color
+   so it visually reads as "no contribution to the animation". */
+.tr-swatch.empty { background:transparent !important; border:1px solid var(--addr-color); }
 
 .add-row {
   position:relative;
@@ -458,11 +492,10 @@ html, body { width:100%; height:100%; overflow:hidden; background:#000; }
   animation:settle-spin 2s ease infinite;
 }
 @keyframes settle-spin {
-  0%   { transform:rotate(0deg); }
-  25%  { transform:rotate(90deg); }
-  75%  { transform:rotate(90deg); }
-  100% { transform:rotate(180deg); }
+  from { transform:rotate(0deg); }
+  to   { transform:rotate(360deg); }
 }
+.card-settle-btn:hover .settle-sq { animation-timing-function:linear; }
 .card-settle-btn:hover {
   background:var(--settle-hbg);
   border-color:var(--settle-hborder);
@@ -496,7 +529,7 @@ html, body { width:100%; height:100%; overflow:hidden; background:#000; }
   max-height:90vh;
   width:fit-content;
   transform-origin:center center;
-  will-change:transform,opacity;
+  will-change:transform;
 }
 #expand-tbar {
   height:28px;
@@ -512,6 +545,16 @@ html, body { width:100%; height:100%; overflow:hidden; background:#000; }
   transition:transform 0.15s;
 }
 #expand-close:hover { transform:scale(1.25); }
+#export-btn {
+  margin-left:auto; padding:2px 8px;
+  font-size:9px; font-family:monospace; letter-spacing:.06em;
+  background:transparent; border:0.5px solid var(--tbar-border);
+  border-radius:3px; color:var(--topbar-text);
+  cursor:pointer; transition:background 0.15s, color 0.15s, border-color 0.15s;
+  flex-shrink:0;
+}
+#export-btn:hover:not(:disabled) { background:var(--row-hover); border-color:var(--sl); }
+#export-btn:disabled { opacity:0.45; cursor:default; }
 /* expand body — canvas + sliding sidebar */
 #expand-body {
   position:relative;
@@ -772,6 +815,15 @@ html, body { width:100%; height:100%; overflow:hidden; background:#000; }
 .mbtns { display:flex; gap:8px; }
 .mbtn { flex:1; padding:6px 0; border-radius:8px; border:0.5px solid var(--mbtn-border); background:var(--mbtn-bg); color:var(--mbtn-color); font-size:11px; cursor:pointer; }
 .mbtn.p { background:var(--settle-hbg); border-color:var(--dot-conn); color:var(--settle-hcolor); }
+
+/* ── prefers-reduced-motion — WCAG 2.1 §2.2.2 ── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration:        0.01ms !important;
+    animation-iteration-count: 1      !important;
+    transition-duration:       0.01ms !important;
+  }
+}
 </style>
 </head>
 <body>
@@ -801,6 +853,7 @@ html, body { width:100%; height:100%; overflow:hidden; background:#000; }
       <div id="expand-tbar">
         <div class="dot r" id="expand-close"></div>
         <span class="card-tbar-title" id="expand-tbar-title"></span>
+        <button id="export-btn">↓ MP4</button>
       </div>
       <div id="expand-body">
         <div id="expand-sidebar">
@@ -847,19 +900,40 @@ html, body { width:100%; height:100%; overflow:hidden; background:#000; }
 // ═══════════════════════════════════════════════════════
 // DATA
 // ═══════════════════════════════════════════════════════
+const COLOR_NAMES = {
+  '#6363ff': 'blue-violet',
+  '#a040ff': 'purple',
+  '#ff003a': 'red',
+  '#ff8c00': 'orange',
+  '#ffbd2e': 'yellow',
+  '#28c840': 'green',
+  '#ff4080': 'pink',
+  '#ff63ff': 'magenta',
+  '#57686e': 'slate',
+  '#1100ff': 'deep blue',
+  '#2a0b18': 'dark maroon',
+  '#23242a': 'charcoal',
+  '#ab0a5f': 'deep magenta',
+  '#0f1021': 'dark navy',
+  '#000000': 'black',
+  '#bfbcce': 'silver',
+  '#8b8b8b': 'grey',
+  '#63ff63': 'light green',
+};
+
 const COLS_DATA = [
-  ['#6363ff','#a040ff','#ff003a','#ff8c00','#ffbd2e','#28c840','#bfbcce','#8b8b8b'],
-  ['#a040ff','#ff4080','#ffbd2e','#28c840','#40c0ff','#6363ff','#000000'],
-  ['#ff6363','#ffbd2e','#63ff63','#6363ff','#ff63ff','#40c0ff','#8b8b8b','#bfbcce'],
-  ['#40c0ff','#a040ff','#ff003a','#28c840','#ffbd2e','#ff8c00','#000000'],
-  ['#28c840','#6363ff','#ff003a','#ffbd2e','#ff8c00','#a040ff','#bfbcce','#8b8b8b'],
-  ['#ff8c00','#ff003a','#6363ff','#28c840','#a040ff','#ffbd2e','#000000'],
-  ['#40c0ff','#ff63ff','#ffbd2e','#ff003a','#28c840','#6363ff','#8b8b8b','#bfbcce'],
-  ['#a040ff','#28c840','#ff8c00','#40c0ff','#ff003a','#ffbd2e','#000000'],
-  ['#ffbd2e','#6363ff','#ff63ff','#28c840','#ff003a','#40c0ff','#bfbcce','#8b8b8b'],
-  ['#28c840','#ff4080','#6363ff','#ffbd2e','#a040ff','#ff8c00','#000000'],
-  ['#ff003a','#40c0ff','#ffbd2e','#6363ff','#28c840','#ff63ff','#8b8b8b','#bfbcce'],
-  ['#6363ff','#ff8c00','#28c840','#ff003a','#ffbd2e','#a040ff','#000000'],
+  ['#6363ff','#a040ff','#ff003a','#ff8c00','#ffbd2e','#28c840','#ff4080','#ff63ff','#57686e','#1100ff','#2a0b18','#23242a','#ab0a5f','#0f1021','#000000','#bfbcce','#8b8b8b','#63ff63'],
+  ['#6363ff','#a040ff','#ff003a','#ff8c00','#ffbd2e','#28c840','#ff4080','#ff63ff','#57686e','#1100ff','#2a0b18','#23242a','#ab0a5f','#0f1021'],
+  ['#6363ff','#a040ff','#ff003a','#ff8c00','#ffbd2e','#28c840','#ff4080','#ff63ff','#57686e','#1100ff','#2a0b18','#23242a','#ab0a5f','#0f1021','#000000','#bfbcce','#8b8b8b','#63ff63'],
+  ['#6363ff','#a040ff','#ff003a','#ff8c00','#ffbd2e','#28c840','#ff4080','#ff63ff','#57686e','#1100ff','#2a0b18','#23242a','#ab0a5f','#0f1021'],
+  ['#6363ff','#a040ff','#ff003a','#ff8c00','#ffbd2e','#28c840','#ff4080','#ff63ff','#57686e','#1100ff','#2a0b18','#23242a','#ab0a5f','#0f1021','#000000','#bfbcce','#8b8b8b','#63ff63'],
+  ['#6363ff','#a040ff','#ff003a','#ff8c00','#ffbd2e','#28c840','#ff4080','#ff63ff','#57686e','#1100ff','#2a0b18','#23242a','#ab0a5f','#0f1021'],
+  ['#6363ff','#a040ff','#ff003a','#ff8c00','#ffbd2e','#28c840','#ff4080','#ff63ff','#57686e','#1100ff','#2a0b18','#23242a','#ab0a5f','#0f1021','#000000','#bfbcce','#8b8b8b','#63ff63'],
+  ['#6363ff','#a040ff','#ff003a','#ff8c00','#ffbd2e','#28c840','#ff4080','#ff63ff','#57686e','#1100ff','#2a0b18','#23242a','#ab0a5f','#0f1021'],
+  ['#6363ff','#a040ff','#ff003a','#ff8c00','#ffbd2e','#28c840','#ff4080','#ff63ff','#57686e','#1100ff','#2a0b18','#23242a','#ab0a5f','#0f1021','#000000','#bfbcce','#8b8b8b','#63ff63'],
+  ['#6363ff','#a040ff','#ff003a','#ff8c00','#ffbd2e','#28c840','#ff4080','#ff63ff','#57686e','#1100ff','#2a0b18','#23242a','#ab0a5f','#0f1021'],
+  ['#6363ff','#a040ff','#ff003a','#ff8c00','#ffbd2e','#28c840','#ff4080','#ff63ff','#57686e','#1100ff','#2a0b18','#23242a','#ab0a5f','#0f1021','#000000','#bfbcce','#8b8b8b','#63ff63'],
+  ['#6363ff','#a040ff','#ff003a','#ff8c00','#ffbd2e','#28c840','#ff4080','#ff63ff','#57686e','#1100ff','#2a0b18','#23242a','#ab0a5f','#0f1021'],
 ];
 // ═══ Seeded PRNG (mulberry32) — deterministic token generation ═══
 function mulberry32(seed) {
@@ -923,8 +997,8 @@ for (let i = 0; i < TOTAL_TOKENS; i++) {
     owner:   _userSet.has(i) ? SESSION_USER : OTHER_USERS[Math.floor(_rng() * OTHER_USERS.length)],
     rank:    _rankPool[i],
     hasSz, hasMode, hasRS, hasRD, hasBios,
-    sz:   hasSz   ? _weightedPick(['sm','md','lg','xl'], [0.10,0.45,0.30,0.15]) : null,
-    mode: hasMode  ? _weightedPick(['feedback','shift','noise','modulo','balanced'], [0.30,0.15,0.25,0.10,0.20]) : null,
+    sz:   hasSz   ? _weightedPick(['sm','md','lg'], [0.15,0.55,0.30]) : null,
+    mode: hasMode  ? _weightedPick(['feedback','shift','noise','modulo','wave'], [0.30,0.15,0.25,0.15,0.15]) : null,
     rs:   hasRS    ? _weightedPick(['sm','md','lg','xl'], [0.15,0.40,0.30,0.15]) : null,
     rd:   hasRD    ? _weightedPick(['lo','md','hi','mx'], [0.30,0.35,0.25,0.10]) : null,
     bios: hasBios  ? (_rng() < 0.70) : null,
@@ -983,11 +1057,11 @@ function moduloBiosStatText(mod) {
 
 const tokenModes = {}; // { [modId]: { [slotIdx]: modeName } }
 const moduloModeSetters = {};
-const MODE_ABBR = { feedback:'fb', shift:'sh', noise:'no', modulo:'mo', balanced:'bal' };
+const MODE_ABBR = { feedback:'fb', shift:'sh', noise:'no', modulo:'mo', wave:'wv' };
 
 const tokenSizes = {}; // { [modId]: { [slotIdx]: sizeName } }
 const moduloSizeSetters = {};
-const SIZE_SCALES = { sm:0.4, md:1.0, lg:2.0, xl:3.5 };
+const SIZE_SCALES = { sm:0.4, md:1.0, lg:2.0 };
 function getTokenSize(modId, slotIdx) { return (tokenSizes[modId] && tokenSizes[modId][slotIdx] != null) ? tokenSizes[modId][slotIdx] : null; }
 function setTokenSize(modId, slotIdx, s) { if (!tokenSizes[modId]) tokenSizes[modId] = {}; tokenSizes[modId][slotIdx] = s; }
 function clearTokenSize(modId, slotIdx) { if (tokenSizes[modId]) delete tokenSizes[modId][slotIdx]; }
@@ -1052,7 +1126,7 @@ const STAGGER = 550;
 const MODULOS = [
   { id:'modulo_01', cx:WCX - COL_W,           cy:WCY - ROW_H,    tokens:[0] },
   { id:'modulo_02', cx:WCX,                    cy:WCY - ROW_H,    tokens:[1,2] },
-  { id:'modulo_03', cx:WCX + COL_W,            cy:WCY - ROW_H,    tokens:[3,4,5], dtPalette:true },
+  { id:'modulo_03', cx:WCX + COL_W,            cy:WCY - ROW_H,    tokens:[3,4,5] },
   { id:'modulo_04', cx:WCX - COL_W + STAGGER,  cy:WCY,            tokens:[6,7] },
   { id:'modulo_05', cx:WCX         + STAGGER,  cy:WCY,            tokens:[8,9,10] },
   { id:'modulo_06', cx:WCX - COL_W,            cy:WCY + ROW_H,    tokens:[11,12,13] },
@@ -1080,8 +1154,10 @@ let isNight = false;
 const nodeColors  = {};
 const featuredIdx = {};
 const moduloAnimUpdaters  = {};
+const moduloAnimObjs      = {};
 const moduloCanvasResizers = {};
-const moduloTextResetters  = {};
+const moduloTextResetters      = {};
+const moduloBiosCycleResetters = {};
 const moduloSpeedSetters   = {};
 const moduloTokenOps       = {}; // { [modId]: [ops0, ops1, ...] }
 let   expandedModuloId    = null;
@@ -1116,6 +1192,23 @@ function fakeAddr(moduloId, slotIdx) {
 
 function shortAddr(full) { return full.slice(0,6) + '…' + full.slice(-4); }
 
+function getTraitTags(modId, slotIdx) {
+  const tags = [];
+  if (getTokenSize(modId, slotIdx) !== null)        tags.push('SZ');
+  if (getTokenMode(modId, slotIdx) !== null)         tags.push('M');
+  if (getTokenRectSize(modId, slotIdx) !== null)     tags.push('RS');
+  if (getTokenRectDensity(modId, slotIdx) !== null)  tags.push('RD');
+  const b = getBiosState(modId, slotIdx);
+  if (b !== undefined)                               tags.push('BIOS');
+  return tags;
+}
+function updateTraitTags(modId, slotIdx) {
+  const el = document.getElementById(`tr-tags-${modId}-${slotIdx}`);
+  if (!el) return;
+  const tags = getTraitTags(modId, slotIdx);
+  el.innerHTML = tags.map(t => `<span class="tr-tag">${t}</span>`).join('');
+}
+
 // Default color for a bare token (used in inventory tiles before the token joins a modulo)
 function tokenDefaultColor(tokenNum) {
   const td = TOKEN_DATA[tokenNum];
@@ -1128,20 +1221,41 @@ function moduloLabel(id) {
 }
 
 function getSelIdx(moduloId, slotIdx) {
-  const stored = nodeColors[moduloId] && nodeColors[moduloId][slotIdx];
-  if (stored !== undefined && stored >= 0) return stored;
-  if (stored === -1) return 0; // deselected — fall back to first color for animation
   const mod = MODULOS.find(c => c.id === moduloId);
-  const ti = mod.tokens[slotIdx];
+  const ti = mod ? mod.tokens[slotIdx] : undefined;
   const td = TOKEN_DATA[ti];
-  return td ? Math.max(0, td.sel) : 0;
+  // Clamp every return against the palette length so a stale index (e.g. stored
+  // 17 on an 18-color palette that later shrinks to 14) can't overflow and
+  // produce `undefined` in buildRowColors / updatePalette.
+  const palLen = td ? COLS_DATA[td.palette].length : 1;
+  const stored = nodeColors[moduloId] && nodeColors[moduloId][slotIdx];
+  if (stored !== undefined && stored >= 0) return Math.min(stored, palLen - 1);
+  if (stored === -1) return 0; // deselected — fall back to first color for animation
+  return td ? Math.min(Math.max(0, td.sel), palLen - 1) : 0;
 }
 
 function getSelectedColor(moduloId, slotIdx) {
   const mod = MODULOS.find(c => c.id === moduloId);
+  if (!mod) return COLS_DATA[0][0]; // guard: stale moduloId (e.g. after remove)
   const ti = mod.tokens[slotIdx];
   const td = TOKEN_DATA[ti];
   return COLS_DATA[td ? td.palette : 0][getSelIdx(moduloId, slotIdx)];
+}
+
+// Apply the right look to the swatch circle next to the rank.
+// Normal: filled with the selected color. Empty (slot deselected, nodeColors
+// === -1): hollow ring — transparent interior + border in the address-text
+// color — so it visually reads as "no contribution to the animation".
+function applySwatch(el, moduloId, slotIdx) {
+  if (!el) return;
+  const stored = nodeColors[moduloId] && nodeColors[moduloId][slotIdx];
+  if (stored === -1) {
+    el.classList.add('empty');
+    el.style.background = '';
+  } else {
+    el.classList.remove('empty');
+    el.style.background = getSelectedColor(moduloId, slotIdx);
+  }
 }
 
 // ═══════════════════════════════════════════════════════
@@ -1193,7 +1307,8 @@ function buildModulo(mod) {
   // card.querySelector('.card-settle-btn').addEventListener('click', openModal);
 
   // Green dot → expand animation
-  card.querySelector('.dot.g').addEventListener('click', e => {
+  const greenDot = card.querySelector('.dot.g');
+  if (greenDot) greenDot.addEventListener('click', e => {
     e.stopPropagation();
     openExpand(mod.id, card);
   });
@@ -1201,19 +1316,19 @@ function buildModulo(mod) {
   // Build left panel
   buildLeft(mod);
 
-  // Animation
-  setTimeout(() => startAnim(animId, mod), 80);
+  // Animation — staggered by modulo index to spread GPU/JS init across frames
+  const _modIdx = MODULOS.indexOf(mod);
+  setTimeout(() => startAnim(animId, mod), 80 + _modIdx * 16);
 }
 
 function buildLeft(mod) {
   const leftEl = document.getElementById(`left-${mod.id}`);
   if (!leftEl) return;
 
-  const fi   = featuredIdx[mod.id];
-  const ti   = mod.tokens[fi];
-  const td   = TOKEN_DATA[ti] || {};
-  const st   = td.status || 'connected';
-  const full = fakeAddr(mod.id, fi);
+  // Cancel any pending closeInlineInventory clear-timer before the panel node is replaced.
+  const _oldPanel = document.getElementById(`inv-panel-${mod.id}`);
+  if (_oldPanel && _oldPanel._clearTimer) { clearTimeout(_oldPanel._clearTimer); _oldPanel._clearTimer = null; }
+
   const spd  = mod.tokens.length
     ? Math.round(mod.tokens.reduce((a, t) => a + (TOKEN_DATA[t] ? TOKEN_DATA[t].speed : 50), 0) / mod.tokens.length)
     : 0;
@@ -1225,11 +1340,11 @@ function buildLeft(mod) {
       <div class="modulo-stats-row">
         <div class="cs-item"><div class="cs-label">Tokens</div><div class="cs-value">${mod.tokens.length}/8</div></div>
         <div class="cs-item"><div class="cs-label">Colors</div><div class="cs-value">${mod.tokens.length}</div></div>
-        <div class="cs-item"><div class="cs-label">Speed</div><div class="cs-value" id="spd-${mod.id}">${spd}</div></div>
-        <div class="cs-item"><div class="cs-label">Size</div><div class="cs-value" id="sz-${mod.id}">-</div></div>
-        <div class="cs-item"><div class="cs-label">Mode</div><div class="cs-value" id="mstat-${mod.id}">${moduloDistinctModes(mod).map(m=>MODE_ABBR[m]||m).join('/')}</div></div>
-        <div class="cs-item"><div class="cs-label">RS</div><div class="cs-value" id="rs-${mod.id}">${moduloDistinctRectSizes(mod).join('/')}</div></div>
-        <div class="cs-item"><div class="cs-label">RD</div><div class="cs-value" id="rd-${mod.id}">${moduloDistinctRectDensities(mod).join('/')}</div></div>
+        <div class="cs-item"><div class="cs-label">dt.speed</div><div class="cs-value" id="spd-${mod.id}">${spd}</div></div>
+        <div class="cs-item"><div class="cs-label">dt.size</div><div class="cs-value" id="sz-${mod.id}">-</div></div>
+        <div class="cs-item"><div class="cs-label">dt.mode</div><div class="cs-value" id="mstat-${mod.id}">${moduloDistinctModes(mod).map(m=>MODE_ABBR[m]||m).join('/')}</div></div>
+        <div class="cs-item"><div class="cs-label">r.size</div><div class="cs-value" id="rs-${mod.id}">${moduloDistinctRectSizes(mod).join('/')}</div></div>
+        <div class="cs-item"><div class="cs-label">r.density</div><div class="cs-value" id="rd-${mod.id}">${moduloDistinctRectDensities(mod).join('/')}</div></div>
         <div class="cs-item"><div class="cs-label">BIOS</div><div class="cs-value" id="dstat-${mod.id}">${dlangs}</div></div>
       </div>
     </div>
@@ -1287,23 +1402,34 @@ function buildLeft(mod) {
   if (rsstatEl) { const r = moduloDistinctRectSizes(mod); rsstatEl.textContent = r.length ? r.join('/') : '-'; }
   const rdstatEl = document.getElementById(`rd-${mod.id}`);
   if (rdstatEl) { const r = moduloDistinctRectDensities(mod); rdstatEl.textContent = r.length ? r.join('/') : '-'; }
+  // Speed stat: correct to total ops (sum of per-slot slider values) now that
+  // buildTokenList has initialized moduloTokenOps for every slot.
+  if (moduloTokenOps[mod.id]) {
+    const spdStatEl = document.getElementById(`spd-${mod.id}`);
+    if (spdStatEl) spdStatEl.textContent = moduloTokenOps[mod.id].reduce((a, v) => a + (v || 0), 0);
+  }
 }
 
 function buildRowColors(mod, slotIdx, container) {
-  const t   = mod.tokens[slotIdx];
-  const sel = getSelIdx(mod.id, slotIdx);
+  const t      = mod.tokens[slotIdx];
+  const stored = nodeColors[mod.id] && nodeColors[mod.id][slotIdx];
+  // Use -1 as sentinel when deselected so no dot receives the sel ring.
+  // getSelIdx returns 0 for animation fallback but that must not affect the UI.
+  const sel = (stored === -1) ? -1 : getSelIdx(mod.id, slotIdx);
   container.innerHTML = '';
   COLS_DATA[(TOKEN_DATA[t] ? TOKEN_DATA[t].palette : t % COLS_DATA.length)].forEach((c, j) => {
     const d = document.createElement('div');
-    d.className = 'cdot'
-      + (j === sel ? ' sel' : '');
+    d.className = 'cdot' + (j === sel ? ' sel' : '');
     d.style.background = c;
+    d.dataset.name = COLOR_NAMES[c] || c;
+    if (c === '#000000') d.classList.add('black');
     d.addEventListener('click', e => {
       e.stopPropagation();
+      if (!isOwnToken(t)) return; // locked tokens: show tooltip on hover but block edits
       nodeColors[mod.id][slotIdx] = (nodeColors[mod.id][slotIdx] === j) ? -1 : j;
       buildRowColors(mod, slotIdx, container);
       const swatch = document.querySelector(`#tlist-${mod.id} .token-row:nth-child(${slotIdx+1}) .tr-swatch`);
-      if (swatch) swatch.style.background = getSelectedColor(mod.id, slotIdx);
+      applySwatch(swatch, mod.id, slotIdx);
       if (moduloAnimUpdaters[mod.id]) moduloAnimUpdaters[mod.id]();
     });
     container.appendChild(d);
@@ -1320,7 +1446,6 @@ function buildTokenList(mod) {
     const own   = isOwnToken(t);
     const full  = fakeAddr(mod.id, i);
     const st    = td.status || 'connected';
-    const color = getSelectedColor(mod.id, i);
     const spd   = td.speed || 50;
     const row = document.createElement('div');
     row.className = 'token-row' + (own ? '' : ' locked');
@@ -1332,9 +1457,12 @@ function buildTokenList(mod) {
     header.innerHTML = `
       <div class="sdot ${st==='locked'?'lock':st==='connected'?'conn':'on'}"></div>
       <span class="tr-idx">R#${String(rank).padStart(2,'0')}</span>
-      <div class="tr-swatch" style="background:${color};"></div>
-      <span class="tr-addr">${shortAddr(full)}</span>
+      <div class="tr-swatch"></div>
+      <span class="tr-addr"></span>
+      <span class="tr-tags" id="tr-tags-${mod.id}-${i}">${getTraitTags(mod.id,i).map(t=>`<span class="tr-tag">${t}</span>`).join('')}</span>
       <span class="tr-arrow">▸</span>`;
+    header.querySelector('.tr-addr').textContent = shortAddr(full);
+    applySwatch(header.querySelector('.tr-swatch'), mod.id, i);
 
     // Traits (shown when expanded)
     const traits = document.createElement('div');
@@ -1412,9 +1540,12 @@ function buildTokenList(mod) {
     // ── DT ──────────────────────────────────
     const dtBody = makeGroup('DT');
 
-    const initOps = Math.max(1, Math.round(spd / 90 * 28));
+    // Preserve user-tuned slider values across rebuilds (buildLeft runs on add/remove).
+    // Only seed from the token's default speed if no value exists yet for this slot.
+    const defaultOps = Math.max(1, Math.round(spd / 90 * 28));
     if (!moduloTokenOps[mod.id]) moduloTokenOps[mod.id] = [];
-    moduloTokenOps[mod.id][i] = initOps;
+    if (moduloTokenOps[mod.id][i] == null) moduloTokenOps[mod.id][i] = defaultOps;
+    const initOps = moduloTokenOps[mod.id][i];
     const speedRow = document.createElement('div');
     speedRow.className = 'tr-trait-line speed-row';
     speedRow.innerHTML = `<span class="tr-trait-label">S.</span><input type="range" class="speed-slider" min="1" max="28" value="${initOps}"><span class="speed-val">${initOps}</span>`;
@@ -1434,19 +1565,21 @@ function buildTokenList(mod) {
 
     if (td.hasSz) {
       const { row: szRow, btns: szBtns } = makeRow('Sz.');
-      makeBtnGroup(szBtns, [{label:'small',value:'sm'},{label:'medium',value:'md'},{label:'large',value:'lg'},{label:'x-large',value:'xl'}], getTokenSize(mod.id, i), v => {
+      makeBtnGroup(szBtns, [{label:'small',value:'sm'},{label:'medium',value:'md'},{label:'large',value:'lg'}], getTokenSize(mod.id, i), v => {
         if (v === null) clearTokenSize(mod.id, i); else setTokenSize(mod.id, i, v);
         if (moduloSizeSetters[mod.id]) moduloSizeSetters[mod.id](moduloDominantSize(mod));
         const el = document.getElementById(`sz-${mod.id}`); if (el) el.textContent = moduloDominantSize(mod) || '-';
+        updateTraitTags(mod.id, i);
       });
       dtBody.appendChild(szRow);
     }
 
     if (td.hasMode) {
       const { row: modeRow, btns: modeBtns } = makeRow('M.');
-      makeBtnGroup(modeBtns, ['feedback','shift','noise','modulo','balanced'], getTokenMode(mod.id, i), v => {
+      makeBtnGroup(modeBtns, ['feedback','shift','noise','modulo','wave'], getTokenMode(mod.id, i), v => {
         if (v === null) clearTokenMode(mod.id, i); else setTokenMode(mod.id, i, v);
         if (moduloModeSetters[mod.id]) moduloModeSetters[mod.id]();
+        updateTraitTags(mod.id, i);
       });
       dtBody.appendChild(modeRow);
     }
@@ -1460,6 +1593,7 @@ function buildTokenList(mod) {
         makeBtnGroup(rsBtns, [{label:'small',value:'sm'},{label:'medium',value:'md'},{label:'large',value:'lg'},{label:'x-large',value:'xl'}], getTokenRectSize(mod.id, i), v => {
           if (v === null) clearTokenRectSize(mod.id, i); else setTokenRectSize(mod.id, i, v);
           if (moduloRectSizeSetters[mod.id]) moduloRectSizeSetters[mod.id]();
+          updateTraitTags(mod.id, i);
         });
         shiftBody.appendChild(rsRow);
       }
@@ -1469,6 +1603,7 @@ function buildTokenList(mod) {
         makeBtnGroup(rdBtns, [{label:'low',value:'lo'},{label:'medium',value:'md'},{label:'high',value:'hi'},{label:'max',value:'mx'}], getTokenRectDensity(mod.id, i), v => {
           if (v === null) clearTokenRectDensity(mod.id, i); else setTokenRectDensity(mod.id, i, v);
           if (moduloRectDensitySetters[mod.id]) moduloRectDensitySetters[mod.id]();
+          updateTraitTags(mod.id, i);
         });
         shiftBody.appendChild(rdRow);
       }
@@ -1499,6 +1634,7 @@ function buildTokenList(mod) {
           });
           const statEl = document.getElementById(`dstat-${mod.id}`);
           if (statEl) statEl.textContent = moduloBiosStatText(mod);
+          updateTraitTags(mod.id, i);
         });
       });
       biosBody.appendChild(desireLine);
@@ -1506,6 +1642,7 @@ function buildTokenList(mod) {
 
     // Trash button — only for user-owned tokens. Independent of any trait group.
     if (own) {
+      traits.classList.add('has-trash'); // reserves bottom space so trash never overlaps rows
       const trash = document.createElement('button');
       trash.className = 'tr-trash' + (mod.tokens.length <= 1 ? ' disabled' : '');
       trash.title = 'remove token';
@@ -1526,7 +1663,64 @@ function buildTokenList(mod) {
 
     header.addEventListener('click', e => {
       e.stopPropagation();
+      const expanding = !row.classList.contains('expanded');
       row.classList.toggle('expanded');
+      if (expanding) {
+        // Wait 2 frames so the expanded .tr-traits has been laid out,
+        // then compute the scroll in the token-list's OWN coordinate space.
+        // We have to derive the zoom ratio between screen-px (from
+        // getBoundingClientRect) and the list's internal scroll-px (used by
+        // scrollTop) by comparing width_screen/width_internal, because CSS
+        // `zoom` on ancestors (#world-zoom=1.8, .card-left-expanded=1.4)
+        // doesn't show up in getComputedStyle(tokenList).zoom.
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+          const tokenList = row.closest('.token-list');
+          if (!tokenList) return;
+          const listRect = tokenList.getBoundingClientRect();
+          const rowRect  = row.getBoundingClientRect();
+          const listInternalW = tokenList.clientWidth;
+          if (!listInternalW) return;
+          const z = listRect.width / listInternalW; // screen-px per internal-px
+          const listH     = tokenList.clientHeight;
+          const curScroll = tokenList.scrollTop;
+          const rowTop    = (rowRect.top - listRect.top) / z + curScroll;
+          const rowH      = rowRect.height / z;
+          const rowBottom = rowTop + rowH;
+          const visibleTop    = curScroll;
+          const visibleBottom = curScroll + listH;
+          // Already fully visible? Bail — no scroll needed.
+          if (rowTop >= visibleTop - 1 && rowBottom <= visibleBottom + 1) return;
+          const headerSafe = Math.max(0, rowTop - 6);
+          let target;
+          if (rowH >= listH) {
+            // Row too tall for the viewport — pin header with a 6px gap.
+            target = headerSafe;
+          } else {
+            const bottomScroll = rowBottom - listH + 8;
+            target = Math.min(bottomScroll, headerSafe);
+            // If row is above viewport, scroll up to reveal its header.
+            if (rowTop < visibleTop) target = headerSafe;
+          }
+          // Clamp to valid scroll range, re-reading scrollHeight live so late
+          // reflow of the expanding .tr-traits doesn't cause overshoot.
+          const clampTarget = () =>
+            Math.max(0, Math.min(target, tokenList.scrollHeight - tokenList.clientHeight));
+          target = clampTarget();
+          if (Math.abs(target - curScroll) < 1) return;
+          // Manual smooth scroll — native `behavior:'smooth'` is a no-op when
+          // an ancestor uses CSS `zoom`. rAF tween works fine.
+          const start = curScroll;
+          const dur   = 280;
+          const t0    = performance.now();
+          const ease  = t => t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+          (function tick(now) {
+            const p  = Math.min(1, (now - t0) / dur);
+            const to = clampTarget();
+            tokenList.scrollTop = start + (to - start) * ease(p);
+            if (p < 1) requestAnimationFrame(tick);
+          })(t0);
+        }));
+      }
     });
 
     list.appendChild(row);
@@ -1537,18 +1731,47 @@ function buildTokenList(mod) {
 // ANIMATION  (DT cellular automaton)
 // ═══════════════════════════════════════════════════════
 const globalAnims = [];
+const PIXEL     = 6;
+const GRID_COLS = 450;
+const GRID_ROWS = 250;
+// Single shared observer instead of one per canvas
+const _animsByCanvas = new Map();
+const _globalObserver = new IntersectionObserver(entries => {
+  entries.forEach(entry => {
+    const a = _animsByCanvas.get(entry.target);
+    if (a) a.setVisible(entry.isIntersecting);
+  });
+}, { threshold: 0 });
 const FRAME_INTERVAL_GLOBAL = 1000 / 60;
 let _globalLastFrame = 0;
+let _fpsFrames = 0, _fpsLast = 0;
+const _prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)');
 
 function startGlobalLoop() {
   function loop(ts) {
-    if (!document.hidden && ts - _globalLastFrame >= FRAME_INTERVAL_GLOBAL) {
-      const vis    = globalAnims.filter(a => a.isVisibleFn()).length;
+    // FPS counter — always counts frames regardless of hidden state
+    _fpsFrames++;
+    if (_fpsLast === 0) _fpsLast = ts;
+    if (ts - _fpsLast >= 500) {
+      const el = document.getElementById('fps-counter');
+      if (el) el.textContent = `${Math.round(_fpsFrames * 1000 / (ts - _fpsLast))} fps`;
+      _fpsFrames = 0;
+      _fpsLast = ts;
+    }
+
+    const frameInterval = _prefersReduced.matches ? 200 : FRAME_INTERVAL_GLOBAL;
+    if (!document.hidden && ts - _globalLastFrame >= frameInterval) {
       globalAnims.forEach(a => {
+        if (a._exporting) return;
         if (a.isVisibleFn()) {
-          a.step(a.dtOps);
-          a.applyRects(); a.applyRects(); a.applyRects(); a.applyRects(); a.applyRects();
-          a.render();
+          try {
+            a.step(a.dtOps);
+            a.applyRects();
+            a.tickRects && a.tickRects();
+            a.render();
+          } catch(err) {
+            console.error('[TokenCluster] anim frame error:', err);
+          }
         }
       });
       _globalLastFrame = ts;
@@ -1562,11 +1785,7 @@ function startAnim(canvasId, mod) {
   const canvas = document.getElementById(canvasId);
   if (!canvas) return;
 
-  const PIXEL = 6;
-
   // ── Full grid — sized for 2560×1440 expand at PIXEL=6 (2560/6≈427 cols)
-  const GRID_COLS = 450;
-  const GRID_ROWS = 250;
   let grid = new Uint8Array(GRID_COLS * GRID_ROWS);
   let next = new Uint8Array(GRID_COLS * GRID_ROWS);
 
@@ -1582,6 +1801,7 @@ function startAnim(canvasId, mod) {
   canvas.height = initRows * PIXEL;
 
   const ctx = canvas.getContext('2d');
+  if (!ctx) { console.error('[TokenCluster] getContext failed for', canvasId); return; }
   ctx.imageSmoothingEnabled = false;
 
   function resizeCanvas(s) {
@@ -1605,8 +1825,36 @@ function startAnim(canvasId, mod) {
   moduloCanvasResizers[mod.id] = resizeCanvas;
   moduloTextResetters[mod.id]  = () => { for (let i = 0; i < _txtInst.length; i++) _txtInst[i] = null; };
 
-  const DT_PAL = [[0,0,0],[69,73,84],[42,11,24]];
   let PAL = [];
+  // Cumulative thresholds for the "priority pyramid" — lower rank index gets
+  // more cells. Used both by the initial seed AND by anim functions so the
+  // distribution is preserved over time (a uniform-random anim would erode
+  // the pyramid toward uniform weights within seconds).
+  let _palThresholds = [];
+  function _recomputeThresholds(N) {
+    _palThresholds = new Array(N);
+    let wSum = 0;
+    const weights = new Array(N);
+    for (let k = 0; k < N; k++) {
+      // (N-k)^1.5 → pronounced falloff, so rank 1 dominates and the last rank
+      // barely appears (e.g. N=5 → last color ≈3.5%, N=8 → last color ≈1.2%).
+      const w = Math.pow(N - k, 1.5);
+      weights[k] = w; wSum += w;
+    }
+    let acc = 0;
+    for (let k = 0; k < N; k++) {
+      acc += weights[k] / wSum;
+      _palThresholds[k] = acc;
+    }
+  }
+  // Sample a PAL index according to the pyramid distribution. Used everywhere
+  // an animation would otherwise use `Math.floor(Math.random()*PAL.length)`.
+  function _pickWeighted() {
+    const r = Math.random();
+    const N = _palThresholds.length;
+    for (let k = 0; k < N; k++) if (r < _palThresholds[k]) return k;
+    return N - 1;
+  }
 
   let _txtPalIdx = 0, _txtPalIdx2 = 0;
   function _pickTxtColors() {
@@ -1615,27 +1863,32 @@ function startAnim(canvasId, mod) {
       ? (_txtPalIdx + 1 + Math.floor(Math.random() * (PAL.length - 1))) % PAL.length
       : _txtPalIdx;
   }
+  let _prevPalN = -1;
   function updatePalette() {
-    if (mod.dtPalette) {
-      PAL = DT_PAL;
-    } else {
-      // One PAL slot per selected token, sorted by rank ascending.
-      // Rank determines ORDER (PAL[0] = rank 1, PAL[1] = rank 2, ...) but NOT
-      // slot count — distribution is perfectly equal 1/N per token.
-      const ranked = mod.tokens
-        .map((t, si) => ({ t, si, rank: (TOKEN_DATA[t] && TOKEN_DATA[t].rank) || 9999 }))
-        .filter(({ si }) => nodeColors[mod.id][si] !== -1)
-        .sort((a, b) => a.rank - b.rank);
-      PAL = ranked.map(({ t, si }) => {
-        const hex = COLS_DATA[(TOKEN_DATA[t] ? TOKEN_DATA[t].palette : t % COLS_DATA.length)][getSelIdx(mod.id, si)];
-        return [parseInt(hex.slice(1,3),16), parseInt(hex.slice(3,5),16), parseInt(hex.slice(5,7),16)];
-      });
-    }
+    // One PAL slot per selected token, sorted by rank ascending.
+    // Rank determines ORDER (PAL[0] = rank 1 = most prominent) AND slot weight
+    // via a pyramid distribution (lower rank = more cells).
+    const ranked = mod.tokens
+      .map((t, si) => ({ t, si, rank: (TOKEN_DATA[t] && TOKEN_DATA[t].rank) || 9999 }))
+      .filter(({ si }) => nodeColors[mod.id] && nodeColors[mod.id][si] !== -1)
+      .sort((a, b) => a.rank - b.rank);
+    PAL = ranked.map(({ t, si }) => {
+      const hex = COLS_DATA[(TOKEN_DATA[t] ? TOKEN_DATA[t].palette : t % COLS_DATA.length)][getSelIdx(mod.id, si)];
+      return [parseInt(hex.slice(1,3),16), parseInt(hex.slice(3,5),16), parseInt(hex.slice(5,7),16)];
+    });
     if (PAL.length === 0) PAL = [[0,0,0]]; // safety
 
-    // Re-seed grid uniformly: each token gets exactly 1/N of the cells.
-    for (let i = 0; i < grid.length; i++) {
-      grid[i] = Math.floor(Math.random() * PAL.length);
+    const _N = PAL.length;
+
+    // Only re-seed the grid when the palette size changes (add / remove /
+    // deselect). A pure color swap keeps the same slot count, so the existing
+    // DT pattern survives — PAL[k] just points to a different color now.
+    if (_N !== _prevPalN) {
+      _recomputeThresholds(_N);
+      for (let i = 0; i < grid.length; i++) {
+        grid[i] = _pickWeighted();
+      }
+      _prevPalN = _N;
     }
     _pickTxtColors();
   }
@@ -1656,8 +1909,11 @@ function startAnim(canvasId, mod) {
   function animNoise() {
     const r=makeRect();
     for (let dy=0;dy<r.h;dy++) for (let dx=0;dx<r.w;dx++) {
-      // Uniform random across all PAL slots — no bias toward PAL[0]
-      next[idx(r.x+dx,r.y+dy)] = Math.floor(Math.random() * PAL.length);
+      // Sample from the pyramid distribution (NOT uniform) — otherwise
+      // repeated noise writes erode the pyramid toward uniform weights
+      // within seconds and the lowest-priority color ends up with the same
+      // share as the highest-priority one.
+      next[idx(r.x+dx,r.y+dy)] = _pickWeighted();
     }
   }
   function animShift() {
@@ -1667,10 +1923,49 @@ function startAnim(canvasId, mod) {
     }
   }
   function animModulo() {
-    const r=makeRect(),m=2+Math.floor(Math.random()*3);
+    if (PAL.length < 2) return;
+    const r=makeRect();
+    const step=1+Math.floor(Math.random()*(PAL.length-1));
     for (let dy=0;dy<r.h;dy++) for (let dx=0;dx<r.w;dx++) {
       const i=idx(r.x+dx,r.y+dy);
-      next[i]=grid[i]%m===0?(grid[i]+1)%PAL.length:grid[i];
+      if (Math.random()<0.5) next[i]=(grid[i]+step)%PAL.length;
+    }
+  }
+  let _waveT = 0;
+  function animWave() {
+    _waveT += 0.003; // avanza suave — ops calls/frame × 60fps ≈ 1.4 ciclos/s
+    const r = makeRect();
+    // ── a) Amplitud por zona — dos senos espaciales crean manchas de intensidad ──
+    // Producto de dos senos a frecs distintas: zonas donde ambos son positivos
+    // tienen amp alta, donde el producto es negativo la ola casi no se mueve.
+    const zoneAmp = Math.pow(
+      Math.max(0, Math.sin(r.x * 0.018 + _waveT * 0.4) * Math.sin(r.y * 0.022 + _waveT * 0.25)),
+      1.5
+    );
+    const amp = 1 + Math.round(11 * zoneAmp); // 1 (quieto) … 12 (máximo arrastre)
+    // ── b) Desplazamiento horizontal ondulado dentro del rect ──
+    for (let dy = 0; dy < r.h; dy++) {
+      const cy = r.y + dy;
+      const speedMod = 1 + Math.sin(cy * 0.03) * 0.5;
+      const offset = Math.round(Math.sin(cy * 0.08 + _waveT * speedMod) * amp);
+      for (let dx = 0; dx < r.w; dx++) {
+        next[idx(r.x + dx, cy)] = grid[idx(r.x + dx - offset, cy)];
+      }
+    }
+    // ── b) Spike vertical ocasional ──
+    if (PAL.length >= 2 && Math.random() < 0.02) {
+      const sx    = Math.floor(Math.random() * GRID_COLS);
+      const sh    = 8 + Math.floor(Math.random() * 20);
+      const halfW = 1 + Math.floor(Math.random() * 2);
+      for (let h = 0; h < sh; h++) {
+        const taper = 1 - h / sh;
+        const wHere = Math.max(1, Math.round(halfW * taper));
+        const y = GRID_ROWS - 1 - h;
+        for (let w = -wHere; w <= wHere; w++) {
+          const x = (sx + w + GRID_COLS) % GRID_COLS;
+          if (Math.random() < 0.8) next[idx(x, y)] = 1;
+        }
+      }
     }
   }
   function animFeedback() {
@@ -1679,7 +1974,7 @@ function startAnim(canvasId, mod) {
       const cx=r.x+dx,cy=r.y+dy;
       const nb=[grid[idx(cx-1,cy)],grid[idx(cx+1,cy)],grid[idx(cx,cy-1)],grid[idx(cx,cy+1)]];
       const count=new Array(PAL.length).fill(0);
-      for (const n of nb) count[n]++;
+      for (const n of nb) if (n < PAL.length) count[n]++;
       let max=0,best=grid[idx(cx,cy)];
       for (let v=0;v<PAL.length;v++) if(count[v]>max){max=count[v];best=v;}
       next[idx(cx,cy)]=best;
@@ -1697,35 +1992,86 @@ function startAnim(canvasId, mod) {
   let _rdDistinct = moduloDistinctRectDensities(mod);
   let _rdCycleIdx = 0, _rdCycleFrames = 0;
   let _rdDensity = _rdDistinct[0] || 'md';
-  function makeRandomRect() {
+  // ── rectshifting1 — rect único original ──────────────────────────────────
+  function _makeRect1() {
     const p  = RS_PARAMS[_rsSize] || RS_PARAMS.md;
     const cw = p.min + Math.floor(Math.random() * (p.max - p.min));
     const ch = p.min + Math.floor(Math.random() * (p.max - p.min));
     const cx = Math.floor(Math.random() * Math.max(1, GRID_COLS - cw));
     const cy = Math.floor(Math.random() * Math.max(1, GRID_ROWS - ch));
     const [ddx, ddy] = DIRS[Math.floor(Math.random() * DIRS.length)];
-    return { cx, cy, cw, ch, dx:ddx, dy:ddy };
+    return { cx, cy, cw, ch, dx:ddx, dy:ddy, tiles: null };
+  }
+  // ── rectshifting2 — escalera de sub-tiles dentro del mismo bounding box ──
+  function _makeRect2() {
+    const p  = RS_PARAMS[_rsSize] || RS_PARAMS.md;
+    const [ddx, ddy] = DIRS[Math.floor(Math.random() * DIRS.length)];
+    // Bounding box escalado x1.4 para compensar cobertura parcial de los tiles (~55%)
+    const bw = Math.min(GRID_COLS, Math.round((p.min + Math.floor(Math.random() * (p.max - p.min))) * 1.4));
+    const bh = Math.min(GRID_ROWS, Math.round((p.min + Math.floor(Math.random() * (p.max - p.min))) * 1.4));
+    const bx = Math.floor(Math.random() * Math.max(1, GRID_COLS - bw));
+    const by = Math.floor(Math.random() * Math.max(1, GRID_ROWS - bh));
+    const nTiles    = 3 + Math.floor(Math.random() * 3);
+    const tiles     = [];
+    const baseFracW = 0.35 + Math.random() * 0.30;
+    const baseFracH = 0.35 + Math.random() * 0.30;
+    const stepDX    = Math.random() < 0.5 ? 1 : -1;
+    const stepDY    = Math.random() < 0.5 ? 1 : -1;
+    const stepSz    = Math.floor(Math.min(bw, bh) * 0.22);
+    let cx = bx + Math.floor(Math.random() * Math.max(1, bw * 0.35));
+    let cy = by + Math.floor(Math.random() * Math.max(1, bh * 0.35));
+    for (let i = 0; i < nTiles; i++) {
+      const scale = 1 - i * 0.08;
+      const tw = Math.max(3, Math.round(bw * baseFracW * scale));
+      const th = Math.max(3, Math.round(bh * baseFracH * scale));
+      const tx = Math.max(bx, Math.min(bx + bw - tw, cx));
+      const ty = Math.max(by, Math.min(by + bh - th, cy));
+      tiles.push({ x: tx, y: ty, w: tw, h: th });
+      cx += stepDX * stepSz;
+      cy += stepDY * stepSz;
+    }
+    return { cx: bx, cy: by, cw: bw, ch: bh, dx: ddx, dy: ddy, tiles };
+  }
+  // ── activo: rectshifting1 ─────────────────────────────────────────────────
+  function makeRandomRect() { return _makeRect1(); }
+
+  // Convert RD_PARAMS ms durations to frame counts at 60fps
+  function _rdFrameCount(field) {
+    const dp = RD_PARAMS[_rdDensity] || RD_PARAMS.md;
+    const ms = dp[field + 'Min'] + Math.random() * (dp[field + 'Max'] - dp[field + 'Min']);
+    return Math.max(1, Math.round(ms / (1000 / 60)));
   }
 
   function buildRectShifts() {
     rectShifts = [];
-    for (let i = 0; i < RECT_COUNT; i++) rectShifts.push({ ...makeRandomRect(), active:false });
+    for (let i = 0; i < RECT_COUNT; i++) {
+      rectShifts.push({ ...makeRandomRect(), active: false, countdown: _rdFrameCount('off') });
+    }
   }
   buildRectShifts();
 
-  function scheduleRect(slot) {
-    const dp     = RD_PARAMS[_rdDensity] || RD_PARAMS.md;
-    const offDur = dp.offMin + Math.random() * (dp.offMax - dp.offMin);
-    const onDur  = dp.onMin  + Math.random() * (dp.onMax  - dp.onMin);
-    setTimeout(() => {
-      rectShifts[slot] = { ...makeRandomRect(), active:true };
-      setTimeout(() => {
-        rectShifts[slot].active = false;
-        scheduleRect(slot);
-      }, onDur);
-    }, offDur);
+  let _rectsPaused = false;
+  function stopRectTimers()  { _rectsPaused = true;  }
+  function startRectTimers() { _rectsPaused = false; }
+
+  // Advances rect countdown timers — called once per frame from global loop
+  function tickRects() {
+    if (_rectsPaused) return;
+    for (let i = 0; i < rectShifts.length; i++) {
+      const rs = rectShifts[i];
+      rs.countdown--;
+      if (rs.countdown <= 0) {
+        if (rs.active) {
+          rs.active = false;
+          rs.countdown = _rdFrameCount('off');
+        } else {
+          Object.assign(rs, makeRandomRect());
+          rs.active = true;
+          rs.countdown = _rdFrameCount('on');
+        }
+      }
+    }
   }
-  for (let i = 0; i < RECT_COUNT; i++) scheduleRect(i);
 
   const anyActive = () => rectShifts.some(rs => rs.active);
 
@@ -1736,13 +2082,30 @@ function startAnim(canvasId, mod) {
     for (let s = 0; s < rectShifts.length; s++) {
       const rs = rectShifts[s];
       if (!rs.active) continue;
-      for (let r = rs.cy; r < rs.cy + rs.ch; r++)
-        for (let c = rs.cx; c < rs.cx + rs.cw; c++) {
-          const sr = ((r - rs.dy) + GRID_ROWS) % GRID_ROWS;
-          const sc = ((c - rs.dx) + GRID_COLS) % GRID_COLS;
-          next[r * GRID_COLS + c]        = grid[sr * GRID_COLS + sc];
-          _ditherNext[r * GRID_COLS + c] = _ditherNoise[sr * GRID_COLS + sc];
+      if (rs.tiles) {
+        // rectshifting2 — sub-tiles
+        for (const t of rs.tiles) {
+          for (let r = t.y; r < t.y + t.h; r++) {
+            const rr = r % GRID_ROWS;
+            for (let c = t.x; c < t.x + t.w; c++) {
+              const cc = c % GRID_COLS;
+              const sr = ((rr - rs.dy) + GRID_ROWS) % GRID_ROWS;
+              const sc = ((cc - rs.dx) + GRID_COLS) % GRID_COLS;
+              next[rr * GRID_COLS + cc]        = grid[sr * GRID_COLS + sc];
+              _ditherNext[rr * GRID_COLS + cc] = _ditherNoise[sr * GRID_COLS + sc];
+            }
+          }
         }
+      } else {
+        // rectshifting1 — rect único
+        for (let r = rs.cy; r < rs.cy + rs.ch; r++)
+          for (let c = rs.cx; c < rs.cx + rs.cw; c++) {
+            const sr = ((r - rs.dy) + GRID_ROWS) % GRID_ROWS;
+            const sc = ((c - rs.dx) + GRID_COLS) % GRID_COLS;
+            next[r * GRID_COLS + c]        = grid[sr * GRID_COLS + sc];
+            _ditherNext[r * GRID_COLS + c] = _ditherNoise[sr * GRID_COLS + sc];
+          }
+      }
     }
     grid.set(next);
     _ditherNoise.set(_ditherNext);
@@ -1830,7 +2193,9 @@ function startAnim(canvasId, mod) {
     return true;
   }
 
+  const _wordCanvasCache = new Map();
   function _rasterWordCanvas(word) {
+    if (_wordCanvasCache.has(word)) return _wordCanvasCache.get(word);
     const _c = document.createElement('canvas');
     const _x = _c.getContext('2d');
     const REF = 40;
@@ -1858,7 +2223,9 @@ function startAnim(canvasId, mod) {
           }
         if (count && total / count > 60) imgData[(r * fw + c) * 4 + 3] = 255;
       }
-    return { imgData, fw, fh };
+    const result = { imgData, fw, fh };
+    _wordCanvasCache.set(word, result);
+    return result;
   }
 
   function _rasterWord(word, lang) {
@@ -2104,27 +2471,28 @@ function startAnim(canvasId, mod) {
 
   // step — always evolves the full GRID_COLS×GRID_ROWS grid
   const MODE_PROBS = {
-    feedback: [0.70, 0.10, 0.10, 0.10],
-    shift:    [0.00, 1.00, 0.00, 0.00],
-    noise:    [0.10, 0.10, 0.70, 0.10],
-    modulo:   [0.10, 0.10, 0.10, 0.70],
-    balanced: [0.30, 0.25, 0.20, 0.25],
+    feedback: [0.70, 0.10, 0.10, 0.10, 0.00],
+    shift:    [0.00, 1.00, 0.00, 0.00, 0.00],
+    noise:    [0.10, 0.10, 0.70, 0.10, 0.00],
+    modulo:   [0.10, 0.10, 0.10, 0.70, 0.00],
+    wave:     [0.00, 0.00, 0.00, 0.00, 1.00],
   };
   const CYCLE_FRAMES = 300; // 5s at 60fps
   let _cycleModes = moduloDistinctModes(mod);
   let _cycleIdx   = 0;
   let _cycleFrames = 0;
-  let _dtMode = _cycleModes[0] || 'balanced';
+  let _dtMode = _cycleModes[0] || 'feedback';
   function step(ops) {
     next.set(grid);
-    const [pFb, pSh, pNo] = MODE_PROBS[_dtMode] || MODE_PROBS.balanced;
-    const cFb = pFb, cSh = pFb+pSh, cNo = pFb+pSh+pNo;
+    const [pFb, pSh, pNo, pMo, pWv] = MODE_PROBS[_dtMode] || MODE_PROBS.feedback;
+    const cFb = pFb, cSh = pFb+pSh, cNo = cSh+pNo, cMo = cNo+pMo;
     for (let i=0;i<(ops||8);i++) {
       const r=Math.random();
       if      (r<cFb) animFeedback();
       else if (r<cSh) animShift();
       else if (r<cNo) animNoise();
-      else            animModulo();
+      else if (r<cMo) animModulo();
+      else            animWave();
     }
     grid.set(next);
     if (_cycleModes.length > 1) {
@@ -2197,18 +2565,23 @@ function startAnim(canvasId, mod) {
       const ec = document.getElementById('expand-canvas');
       if (ec) {
         const ectx = ec.getContext('2d');
-        ectx.imageSmoothingEnabled = false;
-        paintTo(ec, ectx);
+        if (ectx) { ectx.imageSmoothingEnabled = false; paintTo(ec, ectx); }
       }
     }
   }
 
   let isVisible = true;
-  const observer = new IntersectionObserver(e => { isVisible=e[0].isIntersecting; }, { threshold:0 });
-  observer.observe(canvas);
+  _globalObserver.observe(canvas);
   const initDtOps = moduloTokenOps[mod.id] ? moduloTokenOps[mod.id].reduce((a, v) => a + (v || 0), 0) : 14;
-  const animObj = { step, render, stampBios: _stampBiosToGrid, applyRects: applyRectShifts, dtOps: initDtOps, isVisibleFn:()=>isVisible };
+  function destroyAnim() {
+    stopRectTimers();
+    _globalObserver.unobserve(canvas);
+    _animsByCanvas.delete(canvas);
+  }
+  const animObj = { step, render, paintTo, stampBios: _stampBiosToGrid, applyRects: applyRectShifts, tickRects, stopRects: stopRectTimers, startRects: startRectTimers, dtOps: initDtOps, isVisibleFn:()=>isVisible, setVisible:(v)=>{ isVisible=v; }, destroy: destroyAnim, _exporting: false };
+  _animsByCanvas.set(canvas, animObj);
   globalAnims.push(animObj);
+  moduloAnimObjs[mod.id] = animObj;
   moduloSpeedSetters[mod.id] = (ops) => { animObj.dtOps = ops; };
   moduloSizeSetters[mod.id]        = (sz) => { _sizeScale  = SIZE_SCALES[sz]  || 1.0; };
   moduloRectSizeSetters[mod.id] = () => {
@@ -2226,11 +2599,12 @@ function startAnim(canvasId, mod) {
   moduloModeSetters[mod.id] = () => {
     _cycleModes = moduloDistinctModes(mod);
     _cycleIdx = 0; _cycleFrames = 0;
-    _dtMode = _cycleModes[0] || 'balanced';
+    _dtMode = _cycleModes[0] || 'feedback';
     const statEl = document.getElementById(`mstat-${mod.id}`);
     if (statEl) statEl.textContent = _cycleModes.length ? _cycleModes.map(m => MODE_ABBR[m] || m).join('/') : '-';
   };
-  moduloBiosTriggers[mod.id] = (slotIdx) => pickText(slotIdx);
+  moduloBiosTriggers[mod.id]        = (slotIdx) => pickText(slotIdx);
+  moduloBiosCycleResetters[mod.id]  = () => { _biosCycleIdx = 0; };
 }
 
 // ═══════════════════════════════════════════════════════
@@ -2239,8 +2613,8 @@ function startAnim(canvasId, mod) {
 const viewport = document.getElementById('viewport');
 let tx=0, ty=0, scale=1, dragging=false, dsx=0, dsy=0, dtx=0, dty=0;
 let _panRAF=null;
+let _pendingPan=null;
 
-// Zoom limits: MIN = fit all modulos, MAX = 2.5×
 const MAX_SCALE = 2.5;
 let   MIN_SCALE = 0.3; // recalculated on init/resize
 
@@ -2278,12 +2652,21 @@ function setTransform(x, y, s) {
   [tx, ty] = clampXY(x, y, scale);
   applyTransform();
   drawMinimap();
+  if (inventoryModuloId) _positionInventoryToBtn();
 }
 
 function schedulePan(x, y) {
-  [tx, ty] = clampXY(x, y);
-  applyTransform();
-  if (!_panRAF) _panRAF=requestAnimationFrame(()=>{ _panRAF=null; drawMinimap(); });
+  _pendingPan = { x, y };
+  if (!_panRAF) _panRAF = requestAnimationFrame(() => {
+    _panRAF = null;
+    if (_pendingPan) {
+      [tx, ty] = clampXY(_pendingPan.x, _pendingPan.y);
+      applyTransform();
+      _pendingPan = null;
+      drawMinimap();
+      if (inventoryModuloId) _positionInventoryToBtn();
+    }
+  });
 }
 
 function initCamera() {
@@ -2295,22 +2678,26 @@ function initCamera() {
   setTransform(vw/2 - first.cx * scale, vh/2 - first.cy * scale, scale);
 }
 
+function isUILocked() { return !!expandedModuloId; }
+
 // ── Wheel zoom (zoom toward cursor) ──
+let _lastWheelTime = 0;
+const _scrollableSelector = '.token-list, #inventory-grid, #expand-sidebar-inner, .inv-panel';
 viewport.addEventListener('wheel', e => {
   // If the event originates inside a scrollable element, let it scroll natively
-  // (checked first so the modulo card's token list stays scrollable even when
-  // the inventory is open).
   let el = e.target;
   while (el && el !== viewport) {
-    const oy = getComputedStyle(el).overflowY;
-    if ((oy === 'auto' || oy === 'scroll') && el.scrollHeight > el.clientHeight) {
-      return; // let native scroll handle it
-    }
+    if (el.matches && el.matches(_scrollableSelector) && el.scrollHeight > el.clientHeight) return;
     el = el.parentElement;
   }
-  // Block world-zoom when expand or inventory is open
-  if (expandedModuloId || inventoryModuloId) { e.preventDefault(); return; }
+  // Block world-zoom when expand or fly animation is active; also when
+  // inventory is open so its window scale doesn't desync from the world.
+  if (isUILocked() || inventoryModuloId || _flyAnimating) { e.preventDefault(); return; }
   e.preventDefault();
+  // Throttle to ~30 zoom events/s to prevent layout thrashing on fast wheels
+  const now = performance.now();
+  if (now - _lastWheelTime < 32) return;
+  _lastWheelTime = now;
   const factor   = e.deltaY < 0 ? 1.08 : 1/1.08;
   const newScale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, scale * factor));
   if (newScale === scale) return;
@@ -2328,7 +2715,7 @@ viewport.addEventListener('wheel', e => {
 
 // Drag: allow pan from background OR card titlebars; block from card interactive content
 viewport.addEventListener('mousedown', e => {
-  if (expandedModuloId || inventoryModuloId) return;
+  if (isUILocked()) return;
   const blocked = e.target.closest(
     '.tr-colors-inline,.token-list,.add-row,.card-settle-btn,.overlay,.modulo-nav,.minimap,.fps-counter,#inventory-overlay'
   );
@@ -2341,9 +2728,18 @@ window.addEventListener('mousemove', e => {
   schedulePan(dtx+(e.clientX-dsx), dty+(e.clientY-dsy));
 });
 window.addEventListener('mouseup', () => { dragging=false; viewport.classList.remove('dragging'); });
+window.addEventListener('blur',   () => { dragging=false; viewport.classList.remove('dragging'); });
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) {
+    _flyAnimating = false;
+    globalAnims.forEach(a => { if (a.stopRects) a.stopRects(); });
+  } else {
+    globalAnims.forEach(a => { if (a.startRects) a.startRects(); });
+  }
+});
 
 viewport.addEventListener('touchstart', e => {
-  if (expandedModuloId || inventoryModuloId) return;
+  if (isUILocked()) return;
   const blocked = e.target.closest(
     '.tr-colors-inline,.token-list,.add-row,.card-settle-btn,.overlay,#inventory-overlay'
   );
@@ -2356,6 +2752,49 @@ viewport.addEventListener('touchmove', e => {
 }, { passive:true });
 viewport.addEventListener('touchend', () => { dragging=false; });
 
+// Click-to-fly — clicking on a modulo card's non-interactive area (titlebar
+// text, card body background, or the DT canvas) pans the viewport to center
+// that card, same motion used by the navigator menu. We detect "click" as a
+// mousedown+mouseup pair with < 5px movement so it doesn't fire while panning.
+let _flyDownMod = null, _flyDownX = 0, _flyDownY = 0;
+// Fly-to-modulo fires on click only outside interactive regions. Anything
+// editable (token rows, +, inventory, settle, green dot, buttons, sliders)
+// blocks the fly; empty card-left area and the stats header do NOT — so
+// clicking on stats or on the blank space under the token list flies too.
+const _flyBlockSel =
+  '.token-row,.tr-colors-inline,.add-row,.inv-panel,.card-settle-btn,.dot.g,button,input,.overlay,.modulo-nav,.minimap,.fps-counter,#inventory-overlay';
+viewport.addEventListener('mousedown', e => {
+  if (isUILocked()) { _flyDownMod = null; return; }
+  const card = e.target.closest('.modulo-card');
+  if (!card || e.target.closest(_flyBlockSel)) { _flyDownMod = null; return; }
+  const modId = card.id.replace('card-', '');
+  _flyDownMod = MODULOS.find(m => m.id === modId) || null;
+  _flyDownX = e.clientX; _flyDownY = e.clientY;
+});
+window.addEventListener('mouseup', e => {
+  if (!_flyDownMod) return;
+  const dx = e.clientX - _flyDownX, dy = e.clientY - _flyDownY;
+  if (dx*dx + dy*dy < 25) flyToModulo(_flyDownMod); // < 5px → pure click
+  _flyDownMod = null;
+});
+viewport.addEventListener('touchstart', e => {
+  if (isUILocked()) { _flyDownMod = null; return; }
+  const card = e.target.closest('.modulo-card');
+  if (!card || e.target.closest(_flyBlockSel)) { _flyDownMod = null; return; }
+  const modId = card.id.replace('card-', '');
+  _flyDownMod = MODULOS.find(m => m.id === modId) || null;
+  _flyDownX = e.touches[0].clientX; _flyDownY = e.touches[0].clientY;
+}, { passive:true });
+window.addEventListener('touchend', e => {
+  if (!_flyDownMod) return;
+  const t = e.changedTouches && e.changedTouches[0];
+  if (t) {
+    const dx = t.clientX - _flyDownX, dy = t.clientY - _flyDownY;
+    if (dx*dx + dy*dy < 25) flyToModulo(_flyDownMod);
+  }
+  _flyDownMod = null;
+});
+
 // ═══════════════════════════════════════════════════════
 // MINIMAP
 // ═══════════════════════════════════════════════════════
@@ -2366,10 +2805,15 @@ function drawMinimap() {
 }
 function _drawMinimapNow() {
   const c=document.getElementById('minimap-canvas');
+  if (!c) return;
   const ctx=c.getContext('2d');
+  if (!ctx) return;
   const cw=c.offsetWidth, ch=c.offsetHeight;
-  c.width=cw*devicePixelRatio; c.height=ch*devicePixelRatio;
-  ctx.scale(devicePixelRatio,devicePixelRatio);
+  const dpr=devicePixelRatio;
+  if (c.width !== Math.round(cw*dpr) || c.height !== Math.round(ch*dpr)) {
+    c.width=Math.round(cw*dpr); c.height=Math.round(ch*dpr);
+    ctx.scale(dpr,dpr);
+  }
   ctx.clearRect(0,0,cw,ch);
 
   const WSIZE=4500, mm=Math.min(cw/WSIZE,ch/WSIZE)*0.88; // mm = minimap px/world-px
@@ -2400,8 +2844,11 @@ function _drawMinimapNow() {
 // ═══════════════════════════════════════════════════════
 const NAV_SCALE = 1.8; // scale used on page load and when navigating via menu
 
+let _flyAnimating  = false;
+let _expandClosing = false;
 function flyToModulo(mod) {
-  if (expandedModuloId) return;
+  if (expandedModuloId || _flyAnimating) return;
+  _flyAnimating = true;
   const vw=viewport.offsetWidth, vh=viewport.offsetHeight;
   const targetScale = NAV_SCALE;
   const targetX = vw/2 - mod.cx * targetScale;
@@ -2417,6 +2864,7 @@ function flyToModulo(mod) {
     setTransform(startX+dx*e, startY+dy*e, curScale);
     Object.values(moduloCanvasResizers).forEach(fn => fn(curScale));
     if (t<1) requestAnimationFrame(step);
+    else _flyAnimating = false;
   }
   requestAnimationFrame(step);
 }
@@ -2473,22 +2921,35 @@ function openExpand(moduloId, cardEl) {
   }
   setExpandSidebar(false); // start closed
 
-  // Show overlay with no transition so we can measure final position
+  if (!cardEl) {
+    expandWindow.style.transition = 'none';
+    expandWindow.style.transform  = '';
+    expandWindow.style.opacity    = '1';
+    expandOverlay.classList.add('active');
+    return;
+  }
+
+  // FLIP: measure card position BEFORE overlay is active to avoid reflow shifting cardRect.
+  // Use offsetWidth/offsetHeight for actual card dimensions (getBoundingClientRect returns
+  // only the visible portion when card is partially off-screen).
+  const cardRect       = cardEl.getBoundingClientRect();
+  const cardActualW    = cardEl.offsetWidth;
+  const cardActualH    = cardEl.offsetHeight;
+  const cardCenterX    = cardRect.left + cardRect.width  * 0.5;
+  const cardCenterY    = cardRect.top  + cardRect.height * 0.5;
+
   expandWindow.style.transition = 'none';
   expandWindow.style.transform  = '';
   expandWindow.style.opacity    = '1';
   expandOverlay.classList.add('active');
+  void expandWindow.offsetHeight; // force reflow so finalRect reflects active state
 
-  if (!cardEl) return;
-
-  // FLIP: measure where the window lands vs where the card is on screen
   const finalRect = expandWindow.getBoundingClientRect();
-  const cardRect  = cardEl.getBoundingClientRect();
 
-  const sx = cardRect.width  / finalRect.width;
-  const sy = cardRect.height / finalRect.height;
-  const dx = (cardRect.left + cardRect.width  * 0.5) - (finalRect.left + finalRect.width  * 0.5);
-  const dy = (cardRect.top  + cardRect.height * 0.5) - (finalRect.top  + finalRect.height * 0.5);
+  const sx = cardActualW / finalRect.width;
+  const sy = cardActualH / finalRect.height;
+  const dx = cardCenterX - (finalRect.left + finalRect.width  * 0.5);
+  const dy = cardCenterY - (finalRect.top  + finalRect.height * 0.5);
 
   expandWindow.style.transform = `translate(${dx}px,${dy}px) scale(${sx},${sy})`;
   expandWindow.style.opacity   = '0.15';
@@ -2515,14 +2976,15 @@ function closeExpand() {
   // Close any open inline inventory so it doesn't persist into the regular card view.
   // snap=true: bypass max-height transition since card-left is about to be relocated.
   if (inlineInventoryModId) closeInlineInventory(inlineInventoryModId, true);
-  // Restore card-left and unlock pan immediately (before animation)
-  _restoreCardLeft(moduloId);
+  // Clear expandedModuloId first so any re-entrant code sees unlocked state
   expandedModuloId = null;
+  _restoreCardLeft(moduloId);
 
   if (_expandCardEl) {
     const cardEl    = _expandCardEl;
     _expandCardEl   = null;
 
+    void cardEl.offsetHeight; // force reflow after DOM restore so cardRect is fresh
     const finalRect = expandWindow.getBoundingClientRect();
     const cardRect  = cardEl.getBoundingClientRect();
 
@@ -2534,18 +2996,23 @@ function closeExpand() {
     expandWindow.style.transition = 'transform 0.28s cubic-bezier(0.55,0,1,0.45), opacity 0.2s ease';
     expandWindow.style.transform  = `translate(${dx}px,${dy}px) scale(${sx},${sy})`;
     expandWindow.style.opacity    = '0';
+    _expandClosing = true;
 
-    // Wait for the longer transition (transform 0.28s) before tearing down
-    expandWindow.addEventListener('transitionend', function done(e) {
-      if (e.propertyName !== 'transform') return;
-      expandWindow.removeEventListener('transitionend', done);
+    // Wait for the longer transition (transform 0.28s) before tearing down.
+    // Fallback timeout covers prefers-reduced-motion / hidden tab / extension interference.
+    const _teardown = () => {
+      _expandClosing = false;
+      expandWindow.removeEventListener('transitionend', _onTransitionEnd);
+      clearTimeout(_teardownTimer);
       expandOverlay.classList.remove('active');
       expandWindow.style.transition = 'none';
       expandWindow.style.transform  = '';
       expandWindow.style.opacity    = '1';
-    });
+    };
+    const _onTransitionEnd = e => { if (e.propertyName === 'transform') _teardown(); };
+    const _teardownTimer = setTimeout(_teardown, 350);
+    expandWindow.addEventListener('transitionend', _onTransitionEnd);
   } else {
-    _expandCardEl = null;
     expandOverlay.classList.remove('active');
   }
 }
@@ -2562,19 +3029,28 @@ const inventoryGrid    = document.getElementById('inventory-grid');
 const inventoryCount   = document.getElementById('inventory-count');
 const inventoryTitle   = document.getElementById('inventory-tbar-title');
 
-// Small helper — builds a single .inv-tile element and wires its click.
+// Delegated click on the floating inventory grid — one listener for all tiles
+inventoryGrid.addEventListener('click', ev => {
+  const tile = ev.target.closest('.inv-tile');
+  if (!tile || !inventoryModuloId) return;
+  ev.stopPropagation();
+  const tn = parseInt(tile.dataset.tokenNum, 10);
+  if (!isNaN(tn)) addTokenToModulo(inventoryModuloId, tn);
+});
+
+// Small helper — builds a single .inv-tile element (no per-tile click listener).
 function _buildInventoryTile(tokenNum, onClick) {
   const tile = document.createElement('div');
   tile.className = 'inv-tile';
-  const color = tokenDefaultColor(tokenNum);
+  tile.dataset.tokenNum = tokenNum;
+  const rawColor = tokenDefaultColor(tokenNum);
+  const color = /^#[0-9a-fA-F]{6}$/.test(rawColor) ? rawColor : '#807c74';
   const rank  = (TOKEN_DATA[tokenNum] && TOKEN_DATA[tokenNum].rank) || 0;
   tile.innerHTML = `
     <span class="inv-tile-id">R#${String(rank).padStart(2,'0')}</span>
     <div class="inv-tile-swatch" style="background:${color}"></div>`;
-  tile.addEventListener('click', ev => {
-    ev.stopPropagation();
-    onClick(tokenNum);
-  });
+  // Inline inventory panels are rebuilt on each open, so they keep their own listener
+  if (onClick) tile.addEventListener('click', ev => { ev.stopPropagation(); onClick(tokenNum); });
   return tile;
 }
 
@@ -2637,8 +3113,12 @@ function closeInlineInventory(modId, snap) {
       panel.innerHTML = '';
     } else {
       panel.classList.remove('open');
-      // Clear tiles after the transition finishes so a future open starts clean
-      setTimeout(() => { if (panel && !panel.classList.contains('open')) panel.innerHTML = ''; }, 350);
+      // Clear tiles after the transition finishes so a future open starts clean.
+      // Store the timer so buildLeft can cancel it if the panel node is replaced.
+      const _t = setTimeout(() => {
+        if (panel.isConnected && !panel.classList.contains('open')) panel.innerHTML = '';
+      }, 350);
+      panel._clearTimer = _t;
     }
   }
   if (inlineInventoryModId === id) inlineInventoryModId = null;
@@ -2664,13 +3144,9 @@ function renderInventoryGrid() {
     msg.textContent = 'no tokens in inventory';
     inventoryGrid.appendChild(msg);
   } else {
+    // onClick is null — the delegated listener on inventoryGrid handles clicks
     tokenInventory.forEach(tokenNum => {
-      // addTokenToModulo already re-renders the grid at the end via the
-      // "if (inventoryModuloId === modId) renderInventoryGrid()" hook,
-      // so no second call is needed here.
-      inventoryGrid.appendChild(_buildInventoryTile(tokenNum, tn => {
-        addTokenToModulo(inventoryModuloId, tn);
-      }));
+      inventoryGrid.appendChild(_buildInventoryTile(tokenNum, null));
     });
   }
 
@@ -2710,18 +3186,8 @@ function _positionInventoryToBtn() {
   const winH = winRect.height;
 
   const GAP = 2;
-  let left = anchorRect.left - GAP - winW;
-  let top  = btnRect.bottom - winH;
-
-  // Clamp vertically to the modulo card bounds
-  if (top < cardRect.top)           top = cardRect.top;
-  if (top + winH > cardRect.bottom) top = cardRect.bottom - winH;
-
-  // Clamp horizontally to #root
-  const rootRect = document.getElementById('root').getBoundingClientRect();
-  const MARGIN = 4;
-  if (left < rootRect.left + MARGIN)          left = rootRect.left + MARGIN;
-  if (left + winW > rootRect.right - MARGIN)  left = rootRect.right - MARGIN - winW;
+  const left = anchorRect.left - GAP - winW;
+  const top  = btnRect.bottom - winH;
 
   // style.left/top on a zoomed element are in pre-zoom pixels
   const ovRect = inventoryOverlay.getBoundingClientRect();
@@ -2754,7 +3220,8 @@ function addTokenToModulo(modId, tokenNum) {
   _shiftSlotMapUp(tokenRectSizes,     modId, slotIdx);
   _shiftSlotMapUp(tokenRectDensities, modId, slotIdx);
   _shiftSlotMapUp(biosStates,         modId, slotIdx);
-  if (moduloTokenOps[modId]) moduloTokenOps[modId].splice(slotIdx, 0, 0);
+  // Insert null so buildTokenList's null-check seeds from the token's default speed
+  if (moduloTokenOps[modId]) moduloTokenOps[modId].splice(slotIdx, 0, null);
 
   // Keep featuredIdx in range (shift up if it's at or after insert point)
   if (featuredIdx[modId] != null && featuredIdx[modId] >= slotIdx) {
@@ -2775,6 +3242,14 @@ function addTokenToModulo(modId, tokenNum) {
   // Refresh animation palette so the new color joins the mix
   if (moduloAnimUpdaters[modId]) moduloAnimUpdaters[modId]();
 
+  // Push fresh aggregate traits to the animation engine so it picks up the new token's
+  // Sz/Mode/RS/RD immediately (otherwise the engine keeps running on stale aggregates
+  // until the user clicks a trait button)
+  if (moduloSizeSetters[modId])        moduloSizeSetters[modId](moduloDominantSize(mod));
+  if (moduloModeSetters[modId])        moduloModeSetters[modId]();
+  if (moduloRectSizeSetters[modId])    moduloRectSizeSetters[modId]();
+  if (moduloRectDensitySetters[modId]) moduloRectDensitySetters[modId]();
+
   // Push fresh total ops to the animation so dtOps reflects the new token
   if (moduloSpeedSetters[modId] && moduloTokenOps[modId]) {
     const total = moduloTokenOps[modId].reduce((a, v) => a + (v || 0), 0);
@@ -2782,6 +3257,9 @@ function addTokenToModulo(modId, tokenNum) {
     const statEl = document.getElementById(`spd-${modId}`);
     if (statEl) statEl.textContent = total;
   }
+
+  // Reset BIOS cycle index so rotation restarts cleanly with the new token set
+  if (moduloBiosCycleResetters[modId]) moduloBiosCycleResetters[modId]();
 
   // Update navigator battery + global counter
   updateNavBattery(modId, mod.tokens.length);
@@ -2856,12 +3334,22 @@ function removeTokenFromModulo(modId, slotIdx) {
   buildLeft(mod);
   if (moduloAnimUpdaters[modId]) moduloAnimUpdaters[modId]();
 
+  // Re-aggregate traits for the animation engine — removed token might have
+  // held the dominant Sz or a unique Mode/RS/RD
+  if (moduloSizeSetters[modId])        moduloSizeSetters[modId](moduloDominantSize(mod));
+  if (moduloModeSetters[modId])        moduloModeSetters[modId]();
+  if (moduloRectSizeSetters[modId])    moduloRectSizeSetters[modId]();
+  if (moduloRectDensitySetters[modId]) moduloRectDensitySetters[modId]();
+
   if (moduloSpeedSetters[modId] && moduloTokenOps[modId]) {
     const total = moduloTokenOps[modId].reduce((a, v) => a + (v || 0), 0);
     moduloSpeedSetters[modId](total);
     const statEl = document.getElementById(`spd-${modId}`);
     if (statEl) statEl.textContent = total;
   }
+
+  // Reset BIOS cycle index so rotation restarts cleanly with the new token set
+  if (moduloBiosCycleResetters[modId]) moduloBiosCycleResetters[modId]();
 
   // Update navigator battery + global counter
   updateNavBattery(modId, mod.tokens.length);
@@ -2873,7 +3361,7 @@ function removeTokenFromModulo(modId, slotIdx) {
 }
 
 function openInventory(moduloId, btnEl) {
-  if (expandedModuloId) return;
+  if (expandedModuloId || _expandClosing) return;
   // No-op if already open for this exact modulo
   if (inventoryModuloId === moduloId) return;
   // If open for a DIFFERENT modulo, snap-close it first so we can switch cleanly.
@@ -2927,18 +3415,8 @@ function openInventory(moduloId, btnEl) {
   // two windows' shadows don't bleed into each other), bottom-aligned with
   // the + button.
   const GAP = 2;
-  let left = anchorRect.left - GAP - winW;
-  let top  = btnRect.bottom - winH;
-
-  // Clamp vertically to the modulo card bounds — inventory never escapes the card
-  if (top < cardRect.top)                     top = cardRect.top;
-  if (top + winH > cardRect.bottom)           top = cardRect.bottom - winH;
-
-  // Clamp to #root so the window never escapes the viewport
-  const rootRect = document.getElementById('root').getBoundingClientRect();
-  const MARGIN = 4;
-  if (left < rootRect.left + MARGIN)                left = rootRect.left + MARGIN;
-  if (left + winW > rootRect.right  - MARGIN)       left = rootRect.right  - MARGIN - winW;
+  const left = anchorRect.left - GAP - winW;
+  const top  = btnRect.bottom - winH;
 
   // #inventory-overlay is inset:0 inside #root → its top-left matches root's top-left.
   // style.left/top on a zoomed element are in pre-zoom CSS pixels, so divide the
@@ -2994,15 +3472,18 @@ function closeInventory() {
     inventoryWindow.style.transform  = `translate(${dx}px,${dy}px) scale(${sx},${sy})`;
     inventoryWindow.style.opacity    = '0';
 
-    inventoryWindow.addEventListener('transitionend', function done(e) {
-      if (e.propertyName !== 'transform') return;
-      inventoryWindow.removeEventListener('transitionend', done);
+    const _invTeardown = () => {
+      inventoryWindow.removeEventListener('transitionend', _invOnTransitionEnd);
+      clearTimeout(_invTeardownTimer);
       inventoryOverlay.classList.remove('active');
       inventoryWindow.style.transition = 'none';
       inventoryWindow.style.transform  = '';
       inventoryWindow.style.opacity    = '1';
       inventoryWindow.style.zoom       = '';
-    });
+    };
+    const _invOnTransitionEnd = e => { if (e.propertyName === 'transform') _invTeardown(); };
+    const _invTeardownTimer = setTimeout(_invTeardown, 350);
+    inventoryWindow.addEventListener('transitionend', _invOnTransitionEnd);
   } else {
     inventoryOverlay.classList.remove('active');
     inventoryWindow.style.zoom = '';
@@ -3031,7 +3512,7 @@ function buildNavigator() {
   MODULOS.forEach(mod => {
     const item=document.createElement('div');
     item.className='modulo-nav-item';
-    item.dataset.clid = mod.id;
+    item.dataset.modid = mod.id;
     const lvl = batteryLevel(mod.tokens.length);
     const num = mod.id.replace('modulo_','');
     item.innerHTML=`
@@ -3049,28 +3530,13 @@ function buildNavigator() {
 
 // Updates the battery level and navigator label for a single modulo after add/remove
 function updateNavBattery(modId, tokenCount) {
-  const item = document.querySelector(`#modulo-nav [data-clid="${modId}"]`);
+  const item = document.querySelector(`#modulo-nav [data-modid="${modId}"]`);
   if (!item) return;
   const battery = item.querySelector('.nav-battery');
   if (battery) battery.dataset.level = batteryLevel(tokenCount);
 }
 
-// ═══════════════════════════════════════════════════════
-// FPS
-// ═══════════════════════════════════════════════════════
-(function fpsLoop() {
-  const el=document.getElementById('fps-counter');
-  let frames=0, last=performance.now();
-  function tick(ts) {
-    frames++;
-    if (ts-last>=500) {
-      if (el) el.textContent=`${Math.round(frames*1000/(ts-last))} fps`;
-      frames=0; last=ts;
-    }
-    requestAnimationFrame(tick);
-  }
-  requestAnimationFrame(tick);
-})();
+// FPS counter is now integrated into startGlobalLoop above.
 
 // ═══════════════════════════════════════════════════════
 // NIGHT MODE
@@ -3170,6 +3636,7 @@ function startBgDither() {
   }
 
   const ctx = canvas.getContext('2d');
+  if (!ctx) return;
   let _dpr = 1;
 
   function resize() {
@@ -3232,7 +3699,7 @@ function startBgDither() {
   const INTERVAL = 1000 / 60;
   let _last = 0;
   function loop(ts) {
-    if (ts - _last >= INTERVAL) {
+    if (!document.hidden && ts - _last >= INTERVAL) {
       for (let i = 0; i < 5; i++) applyBgRects();
       churnBg();
       renderBg();
@@ -3271,6 +3738,92 @@ document.addEventListener('keydown', e => { if(e.key==='Escape') closeModal(); }
 
 window.addEventListener('resize', () => { initCamera(); drawMinimap(); });
 setTimeout(() => { initCamera(); drawMinimap(); }, 0);
+
+// ═══════════════════════════════════════════════════════
+// MP4 EXPORT  (WebCodecs + mp4-muxer)
+// ═══════════════════════════════════════════════════════
+async function exportMP4(modId) {
+  const anim = moduloAnimObjs[modId];
+  const btn  = document.getElementById('export-btn');
+  if (!anim || !window.VideoEncoder || !window.Mp4Muxer) {
+    alert(!window.VideoEncoder ? 'WebCodecs not supported (use Chrome 94+).' : 'mp4-muxer not loaded.');
+    return;
+  }
+
+  const W = GRID_COLS * PIXEL;  // 2700
+  const H = GRID_ROWS * PIXEL;  // 1500
+  const FPS = 60;
+  const TOTAL = FPS * 20; // 1200 frames
+
+  btn.disabled = true;
+  anim._exporting = true;
+
+  try {
+    const target = new Mp4Muxer.ArrayBufferTarget();
+    const muxer  = new Mp4Muxer.Muxer({
+      target,
+      video: { codec: 'avc', width: W, height: H, frameRate: FPS },
+      fastStart: 'in-memory'
+    });
+
+    const encoder = new VideoEncoder({
+      output: (chunk, meta) => muxer.addVideoChunk(chunk, meta),
+      error:  (e) => console.error('[export]', e)
+    });
+    encoder.configure({
+      codec:                'avc1.640033',
+      width:                W,
+      height:               H,
+      bitrate:              40_000_000,
+      framerate:            FPS,
+      bitrateMode:          'constant',
+      latencyMode:          'quality',
+      hardwareAcceleration: 'prefer-software'
+    });
+
+    const offscreen = new OffscreenCanvas(W, H);
+    const octx      = offscreen.getContext('2d');
+
+    for (let f = 0; f < TOTAL; f++) {
+      anim.step(anim.dtOps);
+      anim.applyRects();
+      anim.tickRects && anim.tickRects();
+      anim.paintTo(offscreen, octx);
+
+      const frame = new VideoFrame(offscreen, {
+        timestamp: Math.round(f * 1_000_000 / FPS),
+        duration:  Math.round(1_000_000 / FPS)
+      });
+      encoder.encode(frame, { keyFrame: true });
+      frame.close();
+
+      if (f % 30 === 0) {
+        const pct = Math.round(f / TOTAL * 100);
+        btn.textContent = `▪ ${pct}%`;
+        await new Promise(r => setTimeout(r, 0));
+      }
+    }
+
+    await encoder.flush();
+    muxer.finalize();
+
+    const blob = new Blob([target.buffer], { type: 'video/mp4' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url; a.download = `tokencluster-${modId}.mp4`;
+    a.click();
+    URL.revokeObjectURL(url);
+
+  } finally {
+    anim._exporting = false;
+    btn.disabled    = false;
+    btn.textContent = '↓ MP4';
+  }
+}
+
+document.getElementById('export-btn').addEventListener('click', () => {
+  if (expandedModuloId) exportMP4(expandedModuloId);
+});
 </script>
 </body>
 </html>
