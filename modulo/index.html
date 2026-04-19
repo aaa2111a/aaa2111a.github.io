@@ -221,7 +221,6 @@ html, body { width:100%; height:100%; overflow:hidden; background:#000; }
   font-size:32px; font-weight:200;
   color:var(--card-name);
   letter-spacing:.02em; margin-bottom:8px;
-
 }
 .modulo-stats-row { display:flex; gap:10px; flex-wrap:wrap; }
 .cs-item { display:flex; flex-direction:column; gap:1px; }
@@ -240,8 +239,10 @@ html, body { width:100%; height:100%; overflow:hidden; background:#000; }
 .ft-full-addr { font-size:7.5px; font-family:monospace; color:var(--addr-color); word-break:break-all; line-height:1.45; }
 .ft-row-label { font-size:7.5px; color:var(--sl); font-family:monospace; text-transform:uppercase; letter-spacing:.05em; margin-bottom:4px; }
 .tr-colors-inline { display:flex; flex-wrap:wrap; gap:5px; margin-bottom:6px; }
-.cdot { width:13px; height:13px; border-radius:50%; border:1.5px solid transparent; flex-shrink:0; cursor:pointer; transition:transform 0.1s, opacity 0.1s; position:relative; }
-.cdot:hover { transform:scale(1.18); }
+.cdot { width:13px; height:13px; flex-shrink:0; cursor:pointer; transition:opacity 0.1s; position:relative; }
+/* Visual circle lives on an inner element so the scale doesn't drag the ::after tooltip */
+.cdot-bg { position:absolute; inset:0; border-radius:50%; border:1.5px solid transparent; transition:transform 0.1s, border-color 0.15s; }
+.cdot:hover .cdot-bg { transform:scale(1.18); }
 .cdot::after {
   content:attr(data-name);
   position:absolute;
@@ -260,9 +261,12 @@ html, body { width:100%; height:100%; overflow:hidden; background:#000; }
   z-index:50;
 }
 .cdot:hover::after { opacity:1; }
-.cdot.sel { border-color:rgba(0,0,0,0.55); }
-.cdot.black { border-color:rgba(255,255,255,0.4); }
-.night .cdot.sel { border-color:rgba(255,255,255,0.85); }
+/* Kill the 0.6s hide-delay when the row is collapsed so a tooltip
+   pending mid-delay doesn't float over other elements after collapse */
+.token-row:not(.expanded) .cdot::after { transition-delay:0s; }
+.cdot.sel .cdot-bg { border-color:rgba(0,0,0,0.55); }
+.cdot.black .cdot-bg { border-color:rgba(255,255,255,0.4); }
+.night .cdot.sel .cdot-bg { border-color:rgba(255,255,255,0.85); }
 .ft-status-row { display:flex; align-items:center; gap:4px; }
 .sdot { width:5px; height:5px; border-radius:50%; flex-shrink:0; }
 .sdot.on{background:#28c840;} .sdot.conn{background:var(--dot-conn);} .sdot.lock{background:var(--dot-lock);}
@@ -282,21 +286,27 @@ html, body { width:100%; height:100%; overflow:hidden; background:#000; }
    in the flex column, its bottom stays pinned and its top rises). */
 .inv-panel {
   flex-shrink:0;
-  max-height:0;
-  overflow-y:auto;
-  overflow-x:hidden;
-  border-top:0 solid var(--divider);
-  transition:max-height 0.32s cubic-bezier(0.25,0.46,0.45,0.94),
-             border-top-width 0.32s ease;
-  scrollbar-width:thin; scrollbar-color:var(--divider) transparent;
+  display:grid;
+  grid-template-rows:0fr;
+  border-top:0.5px solid transparent;
+  transition:grid-template-rows 0.32s cubic-bezier(0.25,0.46,0.45,0.94),
+             border-top-color 0.32s ease;
 }
 .inv-panel.open {
-  max-height:600px;
-  border-top-width:0.5px;
+  grid-template-rows:1fr;
+  border-top-color:var(--divider);
 }
-.inv-panel::-webkit-scrollbar { width:3px; }
-.inv-panel::-webkit-scrollbar-track { background:transparent; }
-.inv-panel::-webkit-scrollbar-thumb { background:var(--divider); border-radius:2px; }
+/* Inner wrapper — required for the grid clip trick */
+.inv-panel-inner {
+  min-height:0;
+  max-height:600px;
+  overflow-y:auto;
+  overflow-x:hidden;
+  scrollbar-width:thin; scrollbar-color:var(--divider) transparent;
+}
+.inv-panel-inner::-webkit-scrollbar { width:3px; }
+.inv-panel-inner::-webkit-scrollbar-track { background:transparent; }
+.inv-panel-inner::-webkit-scrollbar-thumb { background:var(--divider); border-radius:2px; }
 .inv-panel-info {
   padding:6px 15px 4px;
   font-size:7.5px; font-family:monospace; color:var(--sl);
@@ -323,6 +333,8 @@ html, body { width:100%; height:100%; overflow:hidden; background:#000; }
 .tr-arrow { margin-left:auto; font-size:7px; color:var(--addr-color); transition:transform 0.18s; flex-shrink:0; }
 .tr-tags { display:flex; gap:3px; margin-left:5px; flex-shrink:0; }
 .tr-tag { font-size:8px; font-family:monospace; letter-spacing:.04em; color:var(--addr-color); border:0.5px solid var(--node-border); border-radius:4px; padding:1px 4px; }
+.tr-rand { width:15px; height:15px; border-radius:50%; border:0.5px solid var(--node-border); background:transparent; color:var(--addr-color); font-size:11px; line-height:1; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; flex-shrink:0; padding:0; margin-left:4px; transition:background 0.15s, color 0.15s, transform 0.35s; }
+.tr-rand:hover { background:var(--row-hover); color:var(--sv); transform:rotate(-180deg); }
 .token-row.expanded .tr-arrow { transform:rotate(90deg); }
 /* Non-owned (locked) tokens — header stays legible, the expanded panel dims.
    The swatch next to the rank keeps full opacity so the actual color renders
@@ -335,7 +347,7 @@ html, body { width:100%; height:100%; overflow:hidden; background:#000; }
    shows; clicks are short-circuited in the cdot handler via isOwnToken. */
 .token-row.locked .tr-colors-inline { pointer-events:auto; }
 .token-row.locked .cdot { cursor:default; }
-.token-row.locked .cdot:hover { transform:none; }
+.token-row.locked .cdot:hover .cdot-bg { transform:none; }
 .token-row.locked .tr-trash { display:none; }
 .tr-traits { position:relative; display:none; padding:5px 15px 9px 24px; }
 /* Extra bottom room so the absolute trash button never overlaps trait rows */
@@ -464,19 +476,20 @@ html, body { width:100%; height:100%; overflow:hidden; background:#000; }
 }
 .card-settle-btn {
   position:absolute; bottom:11px; right:11px; z-index:5;
-  padding:5px 13px; border-radius:6px;
+  padding:5px 8px; border-radius:6px;
   border:0.5px solid var(--settle-border);
   background:var(--settle-bg); color:var(--settle-color);
   font-size:10px; cursor:pointer;
   font-family:monospace; letter-spacing:.03em;
-  transition:all 0.2s;
+  transition:background 0.2s, color 0.2s, border-color 0.2s;
   box-shadow:0 1px 4px rgba(0,0,0,0.10), 0 4px 12px rgba(0,0,0,0.08);
   display:inline-flex; align-items:center; gap:5px;
 }
 /* "SETTLE" word grown so its cap-height matches the ■ block-character height */
 .card-settle-btn .settle-txt {
-  font-size:7.5px; line-height:1;
-  font-family:monospace;
+  font-size:9px; line-height:1;
+  font-family:'Times New Roman', Times, serif;
+  font-weight:200;
   text-transform:uppercase;
   letter-spacing:.07em;
 }
@@ -555,7 +568,16 @@ html, body { width:100%; height:100%; overflow:hidden; background:#000; }
 }
 #export-btn:hover:not(:disabled) { background:var(--row-hover); border-color:var(--sl); }
 #export-btn:disabled { opacity:0.45; cursor:default; }
-/* expand body — canvas + sliding sidebar */
+#expand-reset-btn {
+  padding:2px 8px;
+  font-size:9px; font-family:monospace; letter-spacing:.06em;
+  background:transparent; border:0.5px solid var(--tbar-border);
+  border-radius:3px; color:var(--topbar-text);
+  cursor:pointer; transition:background 0.15s, color 0.15s, border-color 0.15s;
+  flex-shrink:0;
+}
+#expand-reset-btn:hover { background:var(--row-hover); border-color:var(--sl); }
+/* expand body — canvas centrado, sidebar slide sobre él */
 #expand-body {
   position:relative;
   flex:1; min-height:0;
@@ -564,19 +586,26 @@ html, body { width:100%; height:100%; overflow:hidden; background:#000; }
   background:var(--anim-panel-bg);
   transition:background 0.3s;
 }
+/* wrapper que centra el canvas en el espacio restante */
+#expand-canvas-area {
+  flex:1;
+  display:flex; align-items:center; justify-content:center;
+  min-width:0;
+  overflow:hidden;
+}
 #expand-canvas {
   display:block;
   width:auto; height:auto;
-  max-width:92vw;
+  max-width:100%;
   max-height:calc(90vh - 28px);
   image-rendering:pixelated;
   position:relative; z-index:0;
 }
-/* sidebar */
+/* sidebar — slide desde la izquierda */
 #expand-sidebar {
   position:absolute; left:0; top:0; bottom:0;
-  width:280px;
-  transform:translateX(-280px);
+  width:340px;
+  transform:translateX(-340px);
   transition:transform 0.32s cubic-bezier(0.25,0.46,0.45,0.94);
   z-index:5;
   overflow:visible;
@@ -597,7 +626,7 @@ html, body { width:100%; height:100%; overflow:hidden; background:#000; }
 /* card-left-expanded — card-left mientras está en el expand sidebar */
 .card-left-expanded {
   flex:unset;
-  width:280px; min-width:0;
+  width:340px; min-width:0;
   border-right:none;
   height:auto; min-height:100%;
 }
@@ -608,29 +637,30 @@ html, body { width:100%; height:100%; overflow:hidden; background:#000; }
 .card-left-expanded .inv-panel,
 .card-left-expanded .add-row {
   zoom:1.4;
-  width:calc(280px / 1.4);
+  width:calc(340px / 1.4);
 }
 /* Label alineado al top cuando los botones wrappean a múltiples líneas */
 .card-left-expanded .tr-trait-line {
   align-items:flex-start;
 }
-/* tab — anchored to left border, slides right when sidebar opens */
+/* tab — botón ›/‹ que abre/cierra el sidebar */
 #expand-tab {
-  position:absolute; left:0; top:75%;
+  position:absolute;
+  left:0; top:50%;
   transform:translateY(-50%);
-  width:15px; height:52px;
-  background:var(--tbar-bg);
-  border:0.5px solid var(--node-border); border-left:none;
-  border-radius:0 6px 6px 0;
-  cursor:pointer;
+  z-index:10;
+  width:16px; height:40px;
+  background:var(--node-bg-solid);
+  border:0.5px solid var(--node-border);
+  border-left:none;
+  border-radius:0 4px 4px 0;
   display:flex; align-items:center; justify-content:center;
-  font-size:9px; color:var(--stats-title);
+  cursor:pointer;
+  font-size:10px; color:var(--sl);
+  transition:left 0.32s cubic-bezier(0.25,0.46,0.45,0.94);
   user-select:none;
-  transition:left 0.32s cubic-bezier(0.25,0.46,0.45,0.94), background 0.15s;
-  z-index:6;
 }
-#expand-sidebar.open ~ #expand-tab { left:280px; }
-#expand-tab:hover { background:var(--tbar-border); }
+#expand-sidebar.open ~ #expand-tab { left:340px; }
 
 /* ── Inventory overlay ── */
 #inventory-overlay {
@@ -756,6 +786,12 @@ html, body { width:100%; height:100%; overflow:hidden; background:#000; }
   transition:background 0.15s;
 }
 .modulo-nav-item:hover { background:var(--pill-bg); }
+.modulo-nav-item.pressed {
+  background:var(--pill-bg);
+  box-shadow:inset 4px 4px 5px -3px rgba(0,0,0,0.28), inset 1px 1px 2px -1px rgba(0,0,0,0.16);
+  transform:scale(0.92);
+  transition:transform 0.08s ease-in, box-shadow 0.08s ease-in;
+}
 /* Battery icon: 4 bars stacked vertically inside a rounded shell */
 .nav-battery {
   width:18px; height:28px;
@@ -824,9 +860,21 @@ html, body { width:100%; height:100%; overflow:hidden; background:#000; }
     transition-duration:       0.01ms !important;
   }
 }
+#rotate-overlay {
+  display:none; position:fixed; inset:0; z-index:9999;
+  background:#0a0a0f; color:rgba(255,255,255,0.75);
+  flex-direction:column; align-items:center; justify-content:center;
+  gap:1.5rem; text-align:center; font-family:monospace;
+  font-size:11px; letter-spacing:.08em;
+  padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+#rotate-overlay .rotate-icon { font-size:2.5rem; animation:rot-spin 3s linear infinite; }
+@keyframes rot-spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+@media (orientation:portrait) and (max-width:1024px) { #rotate-overlay { display:flex; } }
 </style>
 </head>
 <body>
+<div id="rotate-overlay"><div class="rotate-icon">↻</div><p>Rotate your device to use TokenCluster</p></div>
 <div class="root" id="root">
 
   <div class="topbar">
@@ -854,13 +902,16 @@ html, body { width:100%; height:100%; overflow:hidden; background:#000; }
         <div class="dot r" id="expand-close"></div>
         <span class="card-tbar-title" id="expand-tbar-title"></span>
         <button id="export-btn">↓ MP4</button>
+        <button id="expand-reset-btn">RESET</button>
       </div>
       <div id="expand-body">
         <div id="expand-sidebar">
           <div id="expand-sidebar-inner"></div>
         </div>
         <div id="expand-tab">›</div>
-        <canvas id="expand-canvas"></canvas>
+        <div id="expand-canvas-area">
+          <canvas id="expand-canvas"></canvas>
+        </div>
       </div>
     </div>
   </div>
@@ -1194,6 +1245,9 @@ function shortAddr(full) { return full.slice(0,6) + '…' + full.slice(-4); }
 
 function getTraitTags(modId, slotIdx) {
   const tags = [];
+  // Speed: show tag whenever ops != 14 (slider midpoint = neutral baseline)
+  const _ops = moduloTokenOps[modId] != null ? moduloTokenOps[modId][slotIdx] : null;
+  if (_ops != null && _ops !== 14) tags.push('S');
   if (getTokenSize(modId, slotIdx) !== null)        tags.push('SZ');
   if (getTokenMode(modId, slotIdx) !== null)         tags.push('M');
   if (getTokenRectSize(modId, slotIdx) !== null)     tags.push('RS');
@@ -1420,9 +1474,13 @@ function buildRowColors(mod, slotIdx, container) {
   COLS_DATA[(TOKEN_DATA[t] ? TOKEN_DATA[t].palette : t % COLS_DATA.length)].forEach((c, j) => {
     const d = document.createElement('div');
     d.className = 'cdot' + (j === sel ? ' sel' : '');
-    d.style.background = c;
     d.dataset.name = COLOR_NAMES[c] || c;
     if (c === '#000000') d.classList.add('black');
+    // Inner circle — scale lives here so the ::after tooltip stays anchored to the fixed outer div
+    const bg = document.createElement('span');
+    bg.className = 'cdot-bg';
+    bg.style.background = c;
+    d.appendChild(bg);
     d.addEventListener('click', e => {
       e.stopPropagation();
       if (!isOwnToken(t)) return; // locked tokens: show tooltip on hover but block edits
@@ -1436,6 +1494,60 @@ function buildRowColors(mod, slotIdx, container) {
   });
 }
 
+function randomizeToken(mod, slotIdx) {
+  const t = mod.tokens[slotIdx];
+  if (t === undefined) return;
+  const td = TOKEN_DATA[t];
+  if (!td || !isOwnToken(t)) return;
+  // Color
+  const palLen = COLS_DATA[td.palette].length;
+  if (!nodeColors[mod.id]) nodeColors[mod.id] = {};
+  nodeColors[mod.id][slotIdx] = Math.floor(Math.random() * palLen);
+  // Speed
+  const newSpeed = 1 + Math.floor(Math.random() * 28);
+  if (!moduloTokenOps[mod.id]) moduloTokenOps[mod.id] = [];
+  moduloTokenOps[mod.id][slotIdx] = newSpeed;
+  const total = moduloTokenOps[mod.id].reduce((a, v) => a + (v || 0), 0);
+  if (moduloSpeedSetters[mod.id]) moduloSpeedSetters[mod.id](total);
+  // Sz
+  if (td.hasSz) {
+    setTokenSize(mod.id, slotIdx, ['sm','md','lg'][Math.floor(Math.random()*3)]);
+    if (moduloSizeSetters[mod.id]) moduloSizeSetters[mod.id](moduloDominantSize(mod));
+  }
+  // Mode
+  if (td.hasMode) {
+    setTokenMode(mod.id, slotIdx, ['feedback','shift','noise','modulo','wave'][Math.floor(Math.random()*5)]);
+    if (moduloModeSetters[mod.id]) moduloModeSetters[mod.id]();
+  }
+  // RS
+  if (td.hasRS) {
+    setTokenRectSize(mod.id, slotIdx, ['sm','md','lg','xl'][Math.floor(Math.random()*4)]);
+    if (moduloRectSizeSetters[mod.id]) moduloRectSizeSetters[mod.id]();
+  }
+  // RD
+  if (td.hasRD) {
+    setTokenRectDensity(mod.id, slotIdx, ['lo','md','hi','mx'][Math.floor(Math.random()*4)]);
+    if (moduloRectDensitySetters[mod.id]) moduloRectDensitySetters[mod.id]();
+  }
+  // BIOS
+  if (td.hasBios) {
+    const val = Math.random() < 0.5;
+    setBiosOn(mod.id, slotIdx, val);
+    if (val && moduloBiosTriggers[mod.id]) moduloBiosTriggers[mod.id](slotIdx);
+  }
+  if (moduloAnimUpdaters[mod.id]) moduloAnimUpdaters[mod.id]();
+  // Preserve expanded row and scroll position across rebuild
+  const tlist = document.getElementById(`tlist-${mod.id}`);
+  const expandedIdx = tlist ? Array.from(tlist.querySelectorAll('.token-row')).findIndex(r => r.classList.contains('expanded')) : -1;
+  const tokenListEl = tlist ? tlist.closest('.token-list') : null;
+  const savedScroll = tokenListEl ? tokenListEl.scrollTop : 0;
+  buildLeft(mod);
+  const tlist2 = document.getElementById(`tlist-${mod.id}`);
+  if (expandedIdx >= 0 && tlist2) { const rows = tlist2.querySelectorAll('.token-row'); if (rows[expandedIdx]) rows[expandedIdx].classList.add('expanded'); }
+  const tokenListEl2 = tlist2 ? tlist2.closest('.token-list') : null;
+  if (tokenListEl2) tokenListEl2.scrollTop = savedScroll;
+}
+
 function buildTokenList(mod) {
   const list = document.getElementById(`tlist-${mod.id}`);
   if (!list) return;
@@ -1447,6 +1559,10 @@ function buildTokenList(mod) {
     const full  = fakeAddr(mod.id, i);
     const st    = td.status || 'connected';
     const spd   = td.speed || 50;
+    // Init speed before header so getTraitTags can read it
+    if (!moduloTokenOps[mod.id]) moduloTokenOps[mod.id] = [];
+    if (moduloTokenOps[mod.id][i] == null) moduloTokenOps[mod.id][i] = Math.max(1, Math.round(spd / 90 * 28));
+
     const row = document.createElement('div');
     row.className = 'token-row' + (own ? '' : ' locked');
 
@@ -1460,9 +1576,12 @@ function buildTokenList(mod) {
       <div class="tr-swatch"></div>
       <span class="tr-addr"></span>
       <span class="tr-tags" id="tr-tags-${mod.id}-${i}">${getTraitTags(mod.id,i).map(t=>`<span class="tr-tag">${t}</span>`).join('')}</span>
+      ${own ? '<button class="tr-rand" title="randomize">↺</button>' : ''}
       <span class="tr-arrow">▸</span>`;
     header.querySelector('.tr-addr').textContent = shortAddr(full);
     applySwatch(header.querySelector('.tr-swatch'), mod.id, i);
+    const randBtn = header.querySelector('.tr-rand');
+    if (randBtn) randBtn.addEventListener('click', e => { e.stopPropagation(); randomizeToken(mod, i); });
 
     // Traits (shown when expanded)
     const traits = document.createElement('div');
@@ -1560,6 +1679,7 @@ function buildTokenList(mod) {
       if (moduloSpeedSetters[mod.id]) moduloSpeedSetters[mod.id](total);
       const statEl = document.getElementById(`spd-${mod.id}`);
       if (statEl) statEl.textContent = total;
+      updateTraitTags(mod.id, i);
     });
     dtBody.appendChild(speedRow);
 
@@ -2578,7 +2698,8 @@ function startAnim(canvasId, mod) {
     _globalObserver.unobserve(canvas);
     _animsByCanvas.delete(canvas);
   }
-  const animObj = { step, render, paintTo, stampBios: _stampBiosToGrid, applyRects: applyRectShifts, tickRects, stopRects: stopRectTimers, startRects: startRectTimers, dtOps: initDtOps, isVisibleFn:()=>isVisible, setVisible:(v)=>{ isVisible=v; }, destroy: destroyAnim, _exporting: false };
+  function resetGrid() { _prevPalN = -1; updatePalette(); }
+  const animObj = { step, render, paintTo, stampBios: _stampBiosToGrid, applyRects: applyRectShifts, tickRects, stopRects: stopRectTimers, startRects: startRectTimers, dtOps: initDtOps, isVisibleFn:()=>isVisible, setVisible:(v)=>{ isVisible=v; }, destroy: destroyAnim, resetGrid, _exporting: false };
   _animsByCanvas.set(canvas, animObj);
   globalAnims.push(animObj);
   moduloAnimObjs[mod.id] = animObj;
@@ -2849,6 +2970,9 @@ let _expandClosing = false;
 function flyToModulo(mod) {
   if (expandedModuloId || _flyAnimating) return;
   _flyAnimating = true;
+  document.querySelectorAll('.modulo-nav-item.pressed').forEach(el => el.classList.remove('pressed'));
+  const _navItem = document.querySelector(`#modulo-nav [data-modid="${mod.id}"]`);
+  if (_navItem) _navItem.classList.add('pressed');
   const vw=viewport.offsetWidth, vh=viewport.offsetHeight;
   const targetScale = NAV_SCALE;
   const targetX = vw/2 - mod.cx * targetScale;
@@ -3018,6 +3142,9 @@ function closeExpand() {
 }
 
 document.getElementById('expand-close').addEventListener('click', closeExpand);
+document.getElementById('expand-reset-btn').addEventListener('click', () => {
+  if (expandedModuloId) moduloAnimObjs[expandedModuloId]?.resetGrid();
+});
 expandOverlay.addEventListener('click', e => { if (e.target === expandOverlay) closeExpand(); });
 
 // ═══════════════════════════════════════════════════════
@@ -3061,29 +3188,36 @@ function renderInlineInventory(modId) {
   if (!mod || !panel) return;
   panel.innerHTML = '';
 
+  // Inner wrapper — required for grid-template-rows clip animation.
+  // The grid collapses the outer panel; min-height:0 on this div allows
+  // it to shrink to zero, scroll lives here instead of on the panel itself.
+  const inner = document.createElement('div');
+  inner.className = 'inv-panel-inner';
+  panel.appendChild(inner);
+
   // Info header: available tokens + slots
   const info = document.createElement('div');
   info.className = 'inv-panel-info';
   info.textContent = `${tokenInventory.length} available · slots ${mod.tokens.length}/8`;
-  panel.appendChild(info);
+  inner.appendChild(info);
 
   const full = mod.tokens.length >= 8;
   if (full) {
     const m = document.createElement('div');
     m.className = 'inv-empty';
     m.textContent = 'modulo full (8/8)';
-    panel.appendChild(m);
+    inner.appendChild(m);
     return;
   }
   if (tokenInventory.length === 0) {
     const m = document.createElement('div');
     m.className = 'inv-empty';
     m.textContent = 'no tokens in inventory';
-    panel.appendChild(m);
+    inner.appendChild(m);
     return;
   }
   tokenInventory.forEach(tokenNum => {
-    panel.appendChild(_buildInventoryTile(tokenNum, tn => {
+    inner.appendChild(_buildInventoryTile(tokenNum, tn => {
       addTokenToModulo(modId, tn);
     }));
   });
@@ -3571,7 +3705,7 @@ function startBgDither() {
   // Canvas at screen resolution in #root — no CSS zoom applied, all coords in JS.
   // Dither array is world-sized so animation stays consistent when panning.
   const canvas = document.createElement('canvas');
-  canvas.style.cssText = 'position:absolute;inset:0;pointer-events:none;z-index:1;';
+  canvas.style.cssText = 'position:absolute;inset:0;pointer-events:none;z-index:1;filter:drop-shadow(0 2px 3px rgba(0,0,0,0.06)) drop-shadow(0 6px 11px rgba(0,0,0,0.08)) drop-shadow(0 17px 34px rgba(0,0,0,0.10));';
   document.getElementById('root').insertBefore(canvas, document.getElementById('root').firstChild);
 
   const COLS = Math.ceil(WORLD_SIZE / BG_PIXEL); // 563 — world grid columns
@@ -3652,7 +3786,7 @@ function startBgDither() {
     // Reset transform: DPR scale only — no CSS zoom involved
     ctx.setTransform(_dpr, 0, 0, _dpr, 0, 0);
     ctx.clearRect(0, 0, W, H);
-    ctx.fillStyle = '#807c74';
+    ctx.fillStyle = isNight ? 'rgba(44,44,44,0.3)' : 'rgba(188,184,176,0.3)';
 
     // Integer cell size in CSS px — Math.round eliminates sub-pixel distortion
     const cellPx = Math.round(BG_PIXEL * scale);
@@ -3698,6 +3832,7 @@ function startBgDither() {
 
   const INTERVAL = 1000 / 60;
   let _last = 0;
+  let _bgBreathT = 0;
   function loop(ts) {
     if (!document.hidden && ts - _last >= INTERVAL) {
       for (let i = 0; i < 5; i++) applyBgRects();
@@ -3736,7 +3871,11 @@ document.getElementById('modal-cancel').addEventListener('click', closeModal);
 document.getElementById('modal-verify').addEventListener('click', closeModal);
 document.addEventListener('keydown', e => { if(e.key==='Escape') closeModal(); });
 
-window.addEventListener('resize', () => { initCamera(); drawMinimap(); });
+window.addEventListener('resize', () => {
+  MIN_SCALE = calcMinScale() * 1.5;
+  setTransform(tx, ty, scale); // re-clamp current position, don't reset
+  drawMinimap();
+});
 setTimeout(() => { initCamera(); drawMinimap(); }, 0);
 
 // ═══════════════════════════════════════════════════════
