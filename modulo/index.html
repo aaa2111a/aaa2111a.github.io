@@ -26,9 +26,9 @@
   --stats-title:    rgba(0,0,0,0.52);
   --sl:             rgba(0,0,0,0.35);
   --sv:             rgba(0,0,0,0.78);
-  --settle-bg:      rgba(210,206,198,0.97);
+  --settle-bg:      rgb(210,206,198);
   --settle-border:  rgba(0,0,0,0.22);
-  --settle-color:   rgba(0,0,0,0.58);
+  --settle-color:   #5c5852;
   --settle-hbg:     rgba(195,220,200,0.97);
   --settle-hborder: rgba(40,150,70,0.4);
   --settle-hcolor:  #1e7a35;
@@ -73,6 +73,12 @@
     0 8px 17px rgba(0,0,0,0.10),
     0 22px 39px rgba(0,0,0,0.12),
     0 39px 67px rgba(0,0,0,0.08);
+  --shadow-window-hover-deep:
+    0 0 0 0.5px rgba(0,0,0,0.13),
+    0 5px 10px rgba(0,0,0,0.11),
+    0 13px 26px rgba(0,0,0,0.14),
+    0 32px 56px rgba(0,0,0,0.16),
+    0 54px 88px rgba(0,0,0,0.10);
 }
 
 .night {
@@ -89,9 +95,9 @@
   --stats-title:    rgba(255,255,255,0.52);
   --sl:             rgba(255,255,255,0.32);
   --sv:             rgba(255,255,255,0.80);
-  --settle-bg:      rgba(30,30,30,0.94);
+  --settle-bg:      rgb(30,30,30);
   --settle-border:  rgba(255,255,255,0.18);
-  --settle-color:   rgba(255,255,255,0.60);
+  --settle-color:   #a0a0a0;
   --settle-hbg:     rgba(45,62,50,0.94);
   --settle-hborder: rgba(140,180,150,0.45);
   --settle-hcolor:  #a8ccb2;
@@ -136,6 +142,12 @@
     0 8px 17px rgba(0,0,0,0.42),
     0 22px 39px rgba(0,0,0,0.35),
     0 39px 67px rgba(0,0,0,0.22);
+  --shadow-window-hover-deep:
+    0 0 0 0.5px rgba(0,0,0,0.72),
+    0 5px 10px rgba(0,0,0,0.46),
+    0 13px 26px rgba(0,0,0,0.52),
+    0 32px 56px rgba(0,0,0,0.44),
+    0 54px 88px rgba(0,0,0,0.28);
 }
 
 html, body { width:100%; height:100%; overflow:hidden; background:#000; }
@@ -153,15 +165,30 @@ html, body { width:100%; height:100%; overflow:hidden; background:#000; }
   position:absolute; top:0; left:0; right:0; height:34px; z-index:200;
   background:var(--topbar-bg);
   border-bottom:0.5px solid var(--topbar-border);
-  display:flex; align-items:center; justify-content:space-between;
+  display:grid; grid-template-columns:1fr auto 1fr; align-items:center;
   padding:0 14px;
   backdrop-filter:blur(10px);
   transition:background 0.3s, backdrop-filter 0.3s;
 }
 .topbar-title { font-size:12px; color:var(--topbar-text); letter-spacing:.04em; font-weight:500; }
-.topbar-right  { display:flex; align-items:center; gap:7px; }
+.topbar-right  { display:flex; align-items:center; gap:7px; justify-content:flex-end; }
+#topbar-center {
+  display:flex; align-items:center; gap:10px;
+  font-size:10px; font-family:monospace; letter-spacing:.04em;
+  color:var(--topbar-text);
+}
+#topbar-wallet { opacity:0.7; }
+#topbar-inv-sep { opacity:0.3; }
+#topbar-inv { opacity:0.85; }
 .pill { font-size:10px; padding:2px 9px; border-radius:20px; border:0.5px solid var(--pill-border); color:var(--pill-color); background:var(--pill-bg); }
 .toggle-btn { padding:3px 11px; border-radius:20px; border:0.5px solid var(--toggle-border); background:var(--toggle-bg); color:var(--toggle-color); font-size:10px; cursor:pointer; letter-spacing:.04em; transition:background 0.2s, color 0.2s, border-color 0.2s; }
+#bg-color-btn { width:16px; height:16px; border-radius:50%; border:1.5px solid var(--node-border); cursor:pointer; flex-shrink:0; transition:transform 0.15s; padding:0; }
+#bg-color-btn:hover { transform:scale(1.25); }
+#bg-color-picker { position:fixed; background:var(--node-bg-solid); border:0.5px solid var(--node-border); border-radius:8px; padding:10px; display:none; z-index:9999; box-shadow:0 4px 16px rgba(0,0,0,0.15); }
+#bg-color-picker.open { display:flex; flex-wrap:wrap; gap:6px; width:168px; }
+.bg-picker-dot { width:16px; height:16px; border-radius:50%; cursor:pointer; border:1.5px solid transparent; flex-shrink:0; transition:transform 0.12s, border-color 0.12s; }
+.bg-picker-dot:hover { transform:scale(1.25); border-color:var(--node-border); }
+.bg-picker-dot.selected { border-color:var(--addr-color); }
 
 /* ── Infinite canvas ── */
 #viewport { position:absolute; top:34px; left:0; right:0; bottom:0; overflow:hidden; cursor:grab; z-index:2; }
@@ -183,7 +210,17 @@ html, body { width:100%; height:100%; overflow:hidden; background:#000; }
   box-shadow:var(--shadow-window);
   transition:border-color 0.2s, background 0.3s;
 }
-.modulo-card:hover { box-shadow:var(--shadow-window-hover); }
+.modulo-card.card-hov {
+  animation: card-shadow-in 0.9s ease forwards, card-shadow-breathe 3s ease-in-out 0.9s infinite;
+}
+@keyframes card-shadow-in {
+  from { box-shadow: var(--shadow-window); }
+  to   { box-shadow: var(--shadow-window-hover); }
+}
+@keyframes card-shadow-breathe {
+  0%, 100% { box-shadow: var(--shadow-window-hover); }
+  50%       { box-shadow: var(--shadow-window-hover-deep); }
+}
 
 /* titlebar — doubles as drag handle for the world pan */
 .card-tbar {
@@ -198,6 +235,112 @@ html, body { width:100%; height:100%; overflow:hidden; background:#000; }
 .dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
 .dot.r{background:#ff5f57;} .dot.y{background:#ffbd2e;} .dot.g{background:#28c840;} .dot.gr{background:rgba(128,128,128,0.28);}
 .card-tbar-title { font-size:10px; color:var(--stats-title); letter-spacing:.03em; font-weight:400; margin-left:5px; font-family:monospace; }
+
+/* ── Phase Diagram (above card) ── */
+.phase-diagram {
+  position:absolute; display:flex; flex-direction:row;
+  height:100px;
+  background:var(--node-bg);
+  border:0.5px solid var(--node-border);
+  border-radius:8px; overflow:hidden;
+  pointer-events:none; box-sizing:border-box;
+}
+.phase-diagram.phase-diagram-empty { display:none; }
+.pd-col {
+  display:flex; flex-direction:column;
+  flex-shrink:0; height:100%; box-sizing:border-box;
+  width:var(--pd-col-w, 116px);
+}
+.pd-col + .pd-col { border-left:0.5px solid rgba(128,128,128,0.12); }
+.pd-col-rect { width:var(--pd-rect-w, 120px) !important; }
+.pd-col-bios { width:var(--pd-bios-w, 55px) !important; }
+.pd-col.pd-col-active { background:rgba(255,255,255,0.04); }
+.pd-col-hdr {
+  height:18px; display:flex; align-items:center; justify-content:center;
+  gap:4px;
+  border-bottom:0.5px solid rgba(128,128,128,0.10); flex-shrink:0;
+}
+.pd-hdr-dots { display:flex; align-items:center; gap:3px; }
+.pd-col-hdr-label {
+  font-family:monospace; font-size:8px; letter-spacing:.08em;
+  text-transform:uppercase; color:var(--stats-title); opacity:0.40;
+}
+.pd-col-active .pd-col-hdr-label { opacity:0.90; }
+.pd-col-colors .pd-col-hdr-label,
+.pd-col-rect .pd-col-hdr-label,
+.pd-col-bios .pd-col-hdr-label { opacity:0.90; }
+.pd-col-body {
+  flex:1; display:flex; flex-direction:column;
+  padding:4px 0; overflow:hidden; gap:0;
+}
+.pd-row {
+  height:16px; display:flex; align-items:center;
+  justify-content:center; flex-shrink:0;
+}
+.pd-dot {
+  width:7px; height:7px; border-radius:50%; flex-shrink:0; opacity:0.30;
+}
+.pd-col-colors .pd-dot { opacity:0.80; }
+.pd-col-colors .pd-col-body { align-items:center; justify-content:center; }
+.pd-colors-wrap {
+  display:flex; flex-direction:column; flex-wrap:wrap; align-content:flex-start;
+  max-height:72px; /* 3 items × 24px each */
+  gap:4px 10px; padding:4px 6px;
+}
+.pd-color-item { display:flex; flex-direction:column; align-items:center; gap:2px; }
+.pd-color-pct {
+  font-family:monospace; font-size:7px; letter-spacing:.03em;
+  color:var(--stats-title); opacity:0.55; line-height:1;
+}
+.pd-col-active .pd-dot { opacity:0.90; }
+.pd-mode-info {
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  flex:1; gap:3px;
+}
+.pd-mode-name {
+  font-family:monospace; font-size:8px; letter-spacing:.06em;
+  text-transform:uppercase; color:var(--stats-title); opacity:0.70; line-height:1;
+}
+.pd-col-active .pd-mode-name { opacity:1; }
+.pd-mode-sz {
+  font-family:monospace; font-size:7px; letter-spacing:.04em;
+  color:var(--stats-title); opacity:0.40; line-height:1;
+}
+.pd-col-active .pd-mode-sz { opacity:0.75; }
+.pd-slot {
+  display:flex; flex-direction:column; align-items:center;
+  justify-content:center; width:100%; height:100%; gap:1px;
+}
+.pd-col-rect .pd-col-body { justify-content:space-evenly; padding:2px 0; }
+.pd-col-bios .pd-col-body { position:relative; justify-content:flex-start; padding:4px 0 14px; gap:3px; }
+.pd-col-rect .pd-col-body { flex-direction:column; align-items:stretch; }
+.pd-rect-section { display:flex; flex-direction:column; flex:0 0 auto; justify-content:flex-start; align-items:stretch; gap:1px; }
+.pd-rect-divider { height:0.5px; background:rgba(128,128,128,0.20); flex-shrink:0; margin:2px 8px; }
+.pd-col-rect .pd-row { flex:0 0 auto; flex-direction:row; align-items:center; justify-content:flex-start; padding:0 10px; gap:5px; }
+.pd-col-bios .pd-row { flex:0 0 auto; }
+.pd-rect-dot { width:5px; height:5px; border-radius:50%; flex-shrink:0; background:#111; opacity:0; transition:opacity 0.15s; }
+.pd-rect-dot.pd-rect-dot-on { opacity:1; }
+.pd-col-speed .pd-col-body { flex-direction:row; align-items:center; padding:0 4px; justify-content:center; gap:14px; }
+.pd-spd-list { display:flex; flex-direction:row; align-items:flex-start; gap:3px; flex:0 0 auto; align-self:center; }
+.pd-spd-col { display:flex; flex-direction:column; justify-content:flex-start; align-items:flex-end; gap:4px; }
+.pd-spd-cell { font-family:monospace; font-size:7px; color:var(--stats-title); opacity:0.70; letter-spacing:.03em; line-height:1.4; }
+.pd-spd-total-wrap { display:flex; align-items:center; justify-content:center; flex:0 0 28px; align-self:stretch; }
+.pd-spd-total { font-family:monospace; font-size:18px; font-weight:600; color:var(--stats-title); opacity:0.85; letter-spacing:-.02em; line-height:1; }
+.pd-dx-foot { position:absolute; bottom:2px; left:6px; right:6px; border-top:0.5px solid rgba(128,128,128,0.15); padding:2px 0 1px; display:flex; align-items:center; font-family:monospace; font-size:7px; color:var(--stats-title); opacity:0.70; letter-spacing:.04em; }
+.pd-dx-foot-label { flex:0 0 70%; text-align:center; }
+.pd-dx-foot-sep { width:0.5px; background:rgba(128,128,128,0.25); align-self:stretch; flex-shrink:0; }
+.pd-dx-foot-val { flex:0 0 30%; text-align:center; }
+.pd-rect-cell {
+  font-family:monospace; font-size:7px; letter-spacing:.03em;
+  opacity:0.90; color:var(--stats-title); white-space:nowrap; line-height:1;
+}
+.pd-bios-cell {
+  font-family:monospace; font-size:7px; letter-spacing:.04em;
+  text-transform:uppercase; opacity:0.60; color:var(--stats-title);
+}
+.pd-bios-cell.pd-bios-on { color:#28c840; opacity:1; }
+.pd-bar { height:2px; flex-shrink:0; overflow:hidden; }
+.pd-fill { height:100%; width:0%; background:var(--stats-title); opacity:0.55; transition:width 0.1s linear; }
 
 /* ── Card body ── */
 .card-body { display:flex; height:390px; }
@@ -238,7 +381,8 @@ html, body { width:100%; height:100%; overflow:hidden; background:#000; }
 .ft-idx { font-size:9px; font-family:monospace; color:var(--sl); flex-shrink:0; }
 .ft-full-addr { font-size:7.5px; font-family:monospace; color:var(--addr-color); word-break:break-all; line-height:1.45; }
 .ft-row-label { font-size:7.5px; color:var(--sl); font-family:monospace; text-transform:uppercase; letter-spacing:.05em; margin-bottom:4px; }
-.tr-colors-inline { display:flex; flex-wrap:wrap; gap:5px; margin-bottom:6px; }
+.tr-colors-inline { display:flex; flex-direction:column; gap:5px; margin-bottom:6px; }
+.tr-colors-row { display:flex; gap:4px; }
 .cdot { width:13px; height:13px; flex-shrink:0; cursor:pointer; transition:opacity 0.1s; position:relative; }
 /* Visual circle lives on an inner element so the scale doesn't drag the ::after tooltip */
 .cdot-bg { position:absolute; inset:0; border-radius:50%; border:1.5px solid transparent; transition:transform 0.1s, border-color 0.15s; }
@@ -289,6 +433,7 @@ html, body { width:100%; height:100%; overflow:hidden; background:#000; }
   display:grid;
   grid-template-rows:0fr;
   border-top:0.5px solid transparent;
+  transform:scaleY(-1);
   transition:grid-template-rows 0.32s cubic-bezier(0.25,0.46,0.45,0.94),
              border-top-color 0.32s ease;
 }
@@ -302,6 +447,7 @@ html, body { width:100%; height:100%; overflow:hidden; background:#000; }
   max-height:600px;
   overflow-y:auto;
   overflow-x:hidden;
+  transform:scaleY(-1);
   scrollbar-width:thin; scrollbar-color:var(--divider) transparent;
 }
 .inv-panel-inner::-webkit-scrollbar { width:3px; }
@@ -342,6 +488,7 @@ html, body { width:100%; height:100%; overflow:hidden; background:#000; }
    The entire .tr-traits expanded panel is dimmed + non-interactive. */
 .token-row.locked .tr-addr,
 .token-row.locked .tr-idx { opacity:0.55; }
+.token-row.locked .tr-tags { opacity:0.5; }
 .token-row.locked .tr-traits { pointer-events:none; opacity:0.5; }
 /* Allow color dots to receive hover on locked tokens so the tooltip still
    shows; clicks are short-circuited in the cdot handler via isOwnToken. */
@@ -351,13 +498,10 @@ html, body { width:100%; height:100%; overflow:hidden; background:#000; }
 .token-row.locked .tr-trash { display:none; }
 .tr-traits { position:relative; display:none; padding:5px 15px 9px 24px; }
 /* Extra bottom room so the absolute trash button never overlaps trait rows */
-.tr-traits.has-trash { padding-bottom:32px; }
 .token-row.expanded .tr-traits { display:block; }
-/* Trash button — absolutely positioned at bottom-right of the expanded trait area,
-   independent of any trait group so it survives if BIOS (or any group) is removed */
+/* Trash button — inline inside .tr-ident, flush right */
 .tr-trash {
-  position:absolute;
-  right:15px; bottom:9px;
+  margin-left:auto;
   width:16px; height:16px;
   display:flex; align-items:center; justify-content:center;
   background:transparent;
@@ -381,24 +525,24 @@ html, body { width:100%; height:100%; overflow:hidden; background:#000; }
 }
 .tr-trait-line { display:flex; align-items:center; gap:6px; margin-bottom:5px; }
 .tr-trait-line:last-child { margin-bottom:0; }
-.tr-trait-label { font-size:7.5px; color:var(--sl); font-family:monospace; letter-spacing:.05em; flex-shrink:0; }
+.tr-trait-label { font-size:7px; color:var(--sl); font-family:monospace; letter-spacing:.05em; flex-shrink:0; }
 .speed-row { display:flex; align-items:center; gap:6px; }
 .speed-slider { -webkit-appearance:none; appearance:none; height:2px; flex:1; min-width:60px; background:var(--divider); border-radius:1px; outline:none; cursor:pointer; }
 .speed-slider::-webkit-slider-thumb { -webkit-appearance:none; width:8px; height:8px; border-radius:50%; background:var(--sv); cursor:pointer; }
 .speed-slider::-moz-range-thumb { width:8px; height:8px; border-radius:50%; background:var(--sv); border:none; cursor:pointer; }
 .speed-val { font-size:7.5px; font-family:monospace; color:var(--sv); min-width:14px; }
 .tr-trait-val { font-size:9px; color:var(--sv); font-family:monospace; }
-.tr-colors-inline { display:flex; flex-wrap:wrap; gap:4px; }
+.tr-colors-inline { display:flex; flex-direction:column; gap:4px; }
 .tr-desire-line { flex-direction:column; align-items:flex-start; gap:5px; }
 .dlang-btns { display:flex; gap:4px; flex-wrap:wrap; }
 .tg { border-top:0.5px solid var(--divider); }
 .tr-traits .tg:first-child { border-top:none; }
 .tr-ident + .tg { border-top:none; }
 .tg-hdr { display:flex; align-items:center; gap:5px; padding:4px 0; cursor:pointer; user-select:none; }
-.tg-name { font-size:7px; font-family:monospace; color:var(--sl); letter-spacing:.08em; text-transform:uppercase; }
+.tg-name { font-size:7.5px; font-family:monospace; color:var(--sl); letter-spacing:.08em; text-transform:uppercase; }
 .tg-arrow { font-size:7px; color:var(--sl); display:inline-block; transition:transform .15s; }
 .tg-arrow.open { transform:rotate(90deg); }
-.tg-body { display:none; flex-direction:column; gap:4px; padding-bottom:5px; }
+.tg-body { display:none; flex-direction:column; gap:2px; padding-top:4px; padding-bottom:5px; padding-left:4px; }
 .tg-body.open { display:flex; }
 .dlang-btn { font-size:7px; font-family:monospace; padding:2px 5px; border:0.5px solid var(--divider); background:transparent; color:var(--sl); cursor:pointer; border-radius:2px; letter-spacing:.05em; }
 .dlang-btn.active { background:var(--row-active-bg); color:var(--sv); border-color:var(--row-active-border); }
@@ -558,6 +702,19 @@ html, body { width:100%; height:100%; overflow:hidden; background:#000; }
   transition:transform 0.15s;
 }
 #expand-close:hover { transform:scale(1.25); }
+#expand-fullscreen {
+  width:12px; height:12px; border-radius:50%;
+  background:#28c840; cursor:pointer; flex-shrink:0;
+  transition:transform 0.15s;
+}
+#expand-fullscreen:hover { transform:scale(1.25); }
+#expand-window.expand-fs {
+  border-radius:0; box-shadow:none; background:var(--anim-panel-bg);
+}
+#expand-window.expand-fs #expand-tbar { display:none; }
+#expand-window.expand-fs #expand-body { align-items:stretch; }
+#expand-window.expand-fs #expand-canvas-area { align-items:flex-start; justify-content:flex-start; }
+#expand-window.expand-fs #expand-canvas { max-width:none; max-height:none; }
 #export-btn {
   margin-left:auto; padding:2px 8px;
   font-size:9px; font-family:monospace; letter-spacing:.06em;
@@ -717,7 +874,16 @@ html, body { width:100%; height:100%; overflow:hidden; background:#000; }
   font-size:7.5px; font-family:monospace; color:var(--sl);
   text-transform:uppercase; letter-spacing:.07em;
   flex-shrink:0;
+  display:flex; align-items:center; justify-content:space-between;
 }
+#inventory-sort-btn {
+  font-size:7.5px; font-family:monospace; letter-spacing:.05em;
+  color:var(--sl); background:transparent; border:0.5px solid var(--node-border);
+  border-radius:4px; padding:1px 5px; cursor:pointer;
+  transition:background 0.12s, color 0.12s;
+  flex-shrink:0;
+}
+#inventory-sort-btn:hover { background:var(--row-hover); color:var(--sv); }
 #inventory-grid {
   flex:1;
   overflow-y:auto; overflow-x:hidden;
@@ -745,6 +911,7 @@ html, body { width:100%; height:100%; overflow:hidden; background:#000; }
   width:11px; height:11px; border-radius:50%;
   border:0.5px solid var(--node-border); flex-shrink:0;
 }
+.inv-tile-tags { display:flex; gap:3px; flex-wrap:nowrap; flex-shrink:1; overflow:hidden; }
 .inv-empty {
   padding:24px 15px;
   text-align:center;
@@ -835,6 +1002,28 @@ html, body { width:100%; height:100%; overflow:hidden; background:#000; }
   text-transform:uppercase;
 }
 
+/* ── Nav overview button ── */
+#nav-overview-btn {
+  display:flex; align-items:center; justify-content:center;
+  width:28px; height:28px; border-radius:6px;
+  border:0.5px solid var(--minimap-border);
+  background:transparent; cursor:pointer;
+  color:var(--sl); font-size:11px;
+  transition:background 0.15s, color 0.15s;
+  flex-shrink:0;
+}
+#nav-overview-btn:hover { background:var(--pill-bg); color:var(--sv); }
+#nav-overview-btn.active { background:var(--pill-bg); color:var(--sv); }
+#nav-overview-sep {
+  width:0.5px; height:22px; background:var(--minimap-border);
+  flex-shrink:0; margin:0 2px;
+}
+#overview-blocker {
+  display:none; position:absolute; inset:0; z-index:199;
+  cursor:default;
+}
+#overview-blocker.active { display:block; }
+
 /* ── Modal ── */
 .overlay {
   position:absolute; inset:0; background:var(--overlay-bg);
@@ -852,6 +1041,32 @@ html, body { width:100%; height:100%; overflow:hidden; background:#000; }
 .mbtn { flex:1; padding:6px 0; border-radius:8px; border:0.5px solid var(--mbtn-border); background:var(--mbtn-bg); color:var(--mbtn-color); font-size:11px; cursor:pointer; }
 .mbtn.p { background:var(--settle-hbg); border-color:var(--dot-conn); color:var(--settle-hcolor); }
 
+/* ── Mobile rotate overlay ── */
+#rotate-overlay {
+  display:none;
+  position:fixed; inset:0; z-index:9999;
+  align-items:center; justify-content:center; flex-direction:column; gap:12px;
+  background:var(--bg);
+  opacity:1; transition:opacity 0.5s;
+}
+#rotate-overlay.fade { opacity:0; pointer-events:none; }
+@media (max-width:1024px) and (orientation:portrait) {
+  #rotate-overlay { display:flex; }
+}
+#rotate-overlay-icon {
+  font-size:32px;
+  display:inline-block;
+  animation: rotate-hint 1.6s ease-in-out infinite;
+}
+@keyframes rotate-hint {
+  0%   { transform: rotate(0deg); }
+  40%  { transform: rotate(180deg); }
+  60%  { transform: rotate(180deg); }
+  100% { transform: rotate(360deg); }
+}
+#rotate-overlay-text { font-size:12px; color:var(--topbar-text); letter-spacing:.06em; }
+#rotate-overlay-sub  { font-size:10px; color:var(--topbar-text); opacity:0.55; letter-spacing:.04em; }
+
 /* ── prefers-reduced-motion — WCAG 2.1 §2.2.2 ── */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
@@ -860,28 +1075,23 @@ html, body { width:100%; height:100%; overflow:hidden; background:#000; }
     transition-duration:       0.01ms !important;
   }
 }
-#rotate-overlay {
-  display:none; position:fixed; inset:0; z-index:9999;
-  background:#0a0a0f; color:rgba(255,255,255,0.75);
-  flex-direction:column; align-items:center; justify-content:center;
-  gap:1.5rem; text-align:center; font-family:monospace;
-  font-size:11px; letter-spacing:.08em;
-  padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
-}
-#rotate-overlay .rotate-icon { font-size:2.5rem; animation:rot-spin 3s linear infinite; }
-@keyframes rot-spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
-@media (orientation:portrait) and (max-width:1024px) { #rotate-overlay { display:flex; } }
+
 </style>
 </head>
 <body>
-<div id="rotate-overlay"><div class="rotate-icon">↻</div><p>Rotate your device to use TokenCluster</p></div>
 <div class="root" id="root">
 
   <div class="topbar">
     <span class="topbar-title">by ubk</span>
+    <div id="topbar-center">
+      <span id="topbar-wallet"></span>
+      <span id="topbar-inv-sep">·</span>
+      <span id="topbar-inv"></span>
+    </div>
     <div class="topbar-right">
       <span class="pill" id="pill-tokens">— tokens</span>
       <span class="pill" id="pill-modulos">— modulos</span>
+      <button id="bg-color-btn" title="Background gradient color"></button>
       <button class="toggle-btn" id="toggle">night</button>
     </div>
   </div>
@@ -900,6 +1110,7 @@ html, body { width:100%; height:100%; overflow:hidden; background:#000; }
     <div id="expand-window">
       <div id="expand-tbar">
         <div class="dot r" id="expand-close"></div>
+        <div class="dot g" id="expand-fullscreen"></div>
         <span class="card-tbar-title" id="expand-tbar-title"></span>
         <button id="export-btn">↓ MP4</button>
         <button id="expand-reset-btn">RESET</button>
@@ -924,13 +1135,27 @@ html, body { width:100%; height:100%; overflow:hidden; background:#000; }
         <span class="card-tbar-title" id="inventory-tbar-title"></span>
       </div>
       <div id="inventory-body">
-        <div id="inventory-header"><span id="inventory-count">0 available</span></div>
+        <div id="inventory-header">
+          <span id="inventory-count">0 available</span>
+          <button id="inventory-sort-btn" title="Sort by rank">R↑</button>
+        </div>
         <div id="inventory-grid"></div>
       </div>
     </div>
   </div>
 
-  <div class="modulo-nav" id="modulo-nav"></div>
+  <div class="modulo-nav" id="modulo-nav">
+    <div id="nav-overview-sep"></div>
+    <button id="nav-overview-btn" title="Overview">⊞</button>
+  </div>
+
+  <div id="overview-blocker"></div>
+
+  <div id="rotate-overlay">
+    <div id="rotate-overlay-icon">↻</div>
+    <div id="rotate-overlay-text">Enable auto-rotate for a better experience</div>
+    <div id="rotate-overlay-sub">Some browsers may not support landscape mode</div>
+  </div>
 
   <div class="overlay" id="overlay">
     <div class="modal">
@@ -973,19 +1198,12 @@ const COLOR_NAMES = {
 };
 
 const COLS_DATA = [
-  ['#6363ff','#a040ff','#ff003a','#ff8c00','#ffbd2e','#28c840','#ff4080','#ff63ff','#57686e','#1100ff','#2a0b18','#23242a','#ab0a5f','#0f1021','#000000','#bfbcce','#8b8b8b','#63ff63'],
-  ['#6363ff','#a040ff','#ff003a','#ff8c00','#ffbd2e','#28c840','#ff4080','#ff63ff','#57686e','#1100ff','#2a0b18','#23242a','#ab0a5f','#0f1021'],
-  ['#6363ff','#a040ff','#ff003a','#ff8c00','#ffbd2e','#28c840','#ff4080','#ff63ff','#57686e','#1100ff','#2a0b18','#23242a','#ab0a5f','#0f1021','#000000','#bfbcce','#8b8b8b','#63ff63'],
-  ['#6363ff','#a040ff','#ff003a','#ff8c00','#ffbd2e','#28c840','#ff4080','#ff63ff','#57686e','#1100ff','#2a0b18','#23242a','#ab0a5f','#0f1021'],
-  ['#6363ff','#a040ff','#ff003a','#ff8c00','#ffbd2e','#28c840','#ff4080','#ff63ff','#57686e','#1100ff','#2a0b18','#23242a','#ab0a5f','#0f1021','#000000','#bfbcce','#8b8b8b','#63ff63'],
-  ['#6363ff','#a040ff','#ff003a','#ff8c00','#ffbd2e','#28c840','#ff4080','#ff63ff','#57686e','#1100ff','#2a0b18','#23242a','#ab0a5f','#0f1021'],
-  ['#6363ff','#a040ff','#ff003a','#ff8c00','#ffbd2e','#28c840','#ff4080','#ff63ff','#57686e','#1100ff','#2a0b18','#23242a','#ab0a5f','#0f1021','#000000','#bfbcce','#8b8b8b','#63ff63'],
-  ['#6363ff','#a040ff','#ff003a','#ff8c00','#ffbd2e','#28c840','#ff4080','#ff63ff','#57686e','#1100ff','#2a0b18','#23242a','#ab0a5f','#0f1021'],
-  ['#6363ff','#a040ff','#ff003a','#ff8c00','#ffbd2e','#28c840','#ff4080','#ff63ff','#57686e','#1100ff','#2a0b18','#23242a','#ab0a5f','#0f1021','#000000','#bfbcce','#8b8b8b','#63ff63'],
-  ['#6363ff','#a040ff','#ff003a','#ff8c00','#ffbd2e','#28c840','#ff4080','#ff63ff','#57686e','#1100ff','#2a0b18','#23242a','#ab0a5f','#0f1021'],
-  ['#6363ff','#a040ff','#ff003a','#ff8c00','#ffbd2e','#28c840','#ff4080','#ff63ff','#57686e','#1100ff','#2a0b18','#23242a','#ab0a5f','#0f1021','#000000','#bfbcce','#8b8b8b','#63ff63'],
-  ['#6363ff','#a040ff','#ff003a','#ff8c00','#ffbd2e','#28c840','#ff4080','#ff63ff','#57686e','#1100ff','#2a0b18','#23242a','#ab0a5f','#0f1021'],
+  // row 0 — vivid (10): blue-violet · purple · red · orange · yellow · green · pink · magenta · deep blue · light green
+  // row 1 — dark  (8):  slate · dark maroon · charcoal · deep magenta · dark navy · black · silver · grey
+  ['#6363ff','#a040ff','#ff003a','#ff8c00','#ffbd2e','#28c840','#ff4080','#ff63ff','#1100ff','#63ff63',
+   '#57686e','#2a0b18','#23242a','#ab0a5f','#0f1021','#000000','#bfbcce','#8b8b8b'],
 ];
+const COLS_SPLIT = 10; // first COLS_SPLIT colors = vivid row, rest = dark row
 // ═══ Seeded PRNG (mulberry32) — deterministic token generation ═══
 function mulberry32(seed) {
   return function() {
@@ -1032,13 +1250,65 @@ for (let i = _rankPool.length - 1; i > 0; i--) {
 }
 // _rankPool[tokenId] = rank (1..TOTAL_TOKENS), unique
 
+// Fisher-Yates shuffle to pick exactly 22 DX-enabled tokens (~44%)
+const _dxSet  = new Set();
+const _dxPool = Array.from({ length: TOTAL_TOKENS }, (_, i) => i);
+for (let i = _dxPool.length - 1; i > 0; i--) {
+  const j = Math.floor(_rng() * (i + 1));
+  [_dxPool[i], _dxPool[j]] = [_dxPool[j], _dxPool[i]];
+}
+_dxPool.slice(0, 22).forEach(i => _dxSet.add(i));
+
+// ── Dither Pattern Trait ────────────────────────────────────────────────────
+const DX_PATTERNS = {
+  x:       [[0,0],[0,5],[1,1],[1,4],[2,2],[2,3],[3,2],[3,3],[4,1],[4,4],[5,0],[5,5]],
+  dot:     [[0,0],[0,1],[1,0],[1,1],[2,0],[2,1]],
+  plus:    [[0,2],[0,3],[1,2],[1,3],[2,0],[2,1],[2,2],[2,3],[2,4],[2,5],[3,0],[3,1],[3,2],[3,3],[3,4],[3,5],[4,2],[4,3],[5,2],[5,3]],
+  slash:   [[0,5],[1,4],[2,3],[3,2],[4,1],[5,0]],
+  h:       [[2,0],[2,1],[2,2],[2,3],[2,4],[2,5],[3,0],[3,1],[3,2],[3,3],[3,4],[3,5]],
+  v:       [[0,2],[0,3],[1,2],[1,3],[2,2],[2,3],[3,2],[3,3],[4,2],[4,3],[5,2],[5,3]],
+  corners: [[0,0],[0,1],[1,0],[1,1],[0,4],[0,5],[1,4],[1,5],[4,0],[4,1],[5,0],[5,1],[4,4],[4,5],[5,4],[5,5]],
+  sq:      [[0,0],[0,1],[0,2],[0,3],[0,4],[0,5],[5,0],[5,1],[5,2],[5,3],[5,4],[5,5],[1,0],[2,0],[3,0],[4,0],[1,5],[2,5],[3,5],[4,5]],
+};
+// Digit patterns — 5×7 px font centered in 12×12 (row offset +2, col offset +3)
+const DX_DIGIT_PATTERNS = [
+  [[2,4],[2,5],[2,6],[3,3],[3,7],[4,3],[4,7],[5,3],[5,7],[6,3],[6,7],[7,3],[7,7],[8,4],[8,5],[8,6]], // 0
+  [[2,5],[3,4],[3,5],[4,5],[5,5],[6,5],[7,5],[8,4],[8,5],[8,6]], // 1
+  [[2,4],[2,5],[2,6],[3,3],[3,7],[4,7],[5,6],[6,5],[7,4],[8,3],[8,4],[8,5],[8,6],[8,7]], // 2
+  [[2,4],[2,5],[2,6],[3,3],[3,7],[4,7],[5,5],[5,6],[6,7],[7,3],[7,7],[8,4],[8,5],[8,6]], // 3
+  [[2,6],[3,5],[3,6],[4,4],[4,6],[5,3],[5,6],[6,3],[6,4],[6,5],[6,6],[6,7],[7,6],[8,6]], // 4
+  [[2,3],[2,4],[2,5],[2,6],[2,7],[3,3],[4,3],[5,3],[5,4],[5,5],[5,6],[6,7],[7,7],[8,3],[8,4],[8,5],[8,6]], // 5
+  [[2,4],[2,5],[2,6],[3,3],[4,3],[5,3],[5,4],[5,5],[5,6],[6,3],[6,7],[7,3],[7,7],[8,4],[8,5],[8,6]], // 6
+  [[2,3],[2,4],[2,5],[2,6],[2,7],[3,7],[4,6],[5,5],[6,4],[7,4],[8,4]], // 7
+  [[2,4],[2,5],[2,6],[3,3],[3,7],[4,3],[4,7],[5,4],[5,5],[5,6],[6,3],[6,7],[7,3],[7,7],[8,4],[8,5],[8,6]], // 8
+  [[2,4],[2,5],[2,6],[3,3],[3,7],[4,3],[4,7],[5,4],[5,5],[5,6],[5,7],[6,7],[7,7],[8,4],[8,5],[8,6]], // 9
+];
+// Inverted digit patterns — entire 12×12 block minus the digit pixels
+const DX_DIGIT_PATTERNS_INV = DX_DIGIT_PATTERNS.map(pattern => {
+  const set = new Set(pattern.map(([r,c]) => r * 12 + c));
+  const inv = [];
+  for (let r = 0; r < 12; r++)
+    for (let c = 0; c < 12; c++)
+      if (!set.has(r * 12 + c)) inv.push([r, c]);
+  return inv;
+});
+const DX_PATTERN_KEYS = ['x','plus','h','sq','num','numi'];
+const tokenDitherPatterns = {};
+const moduloDitherPatternSetters = {};
+function getTokenDitherPattern(modId, i) { return (tokenDitherPatterns[modId] && tokenDitherPatterns[modId][i] != null) ? tokenDitherPatterns[modId][i] : null; }
+function setTokenDitherPattern(modId, i, v) { if (!tokenDitherPatterns[modId]) tokenDitherPatterns[modId] = {}; tokenDitherPatterns[modId][i] = v; }
+function clearTokenDitherPattern(modId, i) { if (tokenDitherPatterns[modId]) delete tokenDitherPatterns[modId][i]; }
+function moduloDistinctDitherPatterns(mod) { const s=new Set(); mod.tokens.forEach((_,i)=>{ const v=getTokenDitherPattern(mod.id,i); if(v!==null) s.add(v); }); return [...s]; }
+function getModuloDxPattern(mod) { for (let i=0;i<mod.tokens.length;i++) { const v=getTokenDitherPattern(mod.id,i); if(v!==null) return v; } return null; }
+
 const TOKEN_DATA = [];
 for (let i = 0; i < TOTAL_TOKENS; i++) {
-  const hasSz   = _rng() < 0.70;
   const hasMode = _rng() < 0.60;
+  const hasSz   = hasMode; // SIZE exists iff MODE exists
   const hasRS   = _rng() < 0.40;
   const hasRD   = _rng() < 0.30;
   const hasBios = _rng() < 0.15;
+  const hasDX   = _dxSet.has(i);
   const pal     = i % COLS_DATA.length;
   TOKEN_DATA.push({
     palette: pal,
@@ -1047,12 +1317,13 @@ for (let i = 0; i < TOTAL_TOKENS; i++) {
     status:  _weightedPick(['connected','locked','unconnected'], [0.60, 0.20, 0.20]),
     owner:   _userSet.has(i) ? SESSION_USER : OTHER_USERS[Math.floor(_rng() * OTHER_USERS.length)],
     rank:    _rankPool[i],
-    hasSz, hasMode, hasRS, hasRD, hasBios,
+    hasSz, hasMode, hasRS, hasRD, hasBios, hasDX,
     sz:   hasSz   ? _weightedPick(['sm','md','lg'], [0.15,0.55,0.30]) : null,
-    mode: hasMode  ? _weightedPick(['feedback','shift','noise','modulo','wave'], [0.30,0.15,0.25,0.15,0.15]) : null,
+    mode: hasMode  ? _weightedPick(['feedback','shift','noise','modulo','wave','jungle'], [0.25,0.15,0.20,0.15,0.15,0.10]) : null,
     rs:   hasRS    ? _weightedPick(['sm','md','lg','xl'], [0.15,0.40,0.30,0.15]) : null,
     rd:   hasRD    ? _weightedPick(['lo','md','hi','mx'], [0.30,0.35,0.25,0.10]) : null,
     bios: hasBios  ? (_rng() < 0.70) : null,
+    dx:   hasDX    ? _weightedPick(DX_PATTERN_KEYS, [0.18,0.15,0.18,0.16,0.17,0.16]) : null,
   });
 }
 
@@ -1108,17 +1379,30 @@ function moduloBiosStatText(mod) {
 
 const tokenModes = {}; // { [modId]: { [slotIdx]: modeName } }
 const moduloModeSetters = {};
-const MODE_ABBR = { feedback:'fb', shift:'sh', noise:'no', modulo:'mo', wave:'wv' };
+const MODE_ABBR = { feedback:'fb', shift:'sh', noise:'no', modulo:'mo', wave:'wv', jungle:'jg' };
 
 const tokenSizes = {}; // { [modId]: { [slotIdx]: sizeName } }
 const moduloSizeSetters = {};
-const SIZE_SCALES = { sm:0.4, md:1.0, lg:2.0 };
+const SIZE_SCALES       = { sm:0.4,  md:1.0, lg:2.0 };
+const SHIFT_BASE_SCALES = { sm:0.15, md:0.4, lg:0.8 }; // one step down — used for non-zone areas in shift mode
+const SHIFT_ZONE_SCALES = { sm:1.0,  md:2.0, lg:2.5 }; // in-zone scale for shift mode (lg boosted)
 function getTokenSize(modId, slotIdx) { return (tokenSizes[modId] && tokenSizes[modId][slotIdx] != null) ? tokenSizes[modId][slotIdx] : null; }
 function setTokenSize(modId, slotIdx, s) { if (!tokenSizes[modId]) tokenSizes[modId] = {}; tokenSizes[modId][slotIdx] = s; }
 function clearTokenSize(modId, slotIdx) { if (tokenSizes[modId]) delete tokenSizes[modId][slotIdx]; }
 function moduloDistinctSizes(mod) {
   const seen = new Set(); mod.tokens.forEach((_, i) => { const v = getTokenSize(mod.id, i); if (v !== null) seen.add(v); }); return [...seen];
 }
+// Returns the size set on the first slot whose mode matches modeName, or null.
+function getSizeForMode(mod, modeName) {
+  for (let i = 0; i < mod.tokens.length; i++) {
+    if (getTokenMode(mod.id, i) === modeName) {
+      const sz = getTokenSize(mod.id, i);
+      if (sz !== null) return sz;
+    }
+  }
+  return null;
+}
+
 function moduloDominantSize(mod) {
   const tally = {};
   mod.tokens.forEach((t, i) => { const s = getTokenSize(mod.id, i); if (s !== null) tally[s] = (tally[s] || 0) + 1; });
@@ -1213,6 +1497,21 @@ const moduloSpeedSetters   = {};
 const moduloTokenOps       = {}; // { [modId]: [ops0, ops1, ...] }
 let   expandedModuloId    = null;
 
+// Slot 0 (top) gets the most weight, last slot the least.
+// 1 slot→14, 2 slots→19/9, 3 slots→24/14/4
+function positionDefaultOps(nSlots, si) {
+  if (nSlots <= 1) return 14;
+  const sum = nSlots * (nSlots + 1) / 2;
+  return Math.max(1, Math.round((nSlots - si) / sum * 28));
+}
+function reseedPositionOps(modId) {
+  const mod = MODULOS.find(c => c.id === modId);
+  if (!mod || !mod.tokens.length) return;
+  const n = mod.tokens.length;
+  if (!moduloTokenOps[modId]) moduloTokenOps[modId] = [];
+  for (let i = 0; i < n; i++) moduloTokenOps[modId][i] = positionDefaultOps(n, i);
+}
+
 // ═══ Inventory state ═══
 // Inventory = user-owned tokens NOT already placed in a modulo.
 const _placed = new Set(MODULOS.flatMap(m => m.tokens));
@@ -1220,7 +1519,14 @@ const tokenInventory = [];
 for (let i = 0; i < TOTAL_TOKENS; i++) {
   if (isOwnToken(i) && !_placed.has(i)) tokenInventory.push(i);
 }
-tokenInventory.sort((a, b) => a - b);
+let inventorySortAsc = true; // true = rank ascending
+function _sortInventory() {
+  tokenInventory.sort((a, b) => {
+    const d = (TOKEN_DATA[a]?.rank ?? 0) - (TOKEN_DATA[b]?.rank ?? 0);
+    return inventorySortAsc ? d : -d;
+  });
+}
+_sortInventory();
 let   inventoryModuloId  = null; // floating window (non-expand mode)
 let   _invBtnEl           = null;
 let   inlineInventoryModId = null; // inline panel inside card-left-expanded
@@ -1245,15 +1551,17 @@ function shortAddr(full) { return full.slice(0,6) + '…' + full.slice(-4); }
 
 function getTraitTags(modId, slotIdx) {
   const tags = [];
-  // Speed: show tag whenever ops != 14 (slider midpoint = neutral baseline)
+  // Speed: show tag whenever ops differ from the position-based default
   const _ops = moduloTokenOps[modId] != null ? moduloTokenOps[modId][slotIdx] : null;
-  if (_ops != null && _ops !== 14) tags.push('S');
+  const _nSlots = moduloTokenOps[modId] ? moduloTokenOps[modId].length : 1;
+  if (_ops != null && _ops !== positionDefaultOps(_nSlots, slotIdx)) tags.push('S');
   if (getTokenSize(modId, slotIdx) !== null)        tags.push('SZ');
   if (getTokenMode(modId, slotIdx) !== null)         tags.push('M');
   if (getTokenRectSize(modId, slotIdx) !== null)     tags.push('RS');
   if (getTokenRectDensity(modId, slotIdx) !== null)  tags.push('RD');
   const b = getBiosState(modId, slotIdx);
   if (b !== undefined)                               tags.push('BIOS');
+  if (getTokenDitherPattern(modId, slotIdx) !== null) tags.push('DX');
   return tags;
 }
 function updateTraitTags(modId, slotIdx) {
@@ -1327,6 +1635,148 @@ function _initTokenTraits(modId, slotIdx, tokenNum) {
   if (td.rs)           setTokenRectSize(modId, slotIdx, td.rs);
   if (td.rd)           setTokenRectDensity(modId, slotIdx, td.rd);
   if (td.bios !== null) setBiosOn(modId, slotIdx, td.bios);
+  if (td.dx)            setTokenDitherPattern(modId, slotIdx, td.dx);
+}
+
+// ─── Phase Diagram (above card) ───────────────────────────
+const PD_H            = 100;
+const PD_GAP          = 8;
+const PD_STANDARD_COLS = 6; // col + 3 modes + rect + bios — normal layout fills CARD_W
+
+function buildPhaseDiagram(mod) {
+  const el = document.getElementById(`pd-${mod.id}`);
+  if (!el) return;
+  const ao    = moduloAnimObjs[mod.id];
+  const modes = ao ? ao.getCycleState().modes : moduloDistinctModes(mod);
+
+  el.classList.remove('phase-diagram-empty');
+
+  // RECT SHIFT and BIOS have fixed widths; colors + mode cols share the rest.
+  const PD_RECT_W = 120;
+  const PD_BIOS_W = 55;
+  const hasRect   = mod.tokens.some((t, si) => getTokenRectSize(mod.id, si) !== null || getTokenRectDensity(mod.id, si) !== null);
+  const hasBios   = mod.tokens.some((t, si) => getBiosState(mod.id, si) !== undefined);
+  const hasDX     = !!getModuloDxPattern(mod);
+  const showLastCol = hasBios || hasDX;
+  const fixedW    = (showLastCol ? PD_BIOS_W : 0) + (hasRect ? PD_RECT_W : 0);
+  const varCols   = 2 + Math.max(1, modes.length); // colors + speed + mode cols (min 1 mode col for default)
+  const varStd    = PD_STANDARD_COLS - 1; // 5 — standard variable cols
+  const colW      = varCols <= varStd
+    ? Math.floor((CARD_W - fixedW) / varStd)
+    : Math.floor((CARD_W - fixedW) / varCols);
+  const totalW    = varCols * colW + fixedW;
+  el.style.setProperty('--pd-col-w', colW + 'px');
+  el.style.setProperty('--pd-rect-w', PD_RECT_W + 'px');
+  el.style.setProperty('--pd-bios-w', PD_BIOS_W + 'px');
+  el.style.width = totalW + 'px';
+  el.style.left  = (mod.cx - totalW / 2) + 'px';
+
+  const nSlots = mod.tokens.length;
+
+  // Colours column — dot + % based purely on slot position (independent of speed)
+  const _posOpsArr = mod.tokens.map((t, si) => positionDefaultOps(nSlots, si));
+  const _totalPosOps = _posOpsArr.reduce((a, v) => a + v, 0);
+  const _colorItems = mod.tokens
+    .map((t, si) => ({ col: getSelectedColor(mod.id, si), pct: _totalPosOps > 0 ? Math.round(_posOpsArr[si] / _totalPosOps * 100) : 0 }))
+    .sort((a, b) => b.pct - a.pct)
+    .map(({ col, pct }) => `<span class="pd-color-item"><span class="pd-dot" style="background:${col}"></span><span class="pd-color-pct">${pct}%</span></span>`);
+  const colorsBodyHTML = `<div class="pd-colors-wrap">${_colorItems.join('')}</div>`;
+  const colorsCol = `<div class="pd-col pd-col-colors"><div class="pd-col-hdr"><span class="pd-col-hdr-label">colors</span></div><div class="pd-col-body">${colorsBodyHTML}</div><div class="pd-bar"></div></div>`;
+
+  // Speed column — per-slot list + total
+  const _spdVals = mod.tokens.map((t, si) =>
+    moduloTokenOps[mod.id] && moduloTokenOps[mod.id][si] != null
+      ? moduloTokenOps[mod.id][si]
+      : positionDefaultOps(nSlots, si)
+  );
+  const _spdTotal = Math.round(_spdVals.reduce((a, v) => a + v, 0));
+  const _spdCols = [];
+  for (let i = 0; i < _spdVals.length; i += 2) {
+    const slice = _spdVals.slice(i, i + 2);
+    const pair = slice.map(v => `<span class="pd-spd-cell">${Math.round(v)}</span>`).join('');
+    _spdCols.push(`<div class="pd-spd-col">${pair}</div>`);
+  }
+  const speedCol = `<div class="pd-col pd-col-speed"><div class="pd-col-hdr"><span class="pd-col-hdr-label">speed</span></div><div class="pd-col-body"><div class="pd-spd-list">${_spdCols.join('')}</div><div class="pd-spd-total-wrap"><span class="pd-spd-total">${_spdTotal}</span></div></div><div class="pd-bar"></div></div>`;
+
+  // Mode columns — one per distinct mode
+  const modeCols = modes.map((mode, mi) => {
+    const sz = getSizeForMode(mod, mode);
+    const szLabel = sz !== null ? ({ sm:'small', md:'medium', lg:'large' }[sz] || sz) + ' Size' : null;
+    const hdrDots = mod.tokens.map((t, si) => {
+      if (getTokenMode(mod.id, si) !== mode) return '';
+      const col = getSelectedColor(mod.id, si);
+      return `<span class="pd-dot" style="background:${col}"></span>`;
+    }).join('');
+    return `<div class="pd-col pd-col-mode" data-mi="${mi}"><div class="pd-col-hdr"><span class="pd-col-hdr-label">Mode ${mi + 1}</span><span class="pd-hdr-dots">${hdrDots}</span></div><div class="pd-col-body"><div class="pd-mode-info"><span class="pd-mode-name">${mode}</span>${sz !== null ? `<span class="pd-mode-sz">${szLabel}</span>` : ''}</div></div><div class="pd-bar"><div class="pd-fill"></div></div></div>`;
+  }).join('') || `<div class="pd-col pd-col-mode pd-col-active" data-mi="0"><div class="pd-col-hdr"><span class="pd-col-hdr-label">Mode 1</span></div><div class="pd-col-body"><div class="pd-mode-info"><span class="pd-mode-name">feedback</span><span class="pd-mode-sz">(default)</span></div></div><div class="pd-bar"><div class="pd-fill"></div></div></div>`;
+
+  // Rect-shift column — only rendered when at least one token has RS or RD
+  {
+    const _rsNames = { sm:'small Size', md:'medium Size', lg:'large Size', xl:'x-large Size' };
+    const _rdNames = { lo:'low Density', md:'medium Density', hi:'high Density', mx:'max Density' };
+    const hasAnyRS = mod.tokens.some((t, si) => getTokenRectSize(mod.id, si) !== null);
+    const hasAnyRD = mod.tokens.some((t, si) => getTokenRectDensity(mod.id, si) !== null);
+    const rsRows = mod.tokens.map((t, si) => {
+      const rs = getTokenRectSize(mod.id, si);
+      if (rs === null) return '';
+      return `<div class="pd-row pd-rs-row" data-rs="${rs}"><span class="pd-rect-cell">${_rsNames[rs] || rs}</span><span class="pd-rect-dot pd-rect-dot-rs"></span></div>`;
+    }).join('');
+    const rdRows = mod.tokens.map((t, si) => {
+      const rd = getTokenRectDensity(mod.id, si);
+      if (rd === null) return '';
+      return `<div class="pd-row pd-rd-row" data-rd="${rd}"><span class="pd-rect-cell">${_rdNames[rd] || rd}</span><span class="pd-rect-dot pd-rect-dot-rd"></span></div>`;
+    }).join('');
+    const sep = (hasAnyRS && hasAnyRD) ? `<div class="pd-rect-divider"></div>` : '';
+    const rectBody = `${hasAnyRS ? `<div class="pd-rect-section">${rsRows}</div>` : ''}${sep}${hasAnyRD ? `<div class="pd-rect-section">${rdRows}</div>` : ''}`;
+    var rectCol = `<div class="pd-col pd-col-rect"><div class="pd-col-hdr"><span class="pd-col-hdr-label">rect shift</span></div><div class="pd-col-body">${rectBody}</div><div class="pd-bar"></div></div>`;
+  }
+
+  // Last column — BIOS if any token has bios set, else DX if any token has DX, else hidden
+  const _dxLabels = { x:'×', plus:'+', h:'—', sq:'sq', num:'#', numi:'#⁻' };
+  const _dxVal    = getModuloDxPattern(mod);
+  let lastCol = '';
+  if (hasBios) {
+    const biosBody = mod.tokens.map((t, si) => {
+      const bs = getBiosState(mod.id, si);
+      if (bs === undefined) return '';
+      const cls  = bs ? 'pd-bios-on' : '';
+      const text = bs ? 'on' : 'off';
+      return `<div class="pd-row"><span class="pd-bios-cell ${cls}">${text}</span></div>`;
+    }).join('');
+    const dxFoot = _dxVal ? `<div class="pd-dx-foot"><span class="pd-dx-foot-label">DITHER</span><span class="pd-dx-foot-sep"></span><span class="pd-dx-foot-val">${_dxLabels[_dxVal] || _dxVal}</span></div>` : '';
+    lastCol = `<div class="pd-col pd-col-bios"><div class="pd-col-hdr"><span class="pd-col-hdr-label">bios</span></div><div class="pd-col-body">${biosBody}${dxFoot}</div><div class="pd-bar"></div></div>`;
+  } else if (hasDX) {
+    const dxBody = `<div class="pd-dx-foot"><span class="pd-dx-foot-label">DITHER</span><span class="pd-dx-foot-sep"></span><span class="pd-dx-foot-val">${_dxLabels[_dxVal] || _dxVal}</span></div>`;
+    lastCol = `<div class="pd-col pd-col-bios"><div class="pd-col-hdr"><span class="pd-col-hdr-label">dx</span></div><div class="pd-col-body" style="justify-content:center">${dxBody}</div><div class="pd-bar"></div></div>`;
+  }
+
+  el.innerHTML = colorsCol + speedCol + modeCols + (hasRect ? rectCol : '') + lastCol;
+}
+
+function updatePhaseDiagram(mod) {
+  const el = document.getElementById(`pd-${mod.id}`);
+  if (!el || el.classList.contains('phase-diagram-empty')) return;
+  const ao = moduloAnimObjs[mod.id];
+  if (!ao) return;
+  const { idx, frames, total, activeRS, activeRD } = ao.getCycleState();
+  const pct = ((frames / total) * 100).toFixed(1) + '%';
+  el.querySelectorAll('.pd-col-mode').forEach((col, si) => {
+    const active = si === idx;
+    col.classList.toggle('pd-col-active', active);
+    const fill = col.querySelector('.pd-fill');
+    if (fill) fill.style.width = active ? pct : '0%';
+  });
+  // Active dot on rect shift rows
+  el.querySelectorAll('.pd-rs-row').forEach(row => {
+    const on = activeRS && row.dataset.rs === activeRS;
+    const dot = row.querySelector('.pd-rect-dot-rs');
+    if (dot) dot.classList.toggle('pd-rect-dot-on', on);
+  });
+  el.querySelectorAll('.pd-rd-row').forEach(row => {
+    const on = activeRD && row.dataset.rd === activeRD;
+    const dot = row.querySelector('.pd-rect-dot-rd');
+    if (dot) dot.classList.toggle('pd-rect-dot-on', on);
+  });
 }
 
 function buildModulo(mod) {
@@ -1341,6 +1791,23 @@ function buildModulo(mod) {
   card.id        = `card-${mod.id}`;
   card.style.left = (mod.cx - CARD_W / 2) + 'px';
   card.style.top  = (mod.cy - CARD_H / 2) + 'px';
+  card.addEventListener('mouseenter', () => {
+    card.style.boxShadow = '';
+    card.style.transition = '';
+    card.classList.add('card-hov');
+  });
+  card.addEventListener('mouseleave', () => {
+    const current = getComputedStyle(card).boxShadow;
+    card.classList.remove('card-hov');
+    card.style.boxShadow = current;
+    requestAnimationFrame(() => {
+      card.style.transition = 'box-shadow 0.9s ease';
+      card.style.boxShadow = '';
+      card.addEventListener('transitionend', () => {
+        card.style.transition = '';
+      }, { once: true });
+    });
+  });
 
   card.innerHTML = `
     <div class="card-tbar">
@@ -1356,6 +1823,14 @@ function buildModulo(mod) {
     </div>`;
 
   world.appendChild(card);
+
+  // Phase diagram — separate element above the card
+  const pd = document.createElement('div');
+  pd.className = 'phase-diagram phase-diagram-empty';
+  pd.id = `pd-${mod.id}`;
+  pd.style.left = (mod.cx - CARD_W / 2) + 'px';
+  pd.style.top  = (mod.cy - CARD_H / 2 - PD_H - PD_GAP) + 'px';
+  world.appendChild(pd);
 
   // Settle
   // card.querySelector('.card-settle-btn').addEventListener('click', openModal);
@@ -1373,6 +1848,44 @@ function buildModulo(mod) {
   // Animation — staggered by modulo index to spread GPU/JS init across frames
   const _modIdx = MODULOS.indexOf(mod);
   setTimeout(() => startAnim(animId, mod), 80 + _modIdx * 16);
+
+  // Phase diagram (above card) — build after anim is ready, update at 10fps
+  setTimeout(() => {
+    buildPhaseDiagram(mod);
+    updatePhaseDiagram(mod);
+  }, 200 + _modIdx * 16);
+  setInterval(() => updatePhaseDiagram(mod), 100);
+}
+
+function _saveTokenListState(mod) {
+  const tlist = document.getElementById(`tlist-${mod.id}`);
+  const tokenListEl = tlist ? tlist.closest('.token-list') : null;
+  const rows = tlist ? Array.from(tlist.querySelectorAll('.token-row')) : [];
+  return {
+    expandedIdx: rows.findIndex(r => r.classList.contains('expanded')),
+    groupStates: rows.map(row =>
+      Array.from(row.querySelectorAll('.tg-body')).map(b => b.classList.contains('open'))
+    ),
+    scroll: tokenListEl ? tokenListEl.scrollTop : 0,
+  };
+}
+function _restoreTokenListState(mod, state) {
+  const tlist = document.getElementById(`tlist-${mod.id}`);
+  if (!tlist) return;
+  const rows = Array.from(tlist.querySelectorAll('.token-row'));
+  rows.forEach((row, ri) => {
+    if (ri === state.expandedIdx) row.classList.add('expanded');
+    const groups = row.querySelectorAll('.tg-body');
+    groups.forEach((body, gi) => {
+      if (state.groupStates[ri] && state.groupStates[ri][gi]) {
+        body.classList.add('open');
+        const arrow = body.previousElementSibling && body.previousElementSibling.querySelector('.tg-arrow');
+        if (arrow) arrow.classList.add('open');
+      }
+    });
+  });
+  const tokenListEl = tlist.closest('.token-list');
+  if (tokenListEl) tokenListEl.scrollTop = state.scroll;
 }
 
 function buildLeft(mod) {
@@ -1451,7 +1964,7 @@ function buildLeft(mod) {
   const dstatEl = document.getElementById(`dstat-${mod.id}`);
   if (dstatEl) dstatEl.textContent = moduloBiosStatText(mod);
   const szstatEl = document.getElementById(`sz-${mod.id}`);
-  if (szstatEl) szstatEl.textContent = moduloDominantSize(mod) || '-';
+  if (szstatEl) szstatEl.textContent = moduloDistinctSizes(mod).join('/') || '-'; // distinct sizes across mode-paired slots
   const rsstatEl = document.getElementById(`rs-${mod.id}`);
   if (rsstatEl) { const r = moduloDistinctRectSizes(mod); rsstatEl.textContent = r.length ? r.join('/') : '-'; }
   const rdstatEl = document.getElementById(`rd-${mod.id}`);
@@ -1465,33 +1978,42 @@ function buildLeft(mod) {
 }
 
 function buildRowColors(mod, slotIdx, container) {
-  const t      = mod.tokens[slotIdx];
+  const t   = mod.tokens[slotIdx];
   const stored = nodeColors[mod.id] && nodeColors[mod.id][slotIdx];
-  // Use -1 as sentinel when deselected so no dot receives the sel ring.
-  // getSelIdx returns 0 for animation fallback but that must not affect the UI.
   const sel = (stored === -1) ? -1 : getSelIdx(mod.id, slotIdx);
+  const pal = COLS_DATA[TOKEN_DATA[t] ? TOKEN_DATA[t].palette : 0];
   container.innerHTML = '';
-  COLS_DATA[(TOKEN_DATA[t] ? TOKEN_DATA[t].palette : t % COLS_DATA.length)].forEach((c, j) => {
-    const d = document.createElement('div');
-    d.className = 'cdot' + (j === sel ? ' sel' : '');
-    d.dataset.name = COLOR_NAMES[c] || c;
-    if (c === '#000000') d.classList.add('black');
-    // Inner circle — scale lives here so the ::after tooltip stays anchored to the fixed outer div
-    const bg = document.createElement('span');
-    bg.className = 'cdot-bg';
-    bg.style.background = c;
-    d.appendChild(bg);
-    d.addEventListener('click', e => {
-      e.stopPropagation();
-      if (!isOwnToken(t)) return; // locked tokens: show tooltip on hover but block edits
-      nodeColors[mod.id][slotIdx] = (nodeColors[mod.id][slotIdx] === j) ? -1 : j;
-      buildRowColors(mod, slotIdx, container);
-      const swatch = document.querySelector(`#tlist-${mod.id} .token-row:nth-child(${slotIdx+1}) .tr-swatch`);
-      applySwatch(swatch, mod.id, slotIdx);
-      if (moduloAnimUpdaters[mod.id]) moduloAnimUpdaters[mod.id]();
+
+  const makeRow = (slice, offset) => {
+    const row = document.createElement('div');
+    row.className = 'tr-colors-row';
+    slice.forEach((c, i) => {
+      const j = offset + i;
+      const d = document.createElement('div');
+      d.className = 'cdot' + (j === sel ? ' sel' : '');
+      d.dataset.name = COLOR_NAMES[c] || c;
+      if (c === '#000000') d.classList.add('black');
+      const bg = document.createElement('span');
+      bg.className = 'cdot-bg';
+      bg.style.background = c;
+      d.appendChild(bg);
+      d.addEventListener('click', e => {
+        e.stopPropagation();
+        if (!isOwnToken(t)) return;
+        nodeColors[mod.id][slotIdx] = (nodeColors[mod.id][slotIdx] === j) ? -1 : j;
+        buildRowColors(mod, slotIdx, container);
+        const swatch = document.querySelector(`#tlist-${mod.id} .token-row:nth-child(${slotIdx+1}) .tr-swatch`);
+        applySwatch(swatch, mod.id, slotIdx);
+        if (moduloAnimUpdaters[mod.id]) moduloAnimUpdaters[mod.id]();
+        buildPhaseDiagram(mod);
+      });
+      row.appendChild(d);
     });
-    container.appendChild(d);
-  });
+    return row;
+  };
+
+  container.appendChild(makeRow(pal.slice(0, COLS_SPLIT), 0));
+  if (pal.length > COLS_SPLIT) container.appendChild(makeRow(pal.slice(COLS_SPLIT), COLS_SPLIT));
 }
 
 function randomizeToken(mod, slotIdx) {
@@ -1512,11 +2034,11 @@ function randomizeToken(mod, slotIdx) {
   // Sz
   if (td.hasSz) {
     setTokenSize(mod.id, slotIdx, ['sm','md','lg'][Math.floor(Math.random()*3)]);
-    if (moduloSizeSetters[mod.id]) moduloSizeSetters[mod.id](moduloDominantSize(mod));
+    if (moduloSizeSetters[mod.id]) moduloSizeSetters[mod.id]();
   }
   // Mode
   if (td.hasMode) {
-    setTokenMode(mod.id, slotIdx, ['feedback','shift','noise','modulo','wave'][Math.floor(Math.random()*5)]);
+    setTokenMode(mod.id, slotIdx, ['feedback','shift','noise','modulo','wave','jungle'][Math.floor(Math.random()*6)]);
     if (moduloModeSetters[mod.id]) moduloModeSetters[mod.id]();
   }
   // RS
@@ -1535,17 +2057,15 @@ function randomizeToken(mod, slotIdx) {
     setBiosOn(mod.id, slotIdx, val);
     if (val && moduloBiosTriggers[mod.id]) moduloBiosTriggers[mod.id](slotIdx);
   }
+  if (td.hasDX) {
+    setTokenDitherPattern(mod.id, slotIdx, DX_PATTERN_KEYS[Math.floor(Math.random() * DX_PATTERN_KEYS.length)]);
+    if (moduloDitherPatternSetters[mod.id]) moduloDitherPatternSetters[mod.id]();
+  }
   if (moduloAnimUpdaters[mod.id]) moduloAnimUpdaters[mod.id]();
-  // Preserve expanded row and scroll position across rebuild
-  const tlist = document.getElementById(`tlist-${mod.id}`);
-  const expandedIdx = tlist ? Array.from(tlist.querySelectorAll('.token-row')).findIndex(r => r.classList.contains('expanded')) : -1;
-  const tokenListEl = tlist ? tlist.closest('.token-list') : null;
-  const savedScroll = tokenListEl ? tokenListEl.scrollTop : 0;
+  buildPhaseDiagram(mod);
+  const _listState = _saveTokenListState(mod);
   buildLeft(mod);
-  const tlist2 = document.getElementById(`tlist-${mod.id}`);
-  if (expandedIdx >= 0 && tlist2) { const rows = tlist2.querySelectorAll('.token-row'); if (rows[expandedIdx]) rows[expandedIdx].classList.add('expanded'); }
-  const tokenListEl2 = tlist2 ? tlist2.closest('.token-list') : null;
-  if (tokenListEl2) tokenListEl2.scrollTop = savedScroll;
+  _restoreTokenListState(mod, _listState);
 }
 
 function buildTokenList(mod) {
@@ -1561,7 +2081,7 @@ function buildTokenList(mod) {
     const spd   = td.speed || 50;
     // Init speed before header so getTraitTags can read it
     if (!moduloTokenOps[mod.id]) moduloTokenOps[mod.id] = [];
-    if (moduloTokenOps[mod.id][i] == null) moduloTokenOps[mod.id][i] = Math.max(1, Math.round(spd / 90 * 28));
+    if (moduloTokenOps[mod.id][i] == null) moduloTokenOps[mod.id][i] = positionDefaultOps(mod.tokens.length, i);
 
     const row = document.createElement('div');
     row.className = 'token-row' + (own ? '' : ' locked');
@@ -1601,9 +2121,14 @@ function buildTokenList(mod) {
       g.className = 'tg';
       const hdr = document.createElement('div');
       hdr.className = 'tg-hdr';
-      hdr.innerHTML = `<span class="tg-name">${name}</span>`;
+      const startOpen = !own;
+      hdr.innerHTML = `<span class="tg-name">${name}</span><span class="tg-arrow${startOpen ? ' open' : ''}">▸</span>`;
       const body = document.createElement('div');
-      body.className = 'tg-body open';
+      body.className = 'tg-body' + (startOpen ? ' open' : '');
+      hdr.addEventListener('click', () => {
+        const open = body.classList.toggle('open');
+        hdr.querySelector('.tg-arrow').classList.toggle('open', open);
+      });
       g.appendChild(hdr); g.appendChild(body);
       traits.appendChild(g);
       return body;
@@ -1647,12 +2172,9 @@ function buildTokenList(mod) {
     const colorBody = makeGroup('Color');
     const colorLine = document.createElement('div');
     colorLine.className = 'tr-trait-line';
-    const colorLabel = document.createElement('span');
-    colorLabel.className = 'tr-trait-label';
-    colorLabel.textContent = 'C.';
     const colorDots = document.createElement('div');
     colorDots.className = 'tr-colors-inline';
-    colorLine.appendChild(colorLabel); colorLine.appendChild(colorDots);
+    colorLine.appendChild(colorDots);
     buildRowColors(mod, i, colorDots);
     colorBody.appendChild(colorLine);
 
@@ -1661,13 +2183,12 @@ function buildTokenList(mod) {
 
     // Preserve user-tuned slider values across rebuilds (buildLeft runs on add/remove).
     // Only seed from the token's default speed if no value exists yet for this slot.
-    const defaultOps = Math.max(1, Math.round(spd / 90 * 28));
     if (!moduloTokenOps[mod.id]) moduloTokenOps[mod.id] = [];
-    if (moduloTokenOps[mod.id][i] == null) moduloTokenOps[mod.id][i] = defaultOps;
+    if (moduloTokenOps[mod.id][i] == null) moduloTokenOps[mod.id][i] = positionDefaultOps(mod.tokens.length, i);
     const initOps = moduloTokenOps[mod.id][i];
     const speedRow = document.createElement('div');
     speedRow.className = 'tr-trait-line speed-row';
-    speedRow.innerHTML = `<span class="tr-trait-label">S.</span><input type="range" class="speed-slider" min="1" max="28" value="${initOps}"><span class="speed-val">${initOps}</span>`;
+    speedRow.innerHTML = `<span class="tr-trait-label">SPEED</span><input type="range" class="speed-slider" min="1" max="28" value="${initOps}"><span class="speed-val">${initOps}</span>`;
     const slider = speedRow.querySelector('.speed-slider');
     const speedVal = speedRow.querySelector('.speed-val');
     slider.addEventListener('input', e => {
@@ -1680,36 +2201,91 @@ function buildTokenList(mod) {
       const statEl = document.getElementById(`spd-${mod.id}`);
       if (statEl) statEl.textContent = total;
       updateTraitTags(mod.id, i);
+      buildPhaseDiagram(mod);
     });
     dtBody.appendChild(speedRow);
 
-    if (td.hasSz) {
-      const { row: szRow, btns: szBtns } = makeRow('Sz.');
+    let _syncLgBtn = () => {};
+    let szBtns = null;
+    let modeBtns = null;
+    if (td.hasMode) {
+      const { row: szRow, btns: _szBtns } = makeRow('SIZE');
+      szBtns = _szBtns;
       makeBtnGroup(szBtns, [{label:'small',value:'sm'},{label:'medium',value:'md'},{label:'large',value:'lg'}], getTokenSize(mod.id, i), v => {
-        if (v === null) clearTokenSize(mod.id, i); else setTokenSize(mod.id, i, v);
-        if (moduloSizeSetters[mod.id]) moduloSizeSetters[mod.id](moduloDominantSize(mod));
-        const el = document.getElementById(`sz-${mod.id}`); if (el) el.textContent = moduloDominantSize(mod) || '-';
+        if (v === null) {
+          clearTokenSize(mod.id, i);
+          // deselect mode too when size is cleared
+          clearTokenMode(mod.id, i);
+          if (modeBtns) modeBtns.querySelectorAll('.dlang-btn').forEach(b => b.classList.remove('active'));
+          if (moduloModeSetters[mod.id]) moduloModeSetters[mod.id]();
+        } else {
+          setTokenSize(mod.id, i, v);
+        }
+        if (moduloSizeSetters[mod.id]) moduloSizeSetters[mod.id]();
+        const el = document.getElementById(`sz-${mod.id}`); if (el) el.textContent = moduloDistinctSizes(mod).join('/') || '-';
+        const mEl = document.getElementById(`mstat-${mod.id}`); if (mEl) mEl.textContent = moduloDistinctModes(mod).map(m=>MODE_ABBR[m]||m).join('/') || '-';
+        _syncLgBtn();
         updateTraitTags(mod.id, i);
+        buildPhaseDiagram(mod);
       });
+      const lgBtn = Array.from(szBtns.querySelectorAll('.dlang-btn')).find(b => b.textContent === 'large');
+      const smBtn = Array.from(szBtns.querySelectorAll('.dlang-btn')).find(b => b.textContent === 'small');
+      _syncLgBtn = () => {
+        const mode = getTokenMode(mod.id, i);
+        const isModulo   = mode === 'modulo';
+        const isFeedback = mode === 'feedback';
+        if (lgBtn) {
+          lgBtn.style.display = isModulo ? 'none' : '';
+          if (isModulo && lgBtn.classList.contains('active')) {
+            lgBtn.classList.remove('active');
+            clearTokenSize(mod.id, i);
+            if (moduloSizeSetters[mod.id]) moduloSizeSetters[mod.id]();
+            const el = document.getElementById(`sz-${mod.id}`); if (el) el.textContent = moduloDistinctSizes(mod).join('/') || '-';
+            updateTraitTags(mod.id, i);
+          }
+        }
+        if (smBtn) {
+          smBtn.style.display = isFeedback ? 'none' : '';
+          if (isFeedback && smBtn.classList.contains('active')) {
+            smBtn.classList.remove('active');
+            clearTokenSize(mod.id, i);
+            if (moduloSizeSetters[mod.id]) moduloSizeSetters[mod.id]();
+            const el = document.getElementById(`sz-${mod.id}`); if (el) el.textContent = moduloDistinctSizes(mod).join('/') || '-';
+            updateTraitTags(mod.id, i);
+          }
+        }
+      };
+      _syncLgBtn();
       dtBody.appendChild(szRow);
     }
 
     if (td.hasMode) {
-      const { row: modeRow, btns: modeBtns } = makeRow('M.');
-      makeBtnGroup(modeBtns, ['feedback','shift','noise','modulo','wave'], getTokenMode(mod.id, i), v => {
+      const { row: modeRow, btns: _modeBtns } = makeRow('MODE');
+      modeBtns = _modeBtns;
+      makeBtnGroup(modeBtns, ['feedback','shift','noise','modulo','wave','jungle'], getTokenMode(mod.id, i), v => {
         if (v === null) clearTokenMode(mod.id, i); else setTokenMode(mod.id, i, v);
+        // Auto-set medium size when mode is selected and no size is set yet
+        if (v !== null && getTokenSize(mod.id, i) === null) {
+          setTokenSize(mod.id, i, 'md');
+          // Activate the medium button visually
+          const mdBtn = szBtns ? Array.from(szBtns.querySelectorAll('.dlang-btn')).find(b => b.textContent === 'medium') : null;
+          if (mdBtn) { szBtns.querySelectorAll('.dlang-btn').forEach(b => b.classList.remove('active')); mdBtn.classList.add('active'); }
+        }
         if (moduloModeSetters[mod.id]) moduloModeSetters[mod.id]();
+        if (moduloSizeSetters[mod.id]) moduloSizeSetters[mod.id]();
+        const szEl = document.getElementById(`sz-${mod.id}`); if (szEl) szEl.textContent = moduloDistinctSizes(mod).join('/') || '-';
+        _syncLgBtn();
         updateTraitTags(mod.id, i);
       });
       dtBody.appendChild(modeRow);
     }
 
-    // ── Shift (only if token has RS or RD) ───
+    // ── Rect Shift (only if token has RS or RD) ───
     if (td.hasRS || td.hasRD) {
-      const shiftBody = makeGroup('Shift');
+      const shiftBody = makeGroup('Rect Shift');
 
       if (td.hasRS) {
-        const { row: rsRow, btns: rsBtns } = makeRow('RS.');
+        const { row: rsRow, btns: rsBtns } = makeRow('SIZE');
         makeBtnGroup(rsBtns, [{label:'small',value:'sm'},{label:'medium',value:'md'},{label:'large',value:'lg'},{label:'x-large',value:'xl'}], getTokenRectSize(mod.id, i), v => {
           if (v === null) clearTokenRectSize(mod.id, i); else setTokenRectSize(mod.id, i, v);
           if (moduloRectSizeSetters[mod.id]) moduloRectSizeSetters[mod.id]();
@@ -1719,7 +2295,7 @@ function buildTokenList(mod) {
       }
 
       if (td.hasRD) {
-        const { row: rdRow, btns: rdBtns } = makeRow('RD.');
+        const { row: rdRow, btns: rdBtns } = makeRow('DENSITY');
         makeBtnGroup(rdBtns, [{label:'low',value:'lo'},{label:'medium',value:'md'},{label:'high',value:'hi'},{label:'max',value:'mx'}], getTokenRectDensity(mod.id, i), v => {
           if (v === null) clearTokenRectDensity(mod.id, i); else setTokenRectDensity(mod.id, i, v);
           if (moduloRectDensitySetters[mod.id]) moduloRectDensitySetters[mod.id]();
@@ -1755,14 +2331,30 @@ function buildTokenList(mod) {
           const statEl = document.getElementById(`dstat-${mod.id}`);
           if (statEl) statEl.textContent = moduloBiosStatText(mod);
           updateTraitTags(mod.id, i);
+          buildPhaseDiagram(mod);
         });
       });
       biosBody.appendChild(desireLine);
     }
 
+    // ── Dither Pattern ───────────────────────────────
+    if (td.hasDX || getTokenDitherPattern(mod.id, i) !== null) {
+      const dxBody = makeGroup('Dither');
+      const { row: dxRow, btns: dxBtns } = makeRow('PATTERN');
+      const DX_LABELS = [
+        {value:'x',label:'×'},{value:'plus',label:'+'},
+        {value:'h',label:'—'},{value:'sq',label:'sq'},{value:'num',label:'#'},{value:'numi',label:'#⁻'},
+      ];
+      makeBtnGroup(dxBtns, DX_LABELS, getTokenDitherPattern(mod.id, i), v => {
+        if (v === null) clearTokenDitherPattern(mod.id, i); else setTokenDitherPattern(mod.id, i, v);
+        if (moduloDitherPatternSetters[mod.id]) moduloDitherPatternSetters[mod.id]();
+        updateTraitTags(mod.id, i);
+      });
+      dxBody.appendChild(dxRow);
+    }
+
     // Trash button — only for user-owned tokens. Independent of any trait group.
     if (own) {
-      traits.classList.add('has-trash'); // reserves bottom space so trash never overlaps rows
       const trash = document.createElement('button');
       trash.className = 'tr-trash' + (mod.tokens.length <= 1 ? ' disabled' : '');
       trash.title = 'remove token';
@@ -1775,7 +2367,7 @@ function buildTokenList(mod) {
         if (trash.classList.contains('disabled')) return;
         removeTokenFromModulo(mod.id, i);
       });
-      traits.appendChild(trash);
+      idInfo.appendChild(trash);
     }
 
     row.appendChild(header);
@@ -2019,12 +2611,33 @@ function startAnim(canvasId, mod) {
   function idx(c, r) { return ((r+GRID_ROWS)%GRID_ROWS)*GRID_COLS+((c+GRID_COLS)%GRID_COLS); }
 
   // makeRect spawns anywhere in the full grid, size scaled by _sizeScale
-  let _sizeScale = SIZE_SCALES[moduloDominantSize(mod)] || 1.0;
+  let _sizeScale = 1.0; // resolved after _dtMode is declared below
+  let _shiftBaseScale = 0.15; // one step below _sizeScale — updated alongside it
+  let _shiftZoneScale = 1.0;  // in-zone scale for shift mode — updated alongside it
+  // Transition targets — current lerps toward target over CYCLE_FRAMES frames
+  let _sizeScaleTarget = 1.0, _shiftBaseScaleTarget = 0.15, _shiftZoneScaleTarget = 1.0;
+  function _lerpScale(cur, target, frames) {
+    if (cur === target) return cur;
+    const delta = (target - cur) / frames;
+    return Math.abs(target - cur) < Math.abs(delta) ? target : cur + delta;
+  }
   function makeRect() {
     return { x:Math.floor(Math.random()*GRID_COLS), y:Math.floor(Math.random()*GRID_ROWS),
              w:2+Math.floor(Math.random()*Math.max(1,Math.round(12*_sizeScale))),
              h:2+Math.floor(Math.random()*Math.max(1,Math.round(6*_sizeScale))) };
   }
+  // Shift mode zone system — hot zones use full _sizeScale, rest uses _shiftBaseScale
+  const _SHIFT_ZONE_R2 = Math.round(GRID_COLS * 0.12) ** 2; // radius ≈ 54 cells
+  let _shiftZones = [];
+  let _shiftZoneTimer = 0;
+  function _refreshShiftZones() {
+    const n = 3 + Math.floor(Math.random() * 2); // 3–4 zones
+    _shiftZones = Array.from({length: n}, () => ({
+      cx: Math.floor(Math.random() * GRID_COLS),
+      cy: Math.floor(Math.random() * GRID_ROWS)
+    }));
+  }
+  _refreshShiftZones();
 
   function animNoise() {
     const r=makeRect();
@@ -2037,10 +2650,29 @@ function startAnim(canvasId, mod) {
     }
   }
   function animShift() {
-    const r=makeRect(),dir=Math.random()<0.5?1:-1,horiz=Math.random()<0.5;
+    const rx=Math.floor(Math.random()*GRID_COLS), ry=Math.floor(Math.random()*GRID_ROWS);
+    const inZone=_shiftZones.some(z=>{ const dx=rx-z.cx,dy=ry-z.cy; return dx*dx+dy*dy<_SHIFT_ZONE_R2; });
+    const sc=inZone?_shiftZoneScale:_shiftBaseScale;
+    const r={x:rx,y:ry,w:2+Math.floor(Math.random()*Math.max(1,Math.round(12*sc))),h:2+Math.floor(Math.random()*Math.max(1,Math.round(6*sc)))};
+    const horiz=Math.random()<0.5;
+    const dist=inZone?(1+Math.floor(Math.random()*(horiz?2:3))):1;
+    const dir=(Math.random()<0.5?1:-1)*dist;
     for (let dy=0;dy<r.h;dy++) for (let dx=0;dx<r.w;dx++) {
       next[idx(r.x+dx,r.y+dy)]=grid[horiz?idx(r.x+dx+dir,r.y+dy):idx(r.x+dx,r.y+dy+dir)];
     }
+    if(++_shiftZoneTimer>1200){_shiftZoneTimer=0;_refreshShiftZones();}
+  }
+  function animJungle() {
+    const rx=Math.floor(Math.random()*GRID_COLS), ry=Math.floor(Math.random()*GRID_ROWS);
+    const inZone=_shiftZones.some(z=>{ const dx=rx-z.cx,dy=ry-z.cy; return dx*dx+dy*dy<_SHIFT_ZONE_R2; });
+    const sc=inZone?_shiftZoneScale:_shiftBaseScale;
+    const r={x:rx,y:ry,w:2+Math.floor(Math.random()*Math.max(1,Math.round(12*sc))),h:2+Math.floor(Math.random()*Math.max(1,Math.round(6*sc)))};
+    const dirH=(Math.random()<0.5?1:-1)*(1+Math.floor(Math.random()*(inZone?3:2)));
+    const dirV=(Math.random()<0.5?1:-1)*(1+Math.floor(Math.random()*(inZone?4:2)));
+    for (let dy=0;dy<r.h;dy++) for (let dx=0;dx<r.w;dx++) {
+      next[idx(r.x+dx,r.y+dy)]=grid[idx(r.x+dx+dirH,r.y+dy+dirV)];
+    }
+    if(++_shiftZoneTimer>1200){_shiftZoneTimer=0;_refreshShiftZones();}
   }
   function animModulo() {
     if (PAL.length < 2) return;
@@ -2065,22 +2697,24 @@ function startAnim(canvasId, mod) {
     const amp = 1 + Math.round(11 * zoneAmp); // 1 (quieto) … 12 (máximo arrastre)
     // ── b) Desplazamiento horizontal ondulado dentro del rect ──
     for (let dy = 0; dy < r.h; dy++) {
-      const cy = r.y + dy;
-      const speedMod = 1 + Math.sin(cy * 0.03) * 0.5;
-      const offset = Math.round(Math.sin(cy * 0.08 + _waveT * speedMod) * amp);
+      const cy  = r.y + dy;
+      const wcy = cy % GRID_ROWS; // wrap for consistent offset at grid edges
+      const speedMod = 1 + Math.sin(wcy * 0.03) * 0.5;
+      const offset = Math.round(Math.sin(wcy * 0.08 + _waveT * speedMod) * amp);
       for (let dx = 0; dx < r.w; dx++) {
         next[idx(r.x + dx, cy)] = grid[idx(r.x + dx - offset, cy)];
       }
     }
-    // ── b) Spike vertical ocasional ──
-    if (PAL.length >= 2 && Math.random() < 0.02) {
+    // ── c) Spike vertical ocasional — posición aleatoria en todo el grid ──
+    if (PAL.length >= 2 && Math.random() < 0.005) {
       const sx    = Math.floor(Math.random() * GRID_COLS);
+      const baseY = Math.floor(Math.random() * GRID_ROWS); // anywhere, not always bottom
       const sh    = 8 + Math.floor(Math.random() * 20);
       const halfW = 1 + Math.floor(Math.random() * 2);
       for (let h = 0; h < sh; h++) {
         const taper = 1 - h / sh;
         const wHere = Math.max(1, Math.round(halfW * taper));
-        const y = GRID_ROWS - 1 - h;
+        const y = (baseY - h + GRID_ROWS) % GRID_ROWS; // grows upward, wraps
         for (let w = -wHere; w <= wHere; w++) {
           const x = (sx + w + GRID_COLS) % GRID_COLS;
           if (Math.random() < 0.8) next[idx(x, y)] = 1;
@@ -2112,6 +2746,7 @@ function startAnim(canvasId, mod) {
   let _rdDistinct = moduloDistinctRectDensities(mod);
   let _rdCycleIdx = 0, _rdCycleFrames = 0;
   let _rdDensity = _rdDistinct[0] || 'md';
+  let _activeDxPattern = getModuloDxPattern(mod);
   // ── rectshifting1 — rect único original ──────────────────────────────────
   function _makeRect1() {
     const p  = RS_PARAMS[_rsSize] || RS_PARAMS.md;
@@ -2568,21 +3203,41 @@ function startAnim(canvasId, mod) {
     const ci = Math.min(_ditherColorIdx, PAL.length - 1);
     if (ci === _ditherTarget) return;
     const [R, G, B] = PAL[ci];
-    for (let r = 0; r < visRows; r++) {
-      for (let c = 0; c < visCols; c++) {
-        const gi = (offR + r) * GRID_COLS + (offC + c);
-        if (grid[gi] !== _ditherTarget) continue;
-        if (_ditherNoise[gi] > DITHER_DENSITY) continue;
-        // draw × within the PIXEL×PIXEL area of this single cell
-        for (let py = 0; py < PIXEL; py++) {
-          const base = (r * PIXEL + py) * W + c * PIXEL;
-          const px1 = py;                // diagonal top-left → bottom-right
-          const px2 = PIXEL - 1 - py;   // diagonal top-right → bottom-left
-          const i1 = (base + px1) * 4;
-          buf[i1] = R; buf[i1+1] = G; buf[i1+2] = B; buf[i1+3] = 255;
-          if (px2 !== px1) {
-            const i2 = (base + px2) * 4;
-            buf[i2] = R; buf[i2+1] = G; buf[i2+2] = B; buf[i2+3] = 255;
+    if (!_activeDxPattern) return;
+    if (_activeDxPattern === 'num' || _activeDxPattern === 'numi') {
+      const maxRow = visRows * PIXEL, maxCol = W;
+      const NUM_DENSITY = DITHER_DENSITY * 1.95;
+      for (let r = 0; r < visRows - 1; r += 2) {
+        for (let c = 0; c < visCols - 1; c += 2) {
+          const gi = (offR + r) * GRID_COLS + (offC + c);
+          if (_ditherNoise[gi] > NUM_DENSITY) continue;
+          // disappear if any of the 4 cells in the 2×2 block is invaded
+          if (grid[gi]                                         !== _ditherTarget) continue;
+          if (grid[(offR + r)     * GRID_COLS + (offC + c+1)] !== _ditherTarget) continue;
+          if (grid[(offR + r + 1) * GRID_COLS + (offC + c)]   !== _ditherTarget) continue;
+          if (grid[(offR + r + 1) * GRID_COLS + (offC + c+1)] !== _ditherTarget) continue;
+          const digit = ((offR + r) * 7 + (offC + c) * 13) % 10;
+          const pattern = _activeDxPattern === 'numi' ? DX_DIGIT_PATTERNS_INV[digit] : DX_DIGIT_PATTERNS[digit];
+          const baseRow = r * PIXEL, baseCol = c * PIXEL;
+          for (let k = 0; k < pattern.length; k++) {
+            const pr = baseRow + pattern[k][0], pc = baseCol + pattern[k][1];
+            if (pr >= maxRow || pc >= maxCol) continue;
+            const idx2 = (pr * W + pc) * 4;
+            buf[idx2] = R; buf[idx2+1] = G; buf[idx2+2] = B; buf[idx2+3] = 255;
+          }
+        }
+      }
+    } else {
+      const pattern = DX_PATTERNS[_activeDxPattern] || DX_PATTERNS.x;
+      for (let r = 0; r < visRows; r++) {
+        for (let c = 0; c < visCols; c++) {
+          const gi = (offR + r) * GRID_COLS + (offC + c);
+          if (grid[gi] !== _ditherTarget) continue;
+          if (_ditherNoise[gi] > DITHER_DENSITY) continue;
+          const baseRow = r * PIXEL, baseCol = c * PIXEL;
+          for (let k = 0; k < pattern.length; k++) {
+            const idx2 = ((baseRow + pattern[k][0]) * W + (baseCol + pattern[k][1])) * 4;
+            buf[idx2] = R; buf[idx2+1] = G; buf[idx2+2] = B; buf[idx2+3] = 255;
           }
         }
       }
@@ -2591,36 +3246,91 @@ function startAnim(canvasId, mod) {
 
   // step — always evolves the full GRID_COLS×GRID_ROWS grid
   const MODE_PROBS = {
-    feedback: [0.70, 0.10, 0.10, 0.10, 0.00],
-    shift:    [0.00, 1.00, 0.00, 0.00, 0.00],
-    noise:    [0.10, 0.10, 0.70, 0.10, 0.00],
-    modulo:   [0.10, 0.10, 0.10, 0.70, 0.00],
-    wave:     [0.00, 0.00, 0.00, 0.00, 1.00],
+    feedback: [0.70, 0.10, 0.10, 0.10, 0.00, 0.00],
+    shift:    [0.00, 1.00, 0.00, 0.00, 0.00, 0.00],
+    noise:    [0.10, 0.10, 0.70, 0.10, 0.00, 0.00],
+    modulo:   [0.30, 0.25, 0.20, 0.25, 0.00, 0.00],
+    wave:     [0.00, 0.00, 0.00, 0.00, 1.00, 0.00],
+    jungle:   [0.00, 0.00, 0.00, 0.00, 0.00, 1.00],
   };
   const CYCLE_FRAMES = 300; // 5s at 60fps
   let _cycleModes = moduloDistinctModes(mod);
   let _cycleIdx   = 0;
   let _cycleFrames = 0;
   let _dtMode = _cycleModes[0] || 'feedback';
+  { const _sz=getSizeForMode(mod,_dtMode); _sizeScale=_sizeScaleTarget=SIZE_SCALES[_sz]||1.0; _shiftBaseScale=_shiftBaseScaleTarget=SHIFT_BASE_SCALES[_sz]||0.4; _shiftZoneScale=_shiftZoneScaleTarget=SHIFT_ZONE_SCALES[_sz]||1.0; } // init now that _dtMode exists
+  // crossfade between modes
+  const XFADE_FRAMES = Math.round(CYCLE_FRAMES * 0.2); // 60 = 10% old + 10% new
+  let _xfadeT    = XFADE_FRAMES; // >= XFADE_FRAMES means inactive
+  let _xfadeFrom = _dtMode;
+  let _xfadeTo   = _dtMode;
+  // noise breath — 3 dips over 300 frames (5s at 60fps)
+  let _breathFrame = 0;
+  const BREATH_FRAMES = 300;
   function step(ops) {
     next.set(grid);
-    const [pFb, pSh, pNo, pMo, pWv] = MODE_PROBS[_dtMode] || MODE_PROBS.feedback;
-    const cFb = pFb, cSh = pFb+pSh, cNo = cSh+pNo, cMo = cNo+pMo;
+    let pFb, pSh, pNo, pMo, pWv, pOr;
+    if (_xfadeT < XFADE_FRAMES && _cycleModes.length > 1) {
+      // crossfade: lerp probs between _xfadeFrom and _xfadeTo
+      const alpha = _xfadeT / XFADE_FRAMES;
+      const fP = MODE_PROBS[_xfadeFrom] || MODE_PROBS.feedback;
+      const tP = MODE_PROBS[_xfadeTo]   || MODE_PROBS.feedback;
+      [pFb, pSh, pNo, pMo, pWv, pOr] = fP.map((p, i) => p * (1 - alpha) + tP[i] * alpha);
+      _xfadeT++;
+    } else {
+      [pFb, pSh, pNo, pMo, pWv, pOr] = MODE_PROBS[_dtMode] || MODE_PROBS.feedback;
+      if (_dtMode === 'noise') {
+        const PHASE1 = 225; // sin² breath ends here (t=0.75, pNo=0)
+        if (_breathFrame < PHASE1) {
+          const t        = _breathFrame / BREATH_FRAMES;
+          const envelope = Math.sin(Math.PI * 2 * t) ** 2;
+          pNo = 0.50 * (1 - envelope);
+          pFb = pFb + (0.70 - pNo);
+          _breathFrame++;
+        } else if (_breathFrame < BREATH_FRAMES) {
+          const tRamp = (_breathFrame - PHASE1) / (BREATH_FRAMES - PHASE1);
+          pNo = 0.30 * tRamp;
+          pFb = pFb + (0.70 - pNo);
+          _breathFrame++;
+        } else {
+          _breathFrame = 0;
+          pNo = 0.50;
+          pFb = pFb + 0.20;
+        }
+      }
+    }
+    const cFb=pFb, cSh=pFb+pSh, cNo=cSh+pNo, cMo=cNo+pMo, cWv=cMo+pWv, cJg=cWv+pOr;
     for (let i=0;i<(ops||8);i++) {
       const r=Math.random();
       if      (r<cFb) animFeedback();
       else if (r<cSh) animShift();
       else if (r<cNo) animNoise();
       else if (r<cMo) animModulo();
-      else            animWave();
+      else if (r<cWv) animWave();
+      else if (r<cJg) animJungle();
     }
     grid.set(next);
+    // Lerp current scales toward targets — completes in ~20% of the cycle (≈1s at 60fps)
+    const _LERP_DUR = CYCLE_FRAMES * 0.20;
+    _sizeScale      = _lerpScale(_sizeScale,      _sizeScaleTarget,      _LERP_DUR);
+    _shiftBaseScale = _lerpScale(_shiftBaseScale, _shiftBaseScaleTarget, _LERP_DUR);
+    _shiftZoneScale = _lerpScale(_shiftZoneScale, _shiftZoneScaleTarget, _LERP_DUR);
+    _cycleFrames++;
+    // start crossfade 10% before the switch
+    if (_cycleModes.length > 1 && _cycleFrames === Math.round(CYCLE_FRAMES * 0.9) && _xfadeT >= XFADE_FRAMES) {
+      _xfadeFrom = _dtMode;
+      _xfadeTo   = _cycleModes[(_cycleIdx + 1) % _cycleModes.length];
+      _xfadeT    = 0;
+    }
+    if (_cycleFrames >= CYCLE_FRAMES) {
+      _cycleFrames = 0;
+    }
     if (_cycleModes.length > 1) {
-      _cycleFrames++;
-      if (_cycleFrames >= CYCLE_FRAMES) {
-        _cycleFrames = 0;
+      if (_cycleFrames === 0) {
         _cycleIdx = (_cycleIdx + 1) % _cycleModes.length;
         _dtMode = _cycleModes[_cycleIdx];
+        { const _sz=getSizeForMode(mod,_dtMode); _sizeScaleTarget=SIZE_SCALES[_sz]||1.0; _shiftBaseScaleTarget=SHIFT_BASE_SCALES[_sz]||0.4; _shiftZoneScaleTarget=SHIFT_ZONE_SCALES[_sz]||1.0; } // set targets only — current lerps toward them
+        _breathFrame = 0;
       }
     }
     if (_rsDistinct.length > 1) {
@@ -2699,33 +3409,41 @@ function startAnim(canvasId, mod) {
     _animsByCanvas.delete(canvas);
   }
   function resetGrid() { _prevPalN = -1; updatePalette(); }
-  const animObj = { step, render, paintTo, stampBios: _stampBiosToGrid, applyRects: applyRectShifts, tickRects, stopRects: stopRectTimers, startRects: startRectTimers, dtOps: initDtOps, isVisibleFn:()=>isVisible, setVisible:(v)=>{ isVisible=v; }, destroy: destroyAnim, resetGrid, _exporting: false };
+  const animObj = { step, render, paintTo, stampBios: _stampBiosToGrid, applyRects: applyRectShifts, tickRects, stopRects: stopRectTimers, startRects: startRectTimers, dtOps: initDtOps, isVisibleFn:()=>isVisible, setVisible:(v)=>{ isVisible=v; }, destroy: destroyAnim, resetGrid, _exporting: false, getCycleState: () => ({ idx: _cycleIdx, frames: _cycleFrames, modes: [..._cycleModes], total: CYCLE_FRAMES, activeRS: _rsSize, activeRD: _rdDensity }) };
   _animsByCanvas.set(canvas, animObj);
   globalAnims.push(animObj);
   moduloAnimObjs[mod.id] = animObj;
   moduloSpeedSetters[mod.id] = (ops) => { animObj.dtOps = ops; };
-  moduloSizeSetters[mod.id]        = (sz) => { _sizeScale  = SIZE_SCALES[sz]  || 1.0; };
+  moduloSizeSetters[mod.id]        = () => { const _sz=getSizeForMode(mod,_dtMode); _sizeScale=_sizeScaleTarget=SIZE_SCALES[_sz]||1.0; _shiftBaseScale=_shiftBaseScaleTarget=SHIFT_BASE_SCALES[_sz]||0.4; _shiftZoneScale=_shiftZoneScaleTarget=SHIFT_ZONE_SCALES[_sz]||1.0; };
   moduloRectSizeSetters[mod.id] = () => {
     _rsDistinct = moduloDistinctRectSizes(mod);
     _rsCycleIdx = 0; _rsCycleFrames = 0; _rsSize = _rsDistinct[0] || 'md';
     const el = document.getElementById(`rs-${mod.id}`);
     if (el) el.textContent = _rsDistinct.length ? _rsDistinct.join('/') : '-';
+    buildPhaseDiagram(mod);
   };
   moduloRectDensitySetters[mod.id] = () => {
     _rdDistinct = moduloDistinctRectDensities(mod);
     _rdCycleIdx = 0; _rdCycleFrames = 0; _rdDensity = _rdDistinct[0] || 'md';
     const el = document.getElementById(`rd-${mod.id}`);
     if (el) el.textContent = _rdDistinct.length ? _rdDistinct.join('/') : '-';
+    buildPhaseDiagram(mod);
   };
   moduloModeSetters[mod.id] = () => {
     _cycleModes = moduloDistinctModes(mod);
     _cycleIdx = 0; _cycleFrames = 0;
     _dtMode = _cycleModes[0] || 'feedback';
+    _breathFrame = 0;
+    { const _sz=getSizeForMode(mod,_dtMode); _sizeScale=_sizeScaleTarget=SIZE_SCALES[_sz]||1.0; _shiftBaseScale=_shiftBaseScaleTarget=SHIFT_BASE_SCALES[_sz]||0.4; _shiftZoneScale=_shiftZoneScaleTarget=SHIFT_ZONE_SCALES[_sz]||1.0; }
     const statEl = document.getElementById(`mstat-${mod.id}`);
     if (statEl) statEl.textContent = _cycleModes.length ? _cycleModes.map(m => MODE_ABBR[m] || m).join('/') : '-';
+    buildPhaseDiagram(mod);
   };
   moduloBiosTriggers[mod.id]        = (slotIdx) => pickText(slotIdx);
   moduloBiosCycleResetters[mod.id]  = () => { _biosCycleIdx = 0; };
+  moduloDitherPatternSetters[mod.id] = () => {
+    _activeDxPattern = getModuloDxPattern(mod);
+  };
 }
 
 // ═══════════════════════════════════════════════════════
@@ -2741,10 +3459,12 @@ let   MIN_SCALE = 0.3; // recalculated on init/resize
 
 function calcMinScale() {
   const pad = 80;
-  const minCx = Math.min(...MODULOS.map(c => c.cx)) - CARD_W/2 - pad;
-  const maxCx = Math.max(...MODULOS.map(c => c.cx)) + CARD_W/2 + pad;
-  const minCy = Math.min(...MODULOS.map(c => c.cy)) - CARD_H/2 - pad;
-  const maxCy = Math.max(...MODULOS.map(c => c.cy)) + CARD_H/2 + pad;
+  // always use original positions so MIN_SCALE is stable regardless of overview compression
+  const _pos = (typeof _origModuloPos !== 'undefined') ? _origModuloPos : MODULOS.map(m => ({ cx: m.cx, cy: m.cy }));
+  const minCx = Math.min(..._pos.map(p => p.cx)) - CARD_W/2 - pad;
+  const maxCx = Math.max(..._pos.map(p => p.cx)) + CARD_W/2 + pad;
+  const minCy = Math.min(..._pos.map(p => p.cy)) - CARD_H/2 - pad;
+  const maxCy = Math.max(..._pos.map(p => p.cy)) + CARD_H/2 + pad;
   return Math.min(viewport.offsetWidth  / (maxCx - minCx),
                   viewport.offsetHeight / (maxCy - minCy));
 }
@@ -2762,10 +3482,11 @@ function clampXY(x, y, s) {
   const sc = s !== undefined ? s : scale;
   const vw = viewport.clientWidth;
   const vh = viewport.clientHeight;
-  return [
-    Math.min(0, Math.max(vw - WORLD_SIZE * sc, x)),
-    Math.min(0, Math.max(vh - WORLD_SIZE * sc, y)),
-  ];
+  const ww = WORLD_SIZE * sc, wh = WORLD_SIZE * sc;
+  // when world fits inside viewport, center it; otherwise use scroll clamp
+  const cx = ww < vw ? (vw - ww) / 2 : Math.min(0, Math.max(vw - ww, x));
+  const cy = wh < vh ? (vh - wh) / 2 : Math.min(0, Math.max(vh - wh, y));
+  return [cx, cy];
 }
 
 function setTransform(x, y, s) {
@@ -2792,9 +3513,19 @@ function schedulePan(x, y) {
 
 function initCamera() {
   MIN_SCALE = calcMinScale() * 1.5;
-  scale = NAV_SCALE;
   const vw = viewport.offsetWidth, vh = viewport.offsetHeight;
-  // Start centered on the first modulo at 1:1 scale
+  // On mobile (smaller dimension ≤ 768px), fit modulo_01 in viewport
+  const isMobile = Math.min(window.innerWidth, window.innerHeight) <= 768;
+  let initialScale;
+  if (isMobile) {
+    const pad = 40;
+    const fitW = (vw - pad * 2) / CARD_W;
+    const fitH = (vh - pad * 2) / CARD_H;
+    initialScale = Math.max(Math.min(fitW, fitH, NAV_SCALE), MIN_SCALE);
+  } else {
+    initialScale = NAV_SCALE;
+  }
+  scale = initialScale;
   const first = MODULOS[0];
   setTransform(vw/2 - first.cx * scale, vh/2 - first.cy * scale, scale);
 }
@@ -2820,8 +3551,14 @@ viewport.addEventListener('wheel', e => {
   if (now - _lastWheelTime < 32) return;
   _lastWheelTime = now;
   const factor   = e.deltaY < 0 ? 1.08 : 1/1.08;
-  const newScale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, scale * factor));
+  const effectiveMin = _overviewActive ? calcMinScale() * 0.85 : MIN_SCALE;
+  const newScale = Math.min(MAX_SCALE, Math.max(effectiveMin, scale * factor));
   if (newScale === scale) return;
+  // leaving overview range via scroll — clear active state so button toggles correctly
+  if (_overviewActive && newScale >= MIN_SCALE) {
+    _setOverviewActive(false);
+    _overviewSaved = null;
+  }
 
   // Keep world point under cursor fixed
   const rect   = viewport.getBoundingClientRect();
@@ -2967,31 +3704,159 @@ const NAV_SCALE = 1.8; // scale used on page load and when navigating via menu
 
 let _flyAnimating  = false;
 let _expandClosing = false;
+let _overviewActive = false;
+let _overviewSaved  = null;
+
+function _setOverviewActive(val) {
+  _overviewActive = val;
+  const btn = document.getElementById('nav-overview-btn');
+  const blk = document.getElementById('overview-blocker');
+  if (btn) btn.classList.toggle('active', val);
+  if (blk) blk.classList.toggle('active', val);
+}
+
+// ── Card-compression for overview ───────────────────────
+const _OVERVIEW_COMPRESS = 0.74;
+const _origModuloPos = MODULOS.map(m => ({ cx: m.cx, cy: m.cy }));
+const _centroidCx = _origModuloPos.reduce((s, p) => s + p.cx, 0) / _origModuloPos.length;
+const _centroidCy = _origModuloPos.reduce((s, p) => s + p.cy, 0) / _origModuloPos.length;
+let _currentCompress = 1.0;
+
+function _applyModuloPositions(mod, cx, cy) {
+  mod.cx = cx; mod.cy = cy;
+  const card = document.getElementById(`card-${mod.id}`);
+  if (card) { card.style.left = (cx - CARD_W/2) + 'px'; card.style.top = (cy - CARD_H/2) + 'px'; }
+  const pd = document.getElementById(`pd-${mod.id}`);
+  if (pd) { pd.style.left = (cx - (pd.offsetWidth || CARD_W)/2) + 'px'; pd.style.top = (cy - CARD_H/2 - PD_H - PD_GAP) + 'px'; }
+}
+
+function _setCompress(factor) {
+  _currentCompress = factor;
+  MODULOS.forEach((mod, i) => {
+    const o = _origModuloPos[i];
+    _applyModuloPositions(mod,
+      _centroidCx + (o.cx - _centroidCx) * factor,
+      _centroidCy + (o.cy - _centroidCy) * factor);
+  });
+}
+
 function flyToModulo(mod) {
   if (expandedModuloId || _flyAnimating) return;
   _flyAnimating = true;
+  if (_overviewActive) {
+    _setOverviewActive(false);
+    _overviewSaved = null;
+  }
   document.querySelectorAll('.modulo-nav-item.pressed').forEach(el => el.classList.remove('pressed'));
   const _navItem = document.querySelector(`#modulo-nav [data-modid="${mod.id}"]`);
   if (_navItem) _navItem.classList.add('pressed');
   const vw=viewport.offsetWidth, vh=viewport.offsetHeight;
   const targetScale = NAV_SCALE;
-  const targetX = vw/2 - mod.cx * targetScale;
-  const targetY = vh/2 - mod.cy * targetScale;
+  // use original (uncompressed) position as fly target
+  const modIdx = MODULOS.indexOf(mod);
+  const origPos = _origModuloPos[modIdx] || { cx: mod.cx, cy: mod.cy };
+  const targetX = vw/2 - origPos.cx * targetScale;
+  const targetY = vh/2 - origPos.cy * targetScale;
   const startX=tx, startY=ty, startScale=scale;
   const dx=targetX-startX, dy=targetY-startY, ds=targetScale-startScale;
+  const compressStart = _currentCompress, dCompress = 1.0 - compressStart;
   const duration=420, start=performance.now();
   const ease=t => t<0.5?2*t*t:-1+(4-2*t)*t;
   function step(now) {
     const t=Math.min((now-start)/duration,1);
     const e=ease(t);
     const curScale = startScale+ds*e;
-    setTransform(startX+dx*e, startY+dy*e, curScale);
+    const curX = startX+dx*e, curY = startY+dy*e;
+    if (dCompress !== 0) _setCompress(compressStart + dCompress * e);
+    if (t < 1) {
+      scale = curScale; tx = curX; ty = curY;
+      applyTransform(); drawMinimap();
+      if (inventoryModuloId) _positionInventoryToBtn();
+    } else {
+      setTransform(curX, curY, curScale);
+      _flyAnimating = false;
+    }
     Object.values(moduloCanvasResizers).forEach(fn => fn(curScale));
     if (t<1) requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+}
+
+// ── Overview (fit-all + compress toggle) ────────────────
+function toggleOverview() {
+  if (_flyAnimating || expandedModuloId) return;
+  if (_overviewActive) {
+    _setOverviewActive(false);
+    if (_overviewSaved) {
+      const { stx, sty, sscale } = _overviewSaved;
+      _overviewSaved = null;
+      _animateFit(stx, sty, sscale, 1.0);
+    }
+  } else {
+    _setOverviewActive(true);
+    _overviewSaved = { stx: tx, sty: ty, sscale: scale };
+    // compute bounding box of compressed positions
+    const f = _OVERVIEW_COMPRESS, pad = 60;
+    const ccx = _origModuloPos.map(o => _centroidCx + (o.cx - _centroidCx) * f);
+    const ccy = _origModuloPos.map(o => _centroidCy + (o.cy - _centroidCy) * f);
+    const minCx = Math.min(...ccx) - CARD_W/2 - pad;
+    const maxCx = Math.max(...ccx) + CARD_W/2 + pad;
+    const minCy = Math.min(...ccy) - CARD_H/2 - pad - 50;
+    const maxCy = Math.max(...ccy) + CARD_H/2 + pad;
+    const vw = viewport.offsetWidth, vh = viewport.offsetHeight;
+    const fitScale = Math.min(vw / (maxCx - minCx), vh / (maxCy - minCy));
+    const worldCx  = (minCx + maxCx) / 2;
+    const worldCy  = (minCy + maxCy) / 2;
+    const targetX  = vw/2 - worldCx * fitScale;
+    const targetY  = vh/2 - worldCy * fitScale;
+    _animateFit(targetX, targetY, fitScale, _OVERVIEW_COMPRESS);
+  }
+}
+
+function _animateFit(targetX, targetY, targetScale, compressTarget) {
+  _flyAnimating = true;
+  const startX = tx, startY = ty, startScale = scale;
+  const dx = targetX - startX, dy = targetY - startY, ds = targetScale - startScale;
+  const compressStart = _currentCompress;
+  const dCompress = (compressTarget !== undefined ? compressTarget : _currentCompress) - compressStart;
+  const duration = 500, start = performance.now();
+  const ease = t => t < 0.5 ? 2*t*t : -1+(4-2*t)*t;
+  function step(now) {
+    const t = Math.min((now - start) / duration, 1);
+    const e = ease(t);
+    const curScale = startScale + ds * e;
+    if (dCompress !== 0) _setCompress(compressStart + dCompress * e);
+    scale = curScale;
+    tx = startX + dx * e;
+    ty = startY + dy * e;
+    applyTransform();
+    drawMinimap();
+    if (inventoryModuloId) _positionInventoryToBtn();
+    Object.values(moduloCanvasResizers).forEach(fn => fn(curScale));
+    if (t < 1) requestAnimationFrame(step);
     else _flyAnimating = false;
   }
   requestAnimationFrame(step);
 }
+
+document.getElementById('nav-overview-btn').addEventListener('click', e => {
+  e.stopPropagation();
+  toggleOverview();
+});
+
+// In overview: clicking on a card background flies to that modulo
+document.getElementById('overview-blocker').addEventListener('click', e => {
+  if (!_overviewActive || _flyAnimating) return;
+  const blocker = e.currentTarget;
+  blocker.style.pointerEvents = 'none';
+  const under = document.elementFromPoint(e.clientX, e.clientY);
+  blocker.style.pointerEvents = '';
+  if (!under) return;
+  const card = under.closest('.modulo-card');
+  if (!card) return;
+  const mod = MODULOS.find(m => m.id === card.id.replace('card-', ''));
+  if (mod) flyToModulo(mod);
+});
 
 // ═══════════════════════════════════════════════════════
 // EXPAND OVERLAY
@@ -3096,6 +3961,7 @@ function _restoreCardLeft(moduloId) {
 }
 
 function closeExpand() {
+  if (document.fullscreenElement) document.exitFullscreen();
   const moduloId = expandedModuloId;
   // Close any open inline inventory so it doesn't persist into the regular card view.
   // snap=true: bypass max-height transition since card-left is about to be relocated.
@@ -3137,11 +4003,44 @@ function closeExpand() {
     const _teardownTimer = setTimeout(_teardown, 350);
     expandWindow.addEventListener('transitionend', _onTransitionEnd);
   } else {
+    _expandClosing = false;
     expandOverlay.classList.remove('active');
   }
 }
 
 document.getElementById('expand-close').addEventListener('click', closeExpand);
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Escape' || document.fullscreenElement) return;
+  if (expandedModuloId) { closeExpand(); return; }
+  if (_overviewActive) toggleOverview();
+});
+
+function _resizeExpandCanvas(isFS) {
+  const PIXEL = 6, GRID_COLS = 450, GRID_ROWS = 250;
+  const dispW = isFS ? window.innerWidth
+                     : Math.min(window.innerWidth * 0.96, (window.innerHeight * 0.90 - 28) * 1.78);
+  const dispH = isFS ? window.innerHeight          // full screen, tbar hidden
+                     : window.innerHeight * 0.90 - 28;
+  const cols = Math.min(Math.floor(dispW / PIXEL), GRID_COLS);
+  const rows = Math.min(Math.floor(dispH / PIXEL), GRID_ROWS);
+  expandCanvas.width  = cols * PIXEL;
+  expandCanvas.height = rows * PIXEL;
+  expandCanvas.style.width  = isFS ? dispW + 'px' : '';
+  expandCanvas.style.height = isFS ? dispH + 'px' : '';
+}
+
+document.getElementById('expand-fullscreen').addEventListener('click', () => {
+  if (!expandedModuloId) return;
+  if (!document.fullscreenElement) expandWindow.requestFullscreen();
+  else document.exitFullscreen();
+});
+
+document.addEventListener('fullscreenchange', () => {
+  if (!expandedModuloId) return;
+  const isFS = !!document.fullscreenElement;
+  expandWindow.classList.toggle('expand-fs', isFS);
+  _resizeExpandCanvas(isFS);
+});
 document.getElementById('expand-reset-btn').addEventListener('click', () => {
   if (expandedModuloId) moduloAnimObjs[expandedModuloId]?.resetGrid();
 });
@@ -3155,6 +4054,15 @@ const inventoryWindow  = document.getElementById('inventory-window');
 const inventoryGrid    = document.getElementById('inventory-grid');
 const inventoryCount   = document.getElementById('inventory-count');
 const inventoryTitle   = document.getElementById('inventory-tbar-title');
+const inventorySortBtn = document.getElementById('inventory-sort-btn');
+
+inventorySortBtn.addEventListener('click', ev => {
+  ev.stopPropagation();
+  inventorySortAsc = !inventorySortAsc;
+  inventorySortBtn.textContent = inventorySortAsc ? 'R↑' : 'R↓';
+  _sortInventory();
+  renderInventoryGrid();
+});
 
 // Delegated click on the floating inventory grid — one listener for all tiles
 inventoryGrid.addEventListener('click', ev => {
@@ -3164,6 +4072,21 @@ inventoryGrid.addEventListener('click', ev => {
   const tn = parseInt(tile.dataset.tokenNum, 10);
   if (!isNaN(tn)) addTokenToModulo(inventoryModuloId, tn);
 });
+
+// Returns trait tag HTML for an unplaced inventory token based on TOKEN_DATA flags.
+function inventoryTraitTags(tokenNum) {
+  const td = TOKEN_DATA[tokenNum];
+  if (!td) return '';
+  const tags = [];
+  if (td.speed != null) tags.push('S');
+  if (td.hasSz)   tags.push('SZ');
+  if (td.hasMode) tags.push('M');
+  if (td.hasRS)   tags.push('RS');
+  if (td.hasRD)   tags.push('RD');
+  if (td.hasBios) tags.push('BIOS');
+  if (td.hasDX)   tags.push('DX');
+  return tags.map(t => `<span class="tr-tag">${t}</span>`).join('');
+}
 
 // Small helper — builds a single .inv-tile element (no per-tile click listener).
 function _buildInventoryTile(tokenNum, onClick) {
@@ -3175,7 +4098,8 @@ function _buildInventoryTile(tokenNum, onClick) {
   const rank  = (TOKEN_DATA[tokenNum] && TOKEN_DATA[tokenNum].rank) || 0;
   tile.innerHTML = `
     <span class="inv-tile-id">R#${String(rank).padStart(2,'0')}</span>
-    <div class="inv-tile-swatch" style="background:${color}"></div>`;
+    <div class="inv-tile-swatch" style="background:${color}"></div>
+    <span class="inv-tile-tags">${inventoryTraitTags(tokenNum)}</span>`;
   // Inline inventory panels are rebuilt on each open, so they keep their own listener
   if (onClick) tile.addEventListener('click', ev => { ev.stopPropagation(); onClick(tokenNum); });
   return tile;
@@ -3259,6 +4183,7 @@ function closeInlineInventory(modId, snap) {
 }
 
 function renderInventoryGrid() {
+  inventorySortBtn.textContent = inventorySortAsc ? 'R↑' : 'R↓';
   const mod = MODULOS.find(c => c.id === inventoryModuloId);
   if (!mod) return;
   const full = mod.tokens.length >= 8;
@@ -3354,8 +4279,9 @@ function addTokenToModulo(modId, tokenNum) {
   _shiftSlotMapUp(tokenRectSizes,     modId, slotIdx);
   _shiftSlotMapUp(tokenRectDensities, modId, slotIdx);
   _shiftSlotMapUp(biosStates,         modId, slotIdx);
-  // Insert null so buildTokenList's null-check seeds from the token's default speed
-  if (moduloTokenOps[modId]) moduloTokenOps[modId].splice(slotIdx, 0, null);
+  // Splice placeholder then reseed all slots with position-based weights
+  if (moduloTokenOps[modId]) moduloTokenOps[modId].splice(slotIdx, 0, 0);
+  reseedPositionOps(modId);
 
   // Keep featuredIdx in range (shift up if it's at or after insert point)
   if (featuredIdx[modId] != null && featuredIdx[modId] >= slotIdx) {
@@ -3365,13 +4291,16 @@ function addTokenToModulo(modId, tokenNum) {
   // Insert token at the rank-sorted position
   mod.tokens.splice(slotIdx, 0, tokenNum);
 
-  // Init color + pre-set traits from TOKEN_DATA at the new slot
+  // Init color only — no traits auto-activated on placement
   if (!nodeColors[modId]) nodeColors[modId] = {};
-  _initTokenTraits(modId, slotIdx, tokenNum);
+  const _td = TOKEN_DATA[tokenNum];
+  if (_td) nodeColors[modId][slotIdx] = _td.sel >= 0 ? _td.sel : 0;
 
   // Rebuild left panel (stats + token list + add-row).
   // buildTokenList re-inits moduloTokenOps[modId][i] for every slot including the new one.
+  const _listStateAdd = _saveTokenListState(mod);
   buildLeft(mod);
+  _restoreTokenListState(mod, _listStateAdd);
 
   // Refresh animation palette so the new color joins the mix
   if (moduloAnimUpdaters[modId]) moduloAnimUpdaters[modId]();
@@ -3446,7 +4375,7 @@ function removeTokenFromModulo(modId, slotIdx) {
   // Return user-owned token to inventory
   if (isOwnToken(tokenNum) && !tokenInventory.includes(tokenNum)) {
     tokenInventory.push(tokenNum);
-    tokenInventory.sort((a, b) => a - b);
+    _sortInventory();
   }
 
   // Shift all per-slot state maps down so the remaining slots stay aligned
@@ -3456,8 +4385,12 @@ function removeTokenFromModulo(modId, slotIdx) {
   _shiftSlotMapDown(tokenRectSizes,     modId, slotIdx);
   _shiftSlotMapDown(tokenRectDensities, modId, slotIdx);
   _shiftSlotMapDown(biosStates,         modId, slotIdx);
+  clearTokenDitherPattern(modId, slotIdx);
+  _shiftSlotMapDown(tokenDitherPatterns, modId, slotIdx);
+  if (moduloDitherPatternSetters[modId]) moduloDitherPatternSetters[modId]();
   // moduloTokenOps is a regular array — splice handles the shift
   if (moduloTokenOps[modId]) moduloTokenOps[modId].splice(slotIdx, 1);
+  reseedPositionOps(modId);
 
   // Keep featuredIdx in range
   if (featuredIdx[modId] != null && featuredIdx[modId] >= mod.tokens.length) {
@@ -3465,7 +4398,9 @@ function removeTokenFromModulo(modId, slotIdx) {
   }
 
   // Rebuild the left panel and animation state
+  const _listStateRm = _saveTokenListState(mod);
   buildLeft(mod);
+  _restoreTokenListState(mod, _listStateRm);
   if (moduloAnimUpdaters[modId]) moduloAnimUpdaters[modId]();
 
   // Re-aggregate traits for the animation engine — removed token might have
@@ -3658,7 +4593,8 @@ function buildNavigator() {
       </div>
       <span class="modulo-nav-label">${num}</span>`;
     item.addEventListener('click', () => flyToModulo(mod));
-    nav.appendChild(item);
+    const sep = document.getElementById('nav-overview-sep');
+    nav.insertBefore(item, sep);
   });
 }
 
@@ -3693,9 +4629,12 @@ function openModal() {
 function closeModal() { document.getElementById('overlay').classList.remove('open'); }
 
 // ═══════════════════════════════════════════════════════
-// BACKGROUND DITHER
+// BACKGROUND DITHER — v1 (saved)
+// BG_PIXEL=8, BG_DENSITY=0.018, BG_CHURN=0.006, BG_RECT_COUNT=10
+// 3 styles: X diagonal strokes, half×half corner squares, half-width left rects
+// Size multipliers: 1× 85%, 3× 10%, 5× 5%
 // ═══════════════════════════════════════════════════════
-function startBgDither() {
+function startBgDither_v1() {
   const BG_PIXEL      = 8;
   const BG_DENSITY    = 0.018;
   const BG_CHURN      = 0.006;
@@ -3849,12 +4788,264 @@ function startBgDither() {
 }
 
 // ═══════════════════════════════════════════════════════
+// BACKGROUND DITHER — v2 (working copy of v1)
+// ═══════════════════════════════════════════════════════
+function startBgDither() {
+  const BG_PIXEL      = 8;
+  const BG_DENSITY    = 0.018;
+  const BG_CHURN      = 0.006;
+  const BG_RECT_COUNT = 10;
+  const BG_DIRS       = [[1,0],[-1,0],[0,1],[0,-1],[1,1],[-1,-1],[1,-1],[-1,1]];
+
+  const canvas = document.createElement('canvas');
+  canvas.style.cssText = 'position:absolute;inset:0;pointer-events:none;z-index:1;filter:blur(20px) drop-shadow(0 2px 3px rgba(0,0,0,0.06)) drop-shadow(0 6px 11px rgba(0,0,0,0.08)) drop-shadow(0 17px 34px rgba(0,0,0,0.10));';
+  document.getElementById('root').insertBefore(canvas, document.getElementById('root').firstChild);
+
+  const COLS = Math.ceil(WORLD_SIZE / BG_PIXEL);
+  const ROWS = Math.ceil(WORLD_SIZE / BG_PIXEL);
+
+  const bgDither     = new Float32Array(COLS * ROWS);
+  const bgDitherNext = new Float32Array(COLS * ROWS);
+  for (let i = 0; i < bgDither.length; i++) bgDither[i] = Math.random();
+
+  function makeRectDef() {
+    const dir = BG_DIRS[Math.floor(Math.random() * BG_DIRS.length)];
+    return {
+      cx: Math.floor(Math.random() * COLS),
+      cy: Math.floor(Math.random() * ROWS),
+      cw: 4 + Math.floor(Math.random() * 77),
+      ch: 4 + Math.floor(Math.random() * 77),
+      dx: dir[0], dy: dir[1],
+      active: false, timer: 0,
+      offTime: (1 + Math.random() * 5) * 60,
+      onTime:  (1.5 + Math.random() * 5) * 60,
+    };
+  }
+  const bgRects = [];
+  for (let i = 0; i < BG_RECT_COUNT; i++) bgRects.push(makeRectDef());
+
+  function applyBgRects() {
+    bgDitherNext.set(bgDither);
+    for (const rs of bgRects) {
+      if (!rs.active) continue;
+      const rEnd = Math.min(rs.cy + rs.ch, ROWS);
+      const cEnd = Math.min(rs.cx + rs.cw, COLS);
+      for (let r = rs.cy; r < rEnd; r++)
+        for (let c = rs.cx; c < cEnd; c++) {
+          const sr = ((r - rs.dy) + ROWS) % ROWS;
+          const sc = ((c - rs.dx) + COLS) % COLS;
+          bgDitherNext[r * COLS + c] = bgDither[sr * COLS + sc];
+        }
+    }
+    bgDither.set(bgDitherNext);
+    for (const rs of bgRects) {
+      rs.timer++;
+      if (rs.active && rs.timer >= rs.onTime) {
+        rs.active = false; rs.timer = 0;
+        rs.offTime = (1 + Math.random() * 5) * 60;
+      } else if (!rs.active && rs.timer >= rs.offTime) {
+        rs.active = true; rs.timer = 0;
+        rs.onTime  = (1.5 + Math.random() * 5) * 60;
+        rs.cx = Math.floor(Math.random() * COLS);
+        rs.cy = Math.floor(Math.random() * ROWS);
+        rs.cw = 4 + Math.floor(Math.random() * 77);
+        rs.ch = 4 + Math.floor(Math.random() * 77);
+        const dir = BG_DIRS[Math.floor(Math.random() * BG_DIRS.length)];
+        rs.dx = dir[0]; rs.dy = dir[1];
+      }
+    }
+  }
+
+  function churnBg() {
+    const count = Math.ceil(bgDither.length * BG_CHURN);
+    for (let i = 0; i < count; i++)
+      bgDither[Math.floor(Math.random() * bgDither.length)] = Math.random();
+  }
+
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+  let _dpr = 1;
+
+  function resize() {
+    _dpr = window.devicePixelRatio || 1;
+    canvas.width  = window.innerWidth  * _dpr;
+    canvas.height = window.innerHeight * _dpr;
+    canvas.style.width  = window.innerWidth  + 'px';
+    canvas.style.height = window.innerHeight + 'px';
+  }
+
+  function renderBg() {
+    const W = window.innerWidth, H = window.innerHeight;
+    ctx.setTransform(_dpr, 0, 0, _dpr, 0, 0);
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = isNight ? 'rgba(44,44,44,1)' : 'rgba(188,184,176,1)';
+
+    const cellPx = Math.round(BG_PIXEL * scale);
+    const stride  = BG_PIXEL * scale;
+
+    const c0 = Math.max(0,    Math.floor(-tx / stride));
+    const c1 = Math.min(COLS, Math.ceil((W - tx) / stride) + 1);
+    const r0 = Math.max(0,    Math.floor(-ty / stride));
+    const r1 = Math.min(ROWS, Math.ceil((H - ty) / stride) + 1);
+
+    for (let r = r0; r < r1; r++) {
+      for (let c = c0; c < c1; c++) {
+        const dv = bgDither[r * COLS + c];
+        if (dv > BG_DENSITY) continue;
+        const style = dv < BG_DENSITY * 0.33 ? 1 : dv < BG_DENSITY * 0.66 ? 2 : 3;
+        const mr   = (r * 31 + c * 17) % 100;
+        const mult = mr < 85 ? 1 : mr < 95 ? 3 : 5;
+        const ox   = Math.round(c * stride + tx);
+        const oy   = Math.round(r * stride + ty);
+        const sz   = Math.round((c + mult) * stride + tx) - ox;
+
+        if (style === 3) {
+          ctx.fillRect(ox, oy, sz >> 1, sz);
+        } else if (style === 2) {
+          const corner = (r + c) % 4;
+          const sqx = (corner === 1 || corner === 3) ? sz >> 1 : 0;
+          const sqy = (corner === 2 || corner === 3) ? sz >> 1 : 0;
+          ctx.fillRect(ox + sqx, oy + sqy, sz >> 1, sz >> 1);
+        } else {
+          for (let p = 0; p < sz; p++) {
+            ctx.fillRect(ox + p, oy + p, 1, 1);
+            if (sz - 1 - p !== p) ctx.fillRect(ox + sz - 1 - p, oy + p, 1, 1);
+          }
+        }
+      }
+    }
+  }
+
+  const INTERVAL = 1000 / 60;
+  let _last = 0;
+  function loop(ts) {
+    if (!document.hidden && ts - _last >= INTERVAL) {
+      for (let i = 0; i < 2; i++) applyBgRects();
+      churnBg();
+      renderBg();
+      _last = ts;
+    }
+    requestAnimationFrame(loop);
+  }
+
+  resize();
+  window.addEventListener('resize', resize);
+  requestAnimationFrame(loop);
+}
+
+// Background gradient color — controllable via topbar color picker
+let _bgGradColor = '#8D8A84';
+
+// ═══════════════════════════════════════════════════════
+// BACKGROUND DITHER — v3 (rotating gradient)
+// ═══════════════════════════════════════════════════════
+function startBgDither_v3() {
+  const canvas = document.createElement('canvas');
+  canvas.style.cssText = 'position:absolute;inset:0;pointer-events:none;z-index:1;';
+  document.getElementById('root').insertBefore(canvas, document.getElementById('root').firstChild);
+
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+  let _dpr = 1, W, H;
+
+  function resize() {
+    _dpr = window.devicePixelRatio || 1;
+    W = window.innerWidth; H = window.innerHeight;
+    canvas.width  = W * _dpr;
+    canvas.height = H * _dpr;
+    canvas.style.width  = W + 'px';
+    canvas.style.height = H + 'px';
+  }
+
+  let _angle = 280 * Math.PI / 180;
+  const SPEED = (2 * Math.PI) / (7 * 60); // 1 rotation per 7s at 60fps
+
+  function render() {
+    _angle += SPEED;
+    ctx.setTransform(_dpr, 0, 0, _dpr, 0, 0);
+
+    const cx = W / 2, cy = H / 2;
+    const len = Math.sqrt(W * W + H * H) / 2;
+    const x0 = cx + Math.cos(_angle + Math.PI) * len;
+    const y0 = cy + Math.sin(_angle + Math.PI) * len;
+    const x1 = cx + Math.cos(_angle) * len;
+    const y1 = cy + Math.sin(_angle) * len;
+
+    const grad = ctx.createLinearGradient(x0, y0, x1, y1);
+    if (isNight) {
+      grad.addColorStop(0, '#2C2C2C');
+      grad.addColorStop(1, '#1E1E1E');
+    } else {
+      grad.addColorStop(0, _bgGradColor);
+      grad.addColorStop(1, '#D2CEC6');
+    }
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, W, H);
+  }
+
+  const INTERVAL = 1000 / 60;
+  let _last = 0;
+  function loop(ts) {
+    if (!document.hidden && ts - _last >= INTERVAL) {
+      render();
+      _last = ts;
+    }
+    requestAnimationFrame(loop);
+  }
+
+  resize();
+  window.addEventListener('resize', resize);
+  requestAnimationFrame(loop);
+}
+
+// ═══════════════════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════════════════
 MODULOS.forEach(buildModulo);
 buildNavigator();
 startGlobalLoop();
-startBgDither();
+startBgDither_v3();
+
+// ── Background gradient color picker ──
+(function() {
+  const btn    = document.getElementById('bg-color-btn');
+  const picker = document.createElement('div');
+  picker.id = 'bg-color-picker';
+  document.body.appendChild(picker);
+
+  // Collect unique colors from all palettes + default gradient color
+  const allColors = [...new Set(['#8D8A84', ...COLS_DATA.flat()])];
+
+  btn.style.background = _bgGradColor;
+
+  allColors.forEach(c => {
+    const dot = document.createElement('span');
+    dot.className = 'bg-picker-dot' + (c === _bgGradColor ? ' selected' : '');
+    dot.style.background = c;
+    dot.title = COLOR_NAMES[c] || c;
+    dot.addEventListener('click', e => {
+      e.stopPropagation();
+      _bgGradColor = c;
+      btn.style.background = c;
+      picker.querySelectorAll('.bg-picker-dot').forEach(d => d.classList.remove('selected'));
+      dot.classList.add('selected');
+      picker.classList.remove('open');
+    });
+    picker.appendChild(dot);
+  });
+
+  btn.addEventListener('click', e => {
+    e.stopPropagation();
+    picker.classList.toggle('open');
+    if (picker.classList.contains('open')) {
+      const r = btn.getBoundingClientRect();
+      picker.style.right = (window.innerWidth - r.right) + 'px';
+      picker.style.top   = (r.bottom + 6) + 'px';
+    }
+  });
+
+  document.addEventListener('click', () => picker.classList.remove('open'));
+})();
 
 function updatePillTokens() {
   const placed = MODULOS.reduce((a,c) => a + c.tokens.length, 0);
@@ -3862,6 +5053,14 @@ function updatePillTokens() {
 }
 updatePillTokens();
 document.getElementById('pill-modulos').textContent=`${MODULOS.length} modulos`;
+
+function updateTopbarWallet() {
+  const addr = SESSION_USER;
+  document.getElementById('topbar-wallet').textContent = addr.slice(0,6) + '…' + addr.slice(-4);
+  const owned = TOKEN_DATA.filter(t => t.owner === SESSION_USER).length;
+  document.getElementById('topbar-inv').textContent = owned + ' tokens';
+}
+updateTopbarWallet();
 
 document.getElementById('toggle').addEventListener('click', toggleMode);
 document.getElementById('overlay').addEventListener('click', e => {
@@ -3877,6 +5076,16 @@ window.addEventListener('resize', () => {
   drawMinimap();
 });
 setTimeout(() => { initCamera(); drawMinimap(); }, 0);
+
+// Mobile rotate overlay — auto-dismiss after 3s
+(function() {
+  const ov = document.getElementById('rotate-overlay');
+  if (!ov) return;
+  setTimeout(() => {
+    ov.classList.add('fade');
+    setTimeout(() => ov.remove(), 500);
+  }, 3000);
+})();
 
 // ═══════════════════════════════════════════════════════
 // MP4 EXPORT  (WebCodecs + mp4-muxer)
