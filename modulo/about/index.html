@@ -1,0 +1,1404 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>About</title>
+<style>
+* { box-sizing:border-box; margin:0; padding:0; }
+
+:root {
+  --tbar-bg:      #c9c6c0;
+  --bg:           #dbd8d1;
+  --bg-alt:       #d8d5cd;
+  --border:       rgba(0,0,0,0.12);
+  --border-mid:   rgba(0,0,0,0.20);
+  --border-strong:rgba(0,0,0,0.32);
+  --text:         rgba(0,0,0,0.78);
+  --text-sub:     rgba(0,0,0,0.44);
+  --text-meta:    rgba(0,0,0,0.28);
+}
+
+html, body {
+  min-height:100vh;
+  background:var(--bg);
+  color:var(--text);
+  display:flex;
+  flex-direction:column;
+}
+
+/* ── Topbar ── */
+.topbar {
+  position:sticky; top:0; z-index:200;
+  height:34px;
+  background:var(--tbar-bg);
+  border-bottom:0.5px solid var(--border-mid);
+  display:grid;
+  grid-template-columns:1fr auto 1fr;
+  align-items:center;
+  padding:0 24px;
+  backdrop-filter:blur(12px);
+  -webkit-backdrop-filter:blur(12px);
+}
+.tbar-left {
+  font-size:11px; font-family:monospace;
+  letter-spacing:.05em; color:rgba(0,0,0,0.45);
+}
+.tbar-center {
+  font-size:10px; font-family:monospace;
+  letter-spacing:.14em; text-transform:uppercase;
+  color:rgba(0,0,0,0.32);
+}
+.tbar-right { display:flex; justify-content:flex-end; }
+.tbar-back {
+  display:block;
+  width:12px; height:12px; border-radius:50%;
+  background:#ff5f57;
+}
+.tbar-back:hover { filter:brightness(0.85); }
+
+/* ── Grid dot background ── */
+.grid-bg {
+  background-image:radial-gradient(rgba(0,0,0,0.09) 1px, transparent 1px);
+  background-size:20px 20px;
+}
+
+/* ── Page header ── */
+.page-header {
+  padding:80px 52px 72px;
+  border-bottom:0.5px solid var(--border-mid);
+  border-bottom-right-radius:48px;
+}
+.header-inner {
+  max-width:1200px; margin:0 auto;
+  display:flex; align-items:flex-end;
+  justify-content:space-between; gap:40px;
+  flex-wrap:wrap;
+}
+.display-title {
+  font-family:'Times New Roman',Times,serif;
+  font-size:clamp(48px, 7vw, 92px);
+  font-weight:400;
+  letter-spacing:-.02em;
+  line-height:1.0;
+  color:rgba(0,0,0,0.80);
+}
+#desires-word {
+  display:inline-block;
+  transition:opacity 0.18s ease, transform 0.18s ease;
+}
+#desires-word.dw-out {
+  opacity:0;
+  transform:translateY(-12px);
+}
+#desires-word.dw-in {
+  opacity:0;
+  transform:translateY(14px);
+}
+#desires-word.dw-scramble {
+  opacity:0.55;
+}
+.meta-box {
+  border:0.5px solid var(--border-strong);
+  border-radius:16px;
+  background:var(--bg);
+  min-width:210px; flex-shrink:0;
+  overflow:hidden;
+  display:flex; flex-direction:column;
+}
+.meta-tbar {
+  display:flex; align-items:center; gap:8px;
+  height:32px; padding:0 14px;
+  background:var(--tbar-bg);
+  border-bottom:0.5px solid var(--border-mid);
+  flex-shrink:0;
+}
+.meta-dot {
+  width:12px; height:12px; border-radius:50%;
+  background:rgba(0,0,0,0.20); flex-shrink:0;
+}
+.meta-rows {
+  display:flex; flex-direction:column; gap:12px;
+  padding:18px 20px;
+}
+.meta-row { display:flex; flex-direction:column; gap:3px; }
+.meta-label {
+  font-size:8px; font-family:monospace;
+  letter-spacing:.14em; text-transform:uppercase;
+  color:var(--text-meta);
+}
+.meta-value {
+  font-size:11px; font-family:monospace;
+  letter-spacing:.05em; color:rgba(0,0,0,0.58);
+}
+
+/* ── Body section ── */
+.body-section {
+  padding:80px 52px;
+  flex:1;
+}
+.body-inner {
+  max-width:1200px; margin:0 auto;
+  display:grid;
+  grid-template-columns:1fr 2fr;
+  gap:0;
+  position:relative;
+}
+.col-divider {
+  position:absolute;
+  left:33.33%;
+  top:0; bottom:0;
+  width:0.5px;
+  background:var(--border-mid);
+}
+
+/* Left col */
+.left-col {
+  padding-right:40px;
+  display:flex;
+}
+#left-canvas {
+  display:block;
+  width:100%; height:100%;
+  min-height:340px;
+  image-rendering:pixelated;
+  image-rendering:crisp-edges;
+}
+
+/* Right col */
+.right-col {
+  display:flex; flex-direction:column; gap:40px;
+  padding-left:52px;
+}
+.quote {
+  font-family:'Times New Roman',Times,serif;
+  font-size:clamp(22px, 2.8vw, 38px);
+  font-weight:400; line-height:1.25;
+  color:rgba(0,0,0,0.76);
+}
+.body-text {
+  font-size:13px; font-family:monospace;
+  line-height:1.85; letter-spacing:.02em;
+  color:var(--text-sub);
+  columns:2; column-gap:36px;
+}
+.body-text p { margin-bottom:14px; break-inside:avoid; }
+
+/* ── Long text section ── */
+.long-section {
+  padding:80px 52px;
+  background:var(--tbar-bg);
+  border-top:0.5px solid var(--border-mid);
+  border-left:0.5px solid var(--border-mid);
+  border-top-left-radius:48px;
+  border-bottom:0.5px solid var(--border-mid);
+  position:relative;
+}
+.long-inner {
+  max-width:820px; margin:0 auto;
+  display:flex; flex-direction:column; gap:22px;
+  position:relative; z-index:1;
+}
+.long-text {
+  font-size:13px; font-family:monospace;
+  line-height:1.85; letter-spacing:.02em;
+  color:var(--text-sub);
+  border:0.5px solid var(--bg);
+  border-radius:6px;
+  padding:14px 18px;
+  background:var(--bg);
+}
+
+.long-text:nth-child(1)  { margin-left:0%;  margin-right:30%; }
+.long-text:nth-child(2)  { margin-left:3%;  margin-right:27%; }
+.long-text:nth-child(3)  { margin-left:6%;  margin-right:24%; }
+.long-text:nth-child(4)  { margin-left:9%;  margin-right:21%; }
+.long-text:nth-child(5)  { margin-left:12%; margin-right:18%; }
+.long-text:nth-child(6)  { margin-left:15%; margin-right:15%; }
+.long-text:nth-child(7)  { margin-left:18%; margin-right:12%; }
+.long-text:nth-child(8)  { margin-left:21%; margin-right:9%;  }
+.long-text:nth-child(9)  { margin-left:24%; margin-right:6%;  }
+.long-text:nth-child(10) { margin-left:27%; margin-right:3%;  }
+.long-text:nth-child(11) { margin-left:30%; margin-right:0%;  }
+
+/* ── Specs section ── */
+.specs-section {
+  padding:80px 52px;
+  position:relative;
+  overflow:hidden;
+  border-top:0.5px solid var(--border-mid);
+}
+.specs-inner {
+  max-width:760px; margin:0 auto;
+  border:0.5px solid var(--border-strong);
+  border-radius:16px;
+  position:relative; z-index:1;
+  padding:0 52px 52px;
+  background:var(--bg);
+  display:flex; flex-direction:column; gap:32px;
+  overflow:hidden;
+}
+.specs-tbar {
+  display:flex; align-items:center; gap:8px;
+  height:32px; padding:0 14px;
+  background:var(--tbar-bg);
+  border-bottom:0.5px solid var(--border-mid);
+  margin:0 -52px 20px;
+  flex-shrink:0;
+}
+.specs-dot {
+  width:12px; height:12px; border-radius:50%;
+  background:rgba(0,0,0,0.20); flex-shrink:0;
+}
+.specs-tbar-title {
+  font-size:10px; font-family:monospace;
+  letter-spacing:.10em; text-transform:uppercase;
+  color:var(--text-meta);
+}
+.specs-head { border-bottom:0.5px solid var(--border-mid); padding-bottom:18px; }
+.specs-title {
+  font-family:'Times New Roman',Times,serif;
+  font-size:28px; font-weight:400;
+  letter-spacing:-.01em; color:rgba(0,0,0,0.78);
+}
+.specs-sub {
+  font-size:8px; font-family:monospace;
+  letter-spacing:.14em; color:var(--text-meta);
+  margin-top:8px; text-transform:uppercase;
+}
+.specs-grid {
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:20px 40px;
+}
+.spec-item {
+  border-bottom:0.5px solid var(--border);
+  padding-bottom:10px;
+  display:flex; flex-direction:column; gap:4px;
+}
+.spec-label {
+  font-size:8px; font-family:monospace;
+  letter-spacing:.14em; color:var(--text-meta);
+  text-transform:uppercase;
+}
+.spec-value {
+  font-size:11px; font-family:monospace;
+  letter-spacing:.04em; color:rgba(0,0,0,0.62);
+}
+
+/* ── System overview ── */
+.sys-header { border-bottom:0.5px solid var(--border-mid); padding-bottom:16px; }
+.sys-title {
+  font-size:9px; font-family:monospace;
+  letter-spacing:.16em; text-transform:uppercase;
+  color:var(--text-meta);
+}
+.sys-diagram-wrap {
+  border-top:0.5px solid var(--border);
+  border-bottom:0.5px solid var(--border);
+  padding:20px 0;
+  display:flex;
+  justify-content:center;
+  overflow-x:auto;
+}
+.sys-diagram {
+  font-size:10px; font-family:monospace;
+  line-height:1.6; letter-spacing:.02em;
+  color:rgba(0,0,0,0.45);
+  white-space:pre;
+  text-align:left;
+}
+.sys-body { display:flex; flex-direction:column; gap:24px; }
+.sys-entry { display:grid; grid-template-columns:140px 1fr; gap:24px; }
+.sys-entry-label {
+  font-size:9px; font-family:monospace;
+  letter-spacing:.10em; text-transform:uppercase;
+  color:rgba(0,0,0,0.38); padding-top:2px;
+  border-top:0.5px solid var(--border-mid);
+}
+.sys-entry-text {
+  font-size:13px; font-family:monospace;
+  line-height:1.8; letter-spacing:.02em;
+  color:var(--text-sub);
+  border-top:0.5px solid var(--border-mid);
+  padding-top:2px;
+}
+
+/* ── Footer ── */
+footer {
+  background:var(--tbar-bg);
+  border-top:0.5px solid var(--border-strong);
+  padding:16px 24px;
+  display:grid;
+  grid-template-columns:1fr auto;
+  align-items:center; gap:24px;
+  margin-top:auto;
+}
+.footer-copy {
+  font-size:8px; font-family:monospace;
+  letter-spacing:.08em; color:var(--text-meta);
+  text-transform:uppercase;
+}
+.footer-links { display:flex; gap:20px; }
+.footer-link {
+  font-size:8px; font-family:monospace;
+  letter-spacing:.08em; color:var(--text-meta);
+  text-decoration:none; text-transform:uppercase;
+}
+.footer-link:hover { color:rgba(0,0,0,0.55); }
+
+/* ── Page transition ── */
+#page-transition {
+  position:fixed; inset:0; z-index:2000;
+  background:#c9c6c0;
+  opacity:1;
+  pointer-events:none;
+  transition:opacity 0.55s ease;
+}
+
+/* ── Night mode toggle ── */
+.tbar-night {
+  display:block;
+  width:12px; height:12px; border-radius:50%;
+  background:rgba(0,0,0,0.18);
+  border:none; cursor:pointer; padding:0;
+}
+.tbar-night:hover { filter:brightness(0.75); }
+
+/* ── Decorative floating module windows (specs-section bg) ── */
+.deco-card {
+  position:absolute; top:0; left:0;
+  width:260px;
+  background:rgba(219,216,209,0.92);
+  border:0.5px solid rgba(0,0,0,0.14);
+  border-radius:11px;
+  overflow:hidden;
+  box-shadow:
+    0 0 0 0.5px rgba(0,0,0,0.08),
+    0 4px 10px rgba(0,0,0,0.10),
+    0 12px 26px rgba(0,0,0,0.10),
+    0 28px 48px rgba(0,0,0,0.08);
+  pointer-events:none;
+  will-change:transform;
+  z-index:0;
+}
+.deco-tbar {
+  height:28px;
+  background:rgba(201,198,192,0.99);
+  border-bottom:0.5px solid rgba(0,0,0,0.07);
+  display:flex; align-items:center;
+  padding:0 10px; gap:5px;
+  flex-shrink:0;
+}
+.deco-tbar-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+.deco-tbar-label {
+  font-size:10px; font-family:monospace;
+  letter-spacing:.03em; color:rgba(0,0,0,0.52);
+  margin-left:5px;
+}
+.deco-canvas-wrap {
+  height:155px; background:#0e0e0e;
+  position:relative; overflow:hidden;
+}
+.deco-canvas {
+  position:absolute; inset:0;
+  width:100%; height:100%;
+  display:block;
+  image-rendering:pixelated;
+  image-rendering:crisp-edges;
+}
+
+/* ── Night mode ── */
+body.night {
+  --tbar-bg:       #111010;
+  --bg:            #1a1917;
+  --bg-alt:        #141312;
+  --border:        rgba(255,255,255,0.08);
+  --border-mid:    rgba(255,255,255,0.14);
+  --border-strong: rgba(255,255,255,0.24);
+  --text:          rgba(255,255,255,0.80);
+  --text-sub:      rgba(255,255,255,0.44);
+  --text-meta:     rgba(255,255,255,0.28);
+}
+body.night #page-transition { background:#111010; }
+body.night .tbar-night       { background:rgba(255,255,255,0.22); }
+body.night .specs-dot        { background:rgba(255,255,255,0.20); }
+body.night .meta-dot         { background:rgba(255,255,255,0.20); }
+body.night .tbar-center      { color:rgba(255,255,255,0.28); }
+body.night .display-title    { color:rgba(255,255,255,0.80); }
+body.night .meta-value       { color:rgba(255,255,255,0.52); }
+body.night .specs-title      { color:rgba(255,255,255,0.78); }
+body.night .sys-diagram      { color:rgba(255,255,255,0.32); }
+body.night .sys-entry-label  { color:rgba(255,255,255,0.30); }
+
+@media (max-width:768px) {
+  .page-header, .body-section, .specs-section { padding-left:24px; padding-right:24px; }
+  .body-inner { grid-template-columns:1fr; }
+  .col-divider { display:none; }
+  .left-col { padding-right:0; }
+  .right-col { padding-left:0; }
+  .body-text { columns:1; }
+  .specs-grid { grid-template-columns:1fr; }
+  .specs-inner { padding:32px 24px; }
+}
+</style>
+</head>
+<body>
+<div id="page-transition"></div>
+<script>
+  const _overlay = document.getElementById('page-transition');
+
+  // Fade in on arrive
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    _overlay.style.opacity = '0';
+    setTimeout(() => { _overlay.style.display = 'none'; }, 600);
+  }));
+
+  // Fade out on leave
+  document.querySelector('.tbar-back').addEventListener('click', e => {
+    e.preventDefault();
+    const href = e.currentTarget.getAttribute('href');
+    _overlay.style.display = '';
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      _overlay.style.opacity = '1';
+      setTimeout(() => { window.location.href = href; }, 580);
+    }));
+  });
+</script>
+
+<!-- Topbar -->
+<nav class="topbar">
+  <div class="tbar-left">
+    <a class="tbar-back" href="homepage.html#app" title="back to home"></a>
+  </div>
+  <span class="tbar-center">About</span>
+  <div class="tbar-right">
+    <button class="tbar-night" id="night-toggle" title="toggle night mode"></button>
+  </div>
+</nav>
+
+<!-- Header -->
+<header class="page-header grid-bg">
+  <div class="header-inner">
+    <h1 class="display-title">The machine of <span id="desires-word">desires</span></h1>
+    <div class="meta-box">
+      <div class="meta-tbar">
+        <span class="meta-dot"></span>
+      </div>
+      <div class="meta-rows">
+        <div class="meta-row">
+          <span class="meta-label">Type</span>
+          <span class="meta-value">Generative Art NFT</span>
+        </div>
+        <div class="meta-row">
+          <span class="meta-label">Chain</span>
+          <span class="meta-value">Ethereum</span>
+        </div>
+        <div class="meta-row">
+          <span class="meta-label">Storage</span>
+          <span class="meta-value">100% On-chain</span>
+        </div>
+        <div class="meta-row">
+          <span class="meta-label">Status</span>
+          <span class="meta-value">To be deployed</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- Body -->
+<section class="body-section">
+  <div class="body-inner">
+    <div class="col-divider"></div>
+
+    <div class="left-col">
+      <canvas id="left-canvas"></canvas>
+    </div>
+
+    <div class="right-col">
+      <div class="body-text">
+        <p>On its own, an element doesn't mean much. It's like a coordinate without a map, or a frequency without a signal—something that exists, but doesn't really point anywhere. But when you place it next to others, when you give it context, something changes. The structure starts to feel alive. What you bring into it begins to respond.</p>
+        <p>The way things are arranged isn't just decoration—it's a way of saying something. Every element you include already has its own character, something it brings with it no matter how you use it. The system doesn't choose what goes in—you do. And the combinations you make shape the outcome. In that sense, the arrangement itself becomes the argument.</p>
+        <p>And every argument has something at stake. Here, it reflects something older: the gap between what you want and what you can actually reach. That gap isn't new—it's something we've always lived with.</p>
+        <p>It's a familiar feeling. Anyone can take part—the entry point is open. But how much you can really shape the outcome depends on what you bring with you, on what you've built up over time. Access might be equal, but reach isn't.</p>
+        <p>That's what accumulation has always been about—not just having more, but closing that gap. The more you have, the more ways you have to move toward what you want. What you gain doesn't remove the condition—it reveals it. More reach, more possibilities. It's not a flaw. It's just how things are.</p>
+        <p>This condition has a name: Modulo. A system that reflects it—where desire can be arranged, and accumulation becomes visible. Even then, not everything is resolved. Some things come in already ordered. The hierarchy within each arrangement was set before you arrived. Access is still open, but order was never something you could buy.</p>
+        <p>In the end, commitment is the final step. To choose is to stop leaving everything open and say: this is it. At some point, desire asks you to let go—not of the desire itself, but of all the other ways it could have taken shape. The distance doesn't disappear; it just stops being a question. Modulo becomes what it is when you decide to stop holding it open.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Specs -->
+<section class="long-section">
+  <div class="long-inner">
+    <p class="long-text">Modulo is a collection of 50 tokens on Ethereum, distributed across ten compositional vessels that share its name. Each token is built from a single immutable seed — one number the contract computes at mint and never alters — from which its palette, speed, animation mode, and behavior layers are all derived.</p>
+    <p class="long-text">The token doesn't point to an image stored somewhere else. It generates one. Every time it's called, it runs a cellular automaton from inside a self-contained HTML file that lives within the token itself, fully on-chain. The automaton operates in one of six behavioral modes, each defining how cells propagate, shift, and deform.</p>
+    <p class="long-text">Some tokens carry additional layers: a bitmap system that stamps text directly into the grid, or a dither pattern that introduces a repeating structure across the surface. What the system produces feels alive — never the same frame twice, always within the same visual language. The rules are fixed. What they generate moves.</p>
+    <p class="long-text">None of this depends on an external system. The rendering engine, the animation logic, the full computational apparatus — all of it is stored in Ethereum's contract layer through EthFS.</p>
+    <p class="long-text">When a token is called, the contract doesn't return a URL. It builds the entire document on the fly, injecting each token's traits directly into the HTML, and returns it as a self-contained data URI that runs in the browser without a single external request.</p>
+    <p class="long-text">There's no server that can go offline. No platform that can shut it down or change the rules. A call to any token will return the same engine, the same seed, the same behavior — in a year, in twenty years, under any condition short of the network itself disappearing. Permanence here isn't a promise. It's a property of how it's built.</p>
+    <p class="long-text">The 50 tokens can be placed across 10 modulos by their owners — up to eight per modulo, drawn one at a time from the owner's inventory. A token can only occupy one modulo at a time, and only its owner can place or remove it.</p>
+    <p class="long-text">Inside a modulo, the system reads the combined set and produces a single animation from it. Color palettes merge into a shared pool, influenced by position — tokens placed lower in the order have a stronger pull on what appears.</p>
+    <p class="long-text">When multiple animation modes are present, the system cycles between them at a fixed interval, blending from one into the next. The position each token occupies isn't chosen by the owner. It's determined by rank, fixed from the moment the token was created. What enters is chosen. Where it lands was already decided.</p>
+    <p class="long-text">What you hold when you own a token is a unique seed, a defined visual behavior, and the ability to decide where it goes. The token exists on its own, as a complete on-chain object, whether it's placed or not.</p>
+    <p class="long-text">To settle it is to close that openness — a transaction that burns or transfers it, removing it from the arrangement permanently. What it was remains on the chain. What it was doing stops.</p>
+  </div>
+</section>
+
+<section class="specs-section">
+  <div class="specs-inner">
+    <div class="specs-tbar">
+      <span class="specs-dot"></span>
+      <span class="specs-tbar-title">System Overview</span>
+    </div>
+
+    <div class="sys-diagram-wrap"><pre class="sys-diagram">ETHEREUM                              INTERFACE
+─────────────────────                 ─────────────────────
+ERC-721 Contract                      Web Application
+  50 tokens                             reads ownership
+  immutable seeds                       reads token traits
+  on-chain rendering                    composes modulos
+  EthFS storage                         configures active traits
+  ownership + transfer                  previews animation
+                                        initiates settle
+─────────────────────                 ─────────────────────
+         │                                     │
+         └─────────────┬───────────────────────┘
+                       │
+              tokenURI() → data:text/html
+              settle()   → token burn / transfer</pre></div>
+
+    <div class="sys-body">
+      <div class="sys-entry">
+        <div class="sys-entry-label">Contract</div>
+        <p class="sys-entry-text">The ERC-721 contract is deployed on Ethereum. Each of the 50 tokens is bound to a unique seed generated at mint, from which its traits are derived deterministically and cannot be changed. The rendering engine and animation logic are stored on-chain through EthFS. A call to tokenURI() assembles the complete document on the fly — injecting that token's trait data directly into the HTML — and returns a fully self-contained data:text/html;base64. No external request, no server, no dependency. The contract handles ownership and transfer natively. It is the source of truth for what each token is and who holds it.</p>
+      </div>
+      <div class="sys-entry">
+        <div class="sys-entry-label">Interface</div>
+        <p class="sys-entry-text">The web application reads state from the contract — which tokens exist, who owns them, what traits they carry. It surfaces this as an interactive environment where owners place tokens into modulos and configure which of their traits are active: which animation mode runs, at what speed, what visual size, whether the text or dither layer is on. The token defines what is possible. The owner decides what is running. Nothing is final until a token is settled. The interface is where intention is formed.</p>
+      </div>
+      <div class="sys-entry">
+        <div class="sys-entry-label">Settle</div>
+        <p class="sys-entry-text">Settling is the act of commitment. When a token is settled, the owner signs a transaction that burns or transfers it — removing it from circulation permanently. The traits that defined its visual identity are on-chain from mint and remain there. What ends is the token's presence in the system: it can no longer be placed, configured, or composed. The arrangement closes not because it was recorded, but because the token is gone. It cannot be undone.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Footer -->
+<footer>
+  <span class="footer-copy">© 2026 Modulo by ubk — all tokens on-chain</span>
+  <div class="footer-links">
+    <a class="footer-link" href="https://x.com/unbearableKnife" target="_blank">X / Twitter</a>
+    <a class="footer-link" href="index.html">Home</a>
+  </div>
+</footer>
+
+<script>
+// ── "desires" word — multilingual cycling ──────────────────────────────────────
+(function() {
+  const _dw = document.getElementById('desires-word');
+  if (!_dw) return;
+
+  const _WORDS = [
+    'desires',   // EN
+    'deseos',    // ES
+    'désirs',    // FR
+    'desideri',  // IT
+    'desejos',   // PT
+    'Wunsche',   // DE (no umlaut to keep width)
+    'zhelaniya', // RU (romanized)
+    'yokubou',   // JA (romanized)
+    'yuwang',    // ZH (romanized)
+    'desires',   // EN (loop back)
+  ];
+
+  // Only narrow ASCII chars — no wide scripts, no block chars
+  const _SCRAMBLE_CHARS = 'x+-/\\|_.';
+  let _wi = 0;
+
+  // Lock width on init so layout never shifts
+  requestAnimationFrame(() => {
+    _dw.style.minWidth = _dw.offsetWidth + 'px';
+  });
+
+  function _scramble(target, onDone) {
+    // Use exactly desires-length chars during scramble to keep width stable
+    const len = 7; // length of 'desires'
+    let frame = 0;
+    const totalFrames = 9;
+    const iv = setInterval(() => {
+      const reveal = Math.max(0, frame - (totalFrames - 4));
+      let out = '';
+      for (let i = 0; i < len; i++) {
+        if (i < reveal && i < target.length) {
+          out += target[i];
+        } else {
+          out += _SCRAMBLE_CHARS[Math.floor(Math.random() * _SCRAMBLE_CHARS.length)];
+        }
+      }
+      _dw.textContent = out;
+      frame++;
+      if (frame > totalFrames) {
+        clearInterval(iv);
+        _dw.textContent = target;
+        onDone();
+      }
+    }, 45);
+  }
+
+  function _next() {
+    _wi = (_wi + 1) % _WORDS.length;
+    const word = _WORDS[_wi];
+
+    // 1 — slide out upward
+    _dw.classList.add('dw-out');
+
+    setTimeout(() => {
+      // 2 — position below, hidden
+      _dw.classList.remove('dw-out');
+      _dw.style.transition = 'none';
+      _dw.classList.add('dw-in');
+      _dw.textContent = word;
+
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        // 3 — scramble + slide in
+        _dw.style.transition = '';
+        _dw.classList.remove('dw-in');
+        _dw.classList.add('dw-scramble');
+
+        _scramble(word, () => {
+          _dw.classList.remove('dw-scramble');
+          // 4 — wait, then repeat
+          setTimeout(_next, 3200);
+        });
+      }));
+    }, 220);
+  }
+
+  // Start after 5 seconds
+  setTimeout(_next, 5000);
+})();
+
+// ── Left column grid animation ────────────────────────────────────────────────
+const _lc   = document.getElementById('left-canvas');
+const _lctx = _lc.getContext('2d');
+let   LPIX  = 22;  // changes randomly every 3–7s
+const LCOL  = [219, 216, 209]; // bg beige (#dbd8d1)
+const LBLK  = [15,  15,  15];  // near-black
+
+// Wrap canvas in a padding-free div — exact stacking context for both canvases
+const _lWrap = document.createElement('div');
+_lWrap.style.cssText = 'flex:1;position:relative;z-index:0;min-height:340px;overflow:hidden;';
+_lc.parentNode.insertBefore(_lWrap, _lc);
+_lWrap.appendChild(_lc);
+
+// Top canvas = current animation (z:1)
+_lc.style.cssText = 'position:absolute;inset:0;z-index:1;image-rendering:pixelated;image-rendering:crisp-edges;';
+
+// Bot canvas = incoming animation (z:0, behind top)
+const _lBotC = document.createElement('canvas');
+_lBotC.style.cssText = 'position:absolute;inset:0;z-index:0;image-rendering:pixelated;image-rendering:crisp-edges;';
+_lWrap.insertBefore(_lBotC, _lc);
+const _lbCtx = _lBotC.getContext('2d');
+
+let _lW, _lH, _lCols, _lRows, _lGrid, _lNext;
+
+function _lResize() {
+  const r = _lWrap.getBoundingClientRect();
+  _lW = Math.round(r.width)  || 300;
+  _lH = Math.round(r.height) || 340;
+  _lc.width  = _lW;   _lc.height  = _lH;
+  _lBotC.width = _lW; _lBotC.height = _lH;
+  _lCols = Math.floor(_lW / LPIX);
+  _lRows = Math.floor(_lH / LPIX);
+  _lGrid = new Uint8Array(_lCols * _lRows);
+  _lNext = new Uint8Array(_lCols * _lRows);
+  // Sparse init — ~22% black
+  for (let i = 0; i < _lGrid.length; i++)
+    _lGrid[i] = Math.random() < 0.18 ? 1 : 0;
+}
+_lResize();
+window.addEventListener('resize', _lResize);
+
+function _lIdx(c, r) {
+  return ((r + _lRows) % _lRows) * _lCols + ((c + _lCols) % _lCols);
+}
+
+const _lDIRS = [[1,0],[-1,0],[0,1],[0,-1],[1,1],[-1,-1],[1,-1],[-1,1]];
+
+function _lStep() {
+  _lNext.set(_lGrid);
+
+  // Feedback — clustering
+  const rx = Math.floor(Math.random() * _lCols);
+  const ry = Math.floor(Math.random() * _lRows);
+  const rw = 1 + Math.floor(Math.random() * 5);
+  const rh = 1 + Math.floor(Math.random() * 4);
+  for (let dy = 0; dy < rh; dy++) for (let dx = 0; dx < rw; dx++) {
+    const c = rx + dx, r = ry + dy;
+    const nb = [
+      _lGrid[_lIdx(c-1,r)], _lGrid[_lIdx(c+1,r)],
+      _lGrid[_lIdx(c,r-1)], _lGrid[_lIdx(c,r+1)],
+    ];
+    const ones = nb.reduce((a,b)=>a+b,0);
+    _lNext[_lIdx(c,r)] = ones >= 2 ? 1 : 0;
+  }
+
+  // Shift — directional dispersion across a rect
+  const sx  = Math.floor(Math.random() * _lCols);
+  const sy  = Math.floor(Math.random() * _lRows);
+  const sw  = 3 + Math.floor(Math.random() * 7);
+  const sh  = 3 + Math.floor(Math.random() * 5);
+  const [ddx, ddy] = _lDIRS[Math.floor(Math.random() * _lDIRS.length)];
+  for (let dy = 0; dy < sh; dy++) for (let dx = 0; dx < sw; dx++)
+    _lNext[_lIdx(sx+dx, sy+dy)] = _lGrid[_lIdx(sx+dx-ddx, sy+dy-ddy)];
+
+  // Noise
+  if (Math.random() < 0.3) {
+    const nc = Math.floor(Math.random() * _lCols);
+    const nr = Math.floor(Math.random() * _lRows);
+    _lNext[_lIdx(nc,nr)] = Math.random() < 0.18 ? 1 : 0;
+  }
+
+  _lGrid.set(_lNext);
+
+  // Density limiter — keep black between 10% and 55%
+  const total = _lGrid.length;
+  let blacks = 0;
+  for (let i = 0; i < total; i++) if (_lGrid[i]) blacks++;
+  const ratio = blacks / total;
+  if (ratio > 0.55) {
+    // Too much black — randomly kill some
+    for (let i = 0; i < total; i++)
+      if (_lGrid[i] && Math.random() < 0.15) _lGrid[i] = 0;
+  } else if (ratio < 0.10) {
+    // Too little black — randomly seed some
+    for (let i = 0; i < total; i++)
+      if (!_lGrid[i] && Math.random() < 0.08) _lGrid[i] = 1;
+  }
+}
+
+// ── Bot canvas state (incoming animation during wipe) ─────────────────────────
+let _lbPix = 0, _lbCols = 0, _lbRows = 0, _lbGrid = null, _lbNext = null;
+let _lWipeP = -1, _lWipeStart = 0; // -1 = idle, 0..1 = progress
+let _lWipeMask = null;              // Float32Array: per-cell clear threshold
+const _WIPE_DUR = 900;
+
+function _lbIdx(c, r) {
+  return ((r + _lbRows) % _lbRows) * _lbCols + ((c + _lbCols) % _lbCols);
+}
+
+function _lbStep() {
+  _lbNext.set(_lbGrid);
+
+  const rx = Math.floor(Math.random() * _lbCols);
+  const ry = Math.floor(Math.random() * _lbRows);
+  const rw = 1 + Math.floor(Math.random() * 5);
+  const rh = 1 + Math.floor(Math.random() * 4);
+  for (let dy = 0; dy < rh; dy++) for (let dx = 0; dx < rw; dx++) {
+    const c = rx + dx, r = ry + dy;
+    const nb = [_lbGrid[_lbIdx(c-1,r)],_lbGrid[_lbIdx(c+1,r)],
+                _lbGrid[_lbIdx(c,r-1)],_lbGrid[_lbIdx(c,r+1)]];
+    _lbNext[_lbIdx(c,r)] = nb.reduce((a,b)=>a+b,0) >= 2 ? 1 : 0;
+  }
+
+  const sx = Math.floor(Math.random() * _lbCols);
+  const sy = Math.floor(Math.random() * _lbRows);
+  const sw = 3 + Math.floor(Math.random() * 7);
+  const sh = 3 + Math.floor(Math.random() * 5);
+  const [ddx, ddy] = _lDIRS[Math.floor(Math.random() * _lDIRS.length)];
+  for (let dy = 0; dy < sh; dy++) for (let dx = 0; dx < sw; dx++)
+    _lbNext[_lbIdx(sx+dx,sy+dy)] = _lbGrid[_lbIdx(sx+dx-ddx,sy+dy-ddy)];
+
+  if (Math.random() < 0.3) {
+    const nc = Math.floor(Math.random() * _lbCols);
+    const nr = Math.floor(Math.random() * _lbRows);
+    _lbNext[_lbIdx(nc,nr)] = Math.random() < 0.18 ? 1 : 0;
+  }
+
+  _lbGrid.set(_lbNext);
+  const total = _lbGrid.length; let blacks = 0;
+  for (let i = 0; i < total; i++) if (_lbGrid[i]) blacks++;
+  const ratio = blacks / total;
+  if (ratio > 0.55) {
+    for (let i = 0; i < total; i++)
+      if (_lbGrid[i] && Math.random() < 0.15) _lbGrid[i] = 0;
+  } else if (ratio < 0.10) {
+    for (let i = 0; i < total; i++)
+      if (!_lbGrid[i] && Math.random() < 0.08) _lbGrid[i] = 1;
+  }
+}
+
+function _lbRender() {
+  const img = _lbCtx.createImageData(_lW, _lH);
+  const buf = img.data;
+  for (let i = 0; i < buf.length; i += 4) {
+    buf[i]=LCOL[0]; buf[i+1]=LCOL[1]; buf[i+2]=LCOL[2]; buf[i+3]=255;
+  }
+  for (let r = 0; r < _lbRows; r++) {
+    for (let c = 0; c < _lbCols; c++) {
+      if (!_lbGrid[r*_lbCols+c]) continue;
+      for (let py = 0; py < _lbPix; py++) for (let px = 0; px < _lbPix; px++) {
+        const i = ((r*_lbPix+py)*_lW + (c*_lbPix+px)) * 4;
+        buf[i]=LBLK[0]; buf[i+1]=LBLK[1]; buf[i+2]=LBLK[2]; buf[i+3]=255;
+      }
+    }
+  }
+  _lbCtx.putImageData(img, 0, 0);
+}
+
+function _lRender() {
+  const img    = _lctx.createImageData(_lW, _lH);
+  const buf    = img.data;
+  const wiping = _lWipeP >= 0;
+
+  if (!wiping) {
+    // Prefill LCOL — covers partial edge strips outside grid bounds
+    for (let i = 0; i < buf.length; i += 4) {
+      buf[i]=LCOL[0]; buf[i+1]=LCOL[1]; buf[i+2]=LCOL[2]; buf[i+3]=255;
+    }
+  }
+  // Wipe mode: buf starts all-zero (transparent).
+  // Each cell is transparent once progress passes its Voronoi threshold.
+
+  for (let r = 0; r < _lRows; r++) {
+    for (let c = 0; c < _lCols; c++) {
+      const isBlk = _lGrid[r * _lCols + c];
+      if (wiping) {
+        if (_lWipeP >= _lWipeMask[r * _lCols + c]) continue; // transparent
+      } else {
+        if (!isBlk) continue; // beige already covered by prefill
+      }
+      const col = isBlk ? LBLK : LCOL;
+      for (let py = 0; py < LPIX; py++) for (let px = 0; px < LPIX; px++) {
+        const i = ((r*LPIX+py)*_lW + (c*LPIX+px)) * 4;
+        buf[i]=col[0]; buf[i+1]=col[1]; buf[i+2]=col[2]; buf[i+3]=255;
+      }
+    }
+  }
+  _lctx.putImageData(img, 0, 0);
+}
+
+const _lFI = 1000/30;
+let _lLast = 0;
+
+function _lLoop(ts) {
+  if (ts - _lLast >= _lFI) {
+    // Advance wipe progress
+    if (_lWipeP >= 0) {
+      _lWipeP = (ts - _lWipeStart) / _WIPE_DUR;
+      if (_lWipeP >= 1) {
+        // Wipe done — bot becomes top
+        LPIX   = _lbPix;  _lCols = _lbCols;
+        _lRows = _lbRows;  _lGrid = _lbGrid;  _lNext = _lbNext;
+        _lbGrid = null; _lbNext = null; _lWipeMask = null;
+        _lbCtx.clearRect(0, 0, _lW, _lH);
+        _lWipeP = -1;
+      }
+    }
+    // Step + render bot (only while wiping)
+    if (_lWipeP >= 0 && _lbGrid) {
+      for (let i = 0; i < 3; i++) _lbStep();
+      _lbRender();
+    }
+    // Always step + render top
+    for (let i = 0; i < 3; i++) _lStep();
+    _lRender();
+    _lLast = ts;
+  }
+  requestAnimationFrame(_lLoop);
+}
+requestAnimationFrame(_lLoop);
+
+// ── Resolution wipe transition ────────────────────────────────────────────────
+const _LPIX_OPTIONS = [12, 16, 20, 24, 28, 34];
+
+function _lSwitchRes(newPix) {
+  if (_lWipeP >= 0) return; // already transitioning
+  _lbPix  = newPix;
+  _lbCols = Math.floor(_lW / _lbPix);
+  _lbRows = Math.floor(_lH / _lbPix);
+  _lbGrid = new Uint8Array(_lbCols * _lbRows);
+  _lbNext = new Uint8Array(_lbCols * _lbRows);
+  for (let i = 0; i < _lbGrid.length; i++)
+    _lbGrid[i] = Math.random() < 0.18 ? 1 : 0;
+
+  // Build Voronoi wipe mask — N seeds, each with random position + activation time.
+  // Each cell inherits the threshold of its closest seed, so shapes are organic blobs.
+  const N = 8 + Math.floor(Math.random() * 7); // 8–14 seeds
+  const seeds = Array.from({length: N}, () => ({
+    x: Math.random() * _lCols,
+    y: Math.random() * _lRows,
+    t: Math.random()
+  }));
+  _lWipeMask = new Float32Array(_lCols * _lRows);
+  for (let r = 0; r < _lRows; r++) {
+    for (let c = 0; c < _lCols; c++) {
+      let minD = Infinity, t = 0;
+      for (const s of seeds) {
+        const d = Math.hypot(c - s.x, r - s.y);
+        if (d < minD) { minD = d; t = s.t; }
+      }
+      // Small per-cell jitter softens Voronoi edges
+      _lWipeMask[r * _lCols + c] = Math.min(1, Math.max(0, t + (Math.random() - 0.5) * 0.12));
+    }
+  }
+
+  _lWipeP     = 0;
+  _lWipeStart = performance.now();
+}
+
+function _lScheduleRes() {
+  setTimeout(() => {
+    const opts = _LPIX_OPTIONS.filter(v => v !== LPIX);
+    _lSwitchRes(opts[Math.floor(Math.random() * opts.length)]);
+    _lScheduleRes();
+  }, (3 + Math.random() * 4) * 1000);
+}
+_lScheduleRes();
+
+// ── Night mode ────────────────────────────────────────────────────────────────
+const _DAY_COL = [219, 216, 209];
+const _DAY_BLK = [15,  15,  15];
+const _NGT_COL = [26,  25,  23];
+const _NGT_BLK = [206, 201, 188];
+
+function _setNight(on) {
+  document.body.classList.toggle('night', on);
+  const col = on ? _NGT_COL : _DAY_COL;
+  const blk = on ? _NGT_BLK : _DAY_BLK;
+  LCOL[0]=col[0]; LCOL[1]=col[1]; LCOL[2]=col[2];
+  LBLK[0]=blk[0]; LBLK[1]=blk[1]; LBLK[2]=blk[2];
+  localStorage.setItem('tc-night', on ? '1' : '0');
+}
+
+document.getElementById('night-toggle').addEventListener('click', () => {
+  _setNight(!document.body.classList.contains('night'));
+});
+
+// Restore preference
+if (localStorage.getItem('tc-night') === '1') _setNight(true);
+
+// ── Rotating background gradient (specs section) ──────────────────────────────
+(function() {
+  const _gs  = document.querySelector('.specs-section');
+  const _gc  = document.createElement('canvas');
+  _gc.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:0;';
+  _gs.insertBefore(_gc, _gs.firstChild);
+  const _gx  = _gc.getContext('2d');
+  let _gW, _gH, _gA = 280 * Math.PI / 180;
+  const _gSPD = (2 * Math.PI) / (7 * 60); // 1 rev / 7 s at 60 fps
+
+  function _gResize() {
+    const r = _gs.getBoundingClientRect();
+    _gW = Math.round(r.width);
+    _gH = Math.round(r.height);
+    _gc.width  = _gW;
+    _gc.height = _gH;
+  }
+  _gResize();
+  window.addEventListener('resize', _gResize);
+
+  function _gRender() {
+    _gA += _gSPD;
+    const cx = _gW/2, cy = _gH/2;
+    const len = Math.sqrt(_gW*_gW + _gH*_gH) / 2;
+    const x0 = cx + Math.cos(_gA + Math.PI) * len;
+    const y0 = cy + Math.sin(_gA + Math.PI) * len;
+    const x1 = cx + Math.cos(_gA) * len;
+    const y1 = cy + Math.sin(_gA) * len;
+    const g = _gx.createLinearGradient(x0, y0, x1, y1);
+    if (document.body.classList.contains('night')) {
+      g.addColorStop(0, '#2C2C2C');
+      g.addColorStop(1, '#1E1E1E');
+    } else {
+      g.addColorStop(0, '#A4A19D');
+      g.addColorStop(1, '#D8D5CD');
+    }
+    _gx.fillStyle = g;
+    _gx.fillRect(0, 0, _gW, _gH);
+  }
+
+  const _gFI = 1000/60;
+  let _gLast = 0;
+  function _gLoop(ts) {
+    if (ts - _gLast >= _gFI) { _gRender(); _gLast = ts; }
+    requestAnimationFrame(_gLoop);
+  }
+  requestAnimationFrame(_gLoop);
+})();
+
+// ── ASCII dither background (long-section) ─────────────────────────────────────
+(function() {
+  const _asec = document.querySelector('.long-section');
+  if (!_asec) return;
+
+  const _ac  = document.createElement('canvas');
+  _ac.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:0;';
+  _asec.insertBefore(_ac, _asec.firstChild);
+  const _ax  = _ac.getContext('2d');
+
+  const _AFONT = '11px monospace';
+  const _ACHARS = [' ', '-', '+', 'x']; // 0=empty 1=dash 2=plus 3=cross
+  const _ANS   = _ACHARS.length;
+  const _AFI   = 1000 / 12; // 12fps — slow drift
+
+  let _aW, _aH, _aCols, _aRows, _aG, _aN, _aCW, _aCH;
+
+  function _aResize() {
+    const r = _asec.getBoundingClientRect();
+    _aW = Math.round(r.width)  || 800;
+    _aH = Math.round(r.height) || 400;
+    _ac.width  = _aW;
+    _ac.height = _aH;
+    _ax.font = _AFONT;
+    _aCW = _ax.measureText('x').width;
+    _aCH = 13; // line height matches font size
+    _aCols = Math.ceil(_aW / _aCW);
+    _aRows = Math.ceil(_aH / _aCH);
+    _aG = new Uint8Array(_aCols * _aRows);
+    _aN = new Uint8Array(_aCols * _aRows);
+    // seed with scattered noise
+    for (let i = 0; i < _aG.length; i++)
+      _aG[i] = Math.random() < 0.25 ? Math.floor(Math.random() * _ANS) : 0;
+  }
+
+  function _aIdx(c, r) {
+    return ((r + _aRows) % _aRows) * _aCols + ((c + _aCols) % _aCols);
+  }
+
+  function _aStep() {
+    _aN.set(_aG);
+    // DT automaton: advance state if neighbour is next state (stochastic)
+    for (let r = 0; r < _aRows; r++) {
+      for (let c = 0; c < _aCols; c++) {
+        const v  = _aG[_aIdx(c, r)];
+        const nv = (v + 1) % _ANS;
+        const nb = [
+          _aG[_aIdx(c-1, r)], _aG[_aIdx(c+1, r)],
+          _aG[_aIdx(c, r-1)], _aG[_aIdx(c, r+1)]
+        ];
+        let cnt = 0;
+        for (const n of nb) if (n === nv) cnt++;
+        if (cnt >= 1 && Math.random() < 0.4) _aN[_aIdx(c, r)] = nv;
+      }
+    }
+    // sparse noise injection to keep it alive
+    for (let i = 0; i < 4; i++) {
+      const rc = Math.floor(Math.random() * _aCols);
+      const rr = Math.floor(Math.random() * _aRows);
+      const rw = 1 + Math.floor(Math.random() * 5);
+      const rh = 1 + Math.floor(Math.random() * 3);
+      const rv = Math.floor(Math.random() * _ANS);
+      for (let dy = 0; dy < rh; dy++)
+        for (let dx = 0; dx < rw; dx++)
+          _aN[_aIdx(rc + dx, rr + dy)] = rv;
+    }
+    _aG.set(_aN);
+  }
+
+  function _aRender() {
+    _ax.clearRect(0, 0, _aW, _aH);
+    _ax.font = _AFONT;
+    _ax.fillStyle = 'rgba(219,216,209,0.55)';
+    for (let r = 0; r < _aRows; r++) {
+      for (let c = 0; c < _aCols; c++) {
+        const v = _aG[r * _aCols + c];
+        if (!v) continue;
+        _ax.fillText(_ACHARS[v], c * _aCW, r * _aCH + _aCH);
+      }
+    }
+  }
+
+  _aResize();
+  window.addEventListener('resize', _aResize);
+
+  let _aLast = 0;
+  function _aLoop(ts) {
+    if (ts - _aLast >= _AFI) {
+      for (let s = 0; s < 2; s++) _aStep();
+      _aRender();
+      _aLast = ts;
+    }
+    requestAnimationFrame(_aLoop);
+  }
+  requestAnimationFrame(_aLoop);
+})();
+
+// ── Floating decorative module windows (specs-section) ─────────────────────────
+(function() {
+  const _dsec = document.querySelector('.specs-section');
+  if (!_dsec) return;
+
+  const _DW = 260, _DCH = 155, _DTH = 28, _DPX = 4, _DFI = 1000 / 30;
+  const _DCARD_H = _DTH + _DCH;
+
+  const _DNAMES = ['modulo_01','modulo_03','modulo_07','modulo_05','modulo_02'];
+  const _DPAL0 = [[15,15,15],[201,198,192]];
+  const _DBG0  = [219,216,209];
+  const _DDOTS = ['#ff5f57','#ffbd2e','#28c840'];
+
+  let _dsW = 0, _dsH = 0;
+  function _dmeasure() {
+    const r = _dsec.getBoundingClientRect();
+    _dsW = r.width  || 1000;
+    _dsH = r.height || 500;
+  }
+  _dmeasure();
+  window.addEventListener('resize', _dmeasure);
+
+  const _dcs = [];
+
+  for (let _di = 0; _di < 5; _di++) {
+    const _pal = _DPAL0;
+    const _DN  = _pal.length;
+    const _dcols = Math.floor(_DW / _DPX);
+    const _drows = Math.floor(_DCH / _DPX);
+
+    // card element
+    const _el = document.createElement('div');
+    _el.className = 'deco-card';
+    _el.innerHTML =
+      '<div class="deco-tbar">' +
+      _DDOTS.map(c => `<span class="deco-tbar-dot" style="background:${c}"></span>`).join('') +
+      `<span class="deco-tbar-label">${_DNAMES[_di]}</span>` +
+      '</div><div class="deco-canvas-wrap" style="background:rgb(219,216,209)"><canvas class="deco-canvas"></canvas></div>';
+    _dsec.appendChild(_el);
+
+    const _cv = _el.querySelector('.deco-canvas');
+    const _cx = _cv.getContext('2d');
+    _cx.imageSmoothingEnabled = false;
+    _cv.width  = _dcols * _DPX;
+    _cv.height = _drows * _DPX;
+
+    let _g = new Uint8Array(_dcols * _drows);
+    let _n = new Uint8Array(_dcols * _drows);
+    for (let j = 0; j < _g.length; j++)
+      _g[j] = Math.random() < 0.22 ? (1 + Math.floor(Math.random() * _DN)) : 0;
+
+    function _ix(c, r, dc, dr) {
+      return ((r + dr) % dr) * dc + ((c + dc) % dc);
+    }
+
+    // capture for closure
+    const dc = _dcols, dr = _drows, pal = _pal, DN = _DN, bg = _DBG0;
+    const g = _g, n = _n, cx = _cx, cv = _cv;
+
+    function _dstep() {
+      n.set(g);
+      // feedback
+      const fx = Math.floor(Math.random()*dc), fy = Math.floor(Math.random()*dr);
+      const fw = 2+Math.floor(Math.random()*10), fh = 2+Math.floor(Math.random()*5);
+      for (let dy=0;dy<fh;dy++) for (let dx=0;dx<fw;dx++) {
+        const cc=fx+dx, cr=fy+dy;
+        const nb=[g[_ix(cc-1,cr,dc,dr)],g[_ix(cc+1,cr,dc,dr)],g[_ix(cc,cr-1,dc,dr)],g[_ix(cc,cr+1,dc,dr)]];
+        const cnt=new Array(DN+1).fill(0);
+        for (const v of nb) cnt[Math.min(v,DN)]++;
+        let mx=0, bst=g[_ix(cc,cr,dc,dr)];
+        for (let v=0;v<=DN;v++) if(cnt[v]>mx){mx=cnt[v];bst=v;}
+        n[_ix(cc,cr,dc,dr)]=bst;
+      }
+      // noise
+      const nx=Math.floor(Math.random()*dc), ny=Math.floor(Math.random()*dr);
+      const nw=2+Math.floor(Math.random()*8), nh=2+Math.floor(Math.random()*4);
+      for (let dy=0;dy<nh;dy++) for (let dx=0;dx<nw;dx++)
+        n[_ix(nx+dx,ny+dy,dc,dr)]=Math.random()<0.35?(1+Math.floor(Math.random()*DN)):0;
+      // shift
+      const sx=Math.floor(Math.random()*dc), sy=Math.floor(Math.random()*dr);
+      const sw2=2+Math.floor(Math.random()*14), sh2=2+Math.floor(Math.random()*7);
+      const horiz=Math.random()<0.5, sdir=Math.random()<0.5?1:-1;
+      for (let dy=0;dy<sh2;dy++) for (let dx=0;dx<sw2;dx++)
+        n[_ix(sx+dx,sy+dy,dc,dr)]=g[horiz?_ix(sx+dx+sdir,sy+dy,dc,dr):_ix(sx+dx,sy+dy+sdir,dc,dr)];
+      g.set(n);
+    }
+
+    function _drender() {
+      const img = cx.createImageData(dc*_DPX, dr*_DPX);
+      const buf = img.data;
+      for (let j=0;j<buf.length;j+=4){buf[j]=bg[0];buf[j+1]=bg[1];buf[j+2]=bg[2];buf[j+3]=255;}
+      for (let r=0;r<dr;r++) for (let c=0;c<dc;c++) {
+        const v=g[r*dc+c]; if(!v) continue;
+        const col=pal[v-1];
+        for (let py=0;py<_DPX;py++) for (let px=0;px<_DPX;px++) {
+          const bi=((r*_DPX+py)*(dc*_DPX)+(c*_DPX+px))*4;
+          buf[bi]=col[0];buf[bi+1]=col[1];buf[bi+2]=col[2];buf[bi+3]=255;
+        }
+      }
+      cx.putImageData(img,0,0);
+    }
+
+    const ang = (Math.PI * 2 / 5) * _di + Math.random() * 0.5;
+    const spd = 0.15 + Math.random() * 0.20;
+    _dcs.push({
+      el: _el, step: _dstep, render: _drender,
+      x: Math.random() * Math.max(1, _dsW - _DW),
+      y: Math.random() * Math.max(1, _dsH - _DCARD_H),
+      vx: Math.cos(ang) * spd,
+      vy: Math.sin(ang) * spd,
+    });
+  }
+
+  // set initial positions
+  _dcs.forEach(c => {
+    c.el.style.transform = `translate3d(${c.x}px,${c.y}px,0)`;
+  });
+
+  let _dlast=0, _dmlast=0;
+  const _DMFI = 1000/60;
+  function _dloop(ts) {
+    if (ts - _dmlast >= _DMFI) {
+      _dcs.forEach(c => {
+        c.x += c.vx; c.y += c.vy;
+        const mx = _dsW - _DW, my = _dsH - _DCARD_H;
+        if (c.x < 0)        { c.x = 0;  c.vx =  Math.abs(c.vx); }
+        if (c.x > mx)       { c.x = mx; c.vx = -Math.abs(c.vx); }
+        if (c.y < 0)        { c.y = 0;  c.vy =  Math.abs(c.vy); }
+        if (c.y > Math.max(0,my)) { c.y = Math.max(0,my); c.vy = -Math.abs(c.vy); }
+        c.el.style.transform = `translate3d(${c.x}px,${c.y}px,0)`;
+      });
+      _dmlast = ts;
+    }
+    if (ts - _dlast >= _DFI) {
+      _dcs.forEach(c => { for(let s=0;s<3;s++) c.step(); c.render(); });
+      _dlast = ts;
+    }
+    requestAnimationFrame(_dloop);
+  }
+  requestAnimationFrame(_dloop);
+})();
+
+// ── Floating module windows — page colors (specs-section) ──────────────────────
+(function() {
+  const _dsec = document.querySelector('.specs-section');
+  if (!_dsec) return;
+
+  const _DW = 260, _DCH = 155, _DTH = 28, _DPX = 4, _DFI = 1000 / 30;
+  const _DCARD_H = _DTH + _DCH;
+  // Page palette: near-black + tbar + lighter bg
+  const _DPAL = [[15,15,15],[201,198,192]];
+  const _DBG  = [219,216,209];   // canvas background = lighter page color
+  const _DNAMES2 = ['modulo_04','modulo_06','modulo_08','modulo_09','modulo_10'];
+  const _DDOTS = ['#ff5f57','#ffbd2e','#28c840'];
+
+  let _dsW = 0, _dsH = 0;
+  function _dmeasure() {
+    const r = _dsec.getBoundingClientRect();
+    _dsW = r.width  || 1000;
+    _dsH = r.height || 500;
+  }
+  _dmeasure();
+  window.addEventListener('resize', _dmeasure);
+
+  const _dcs2 = [];
+
+  for (let _di = 0; _di < 5; _di++) {
+    const _DN  = _DPAL.length;
+    const _dcols = Math.floor(_DW / _DPX);
+    const _drows = Math.floor(_DCH / _DPX);
+
+    const _el = document.createElement('div');
+    _el.className = 'deco-card';
+    _el.innerHTML =
+      '<div class="deco-tbar">' +
+      _DDOTS.map(c => `<span class="deco-tbar-dot" style="background:${c}"></span>`).join('') +
+      `<span class="deco-tbar-label">${_DNAMES2[_di]}</span>` +
+      '</div><div class="deco-canvas-wrap" style="background:rgb(219,216,209)"><canvas class="deco-canvas"></canvas></div>';
+    _dsec.appendChild(_el);
+
+    const _cv = _el.querySelector('.deco-canvas');
+    const _cx = _cv.getContext('2d');
+    _cx.imageSmoothingEnabled = false;
+    _cv.width  = _dcols * _DPX;
+    _cv.height = _drows * _DPX;
+
+    let _g = new Uint8Array(_dcols * _drows);
+    let _n = new Uint8Array(_dcols * _drows);
+    for (let j = 0; j < _g.length; j++)
+      _g[j] = Math.random() < 0.22 ? (1 + Math.floor(Math.random() * _DN)) : 0;
+
+    function _ix(c, r, dc, dr) {
+      return ((r+dr)%dr)*dc+((c+dc)%dc);
+    }
+    const dc=_dcols, dr=_drows, pal=_DPAL, DN=_DN, g=_g, n=_n, cx=_cx, bg=_DBG;
+
+    function _dstep() {
+      n.set(g);
+      const fx=Math.floor(Math.random()*dc), fy=Math.floor(Math.random()*dr);
+      const fw=2+Math.floor(Math.random()*10), fh=2+Math.floor(Math.random()*5);
+      for (let dy=0;dy<fh;dy++) for (let dx=0;dx<fw;dx++) {
+        const cc=fx+dx, cr=fy+dy;
+        const nb=[g[_ix(cc-1,cr,dc,dr)],g[_ix(cc+1,cr,dc,dr)],g[_ix(cc,cr-1,dc,dr)],g[_ix(cc,cr+1,dc,dr)]];
+        const cnt=new Array(DN+1).fill(0);
+        for (const v of nb) cnt[Math.min(v,DN)]++;
+        let mx=0, bst=g[_ix(cc,cr,dc,dr)];
+        for (let v=0;v<=DN;v++) if(cnt[v]>mx){mx=cnt[v];bst=v;}
+        n[_ix(cc,cr,dc,dr)]=bst;
+      }
+      const nx=Math.floor(Math.random()*dc), ny=Math.floor(Math.random()*dr);
+      const nw=2+Math.floor(Math.random()*8), nh=2+Math.floor(Math.random()*4);
+      for (let dy=0;dy<nh;dy++) for (let dx=0;dx<nw;dx++)
+        n[_ix(nx+dx,ny+dy,dc,dr)]=Math.random()<0.22?(1+Math.floor(Math.random()*DN)):0;
+      const sx=Math.floor(Math.random()*dc), sy=Math.floor(Math.random()*dr);
+      const sw2=2+Math.floor(Math.random()*14), sh2=2+Math.floor(Math.random()*7);
+      const horiz=Math.random()<0.5, sdir=Math.random()<0.5?1:-1;
+      for (let dy=0;dy<sh2;dy++) for (let dx=0;dx<sw2;dx++)
+        n[_ix(sx+dx,sy+dy,dc,dr)]=g[horiz?_ix(sx+dx+sdir,sy+dy,dc,dr):_ix(sx+dx,sy+dy+sdir,dc,dr)];
+      g.set(n);
+    }
+
+    function _drender() {
+      const img=cx.createImageData(dc*_DPX, dr*_DPX);
+      const buf=img.data;
+      for (let j=0;j<buf.length;j+=4){buf[j]=bg[0];buf[j+1]=bg[1];buf[j+2]=bg[2];buf[j+3]=255;}
+      for (let r=0;r<dr;r++) for (let c=0;c<dc;c++) {
+        const v=g[r*dc+c]; if(!v) continue;
+        const col=pal[v-1];
+        for (let py=0;py<_DPX;py++) for (let px=0;px<_DPX;px++) {
+          const bi=((r*_DPX+py)*(dc*_DPX)+(c*_DPX+px))*4;
+          buf[bi]=col[0];buf[bi+1]=col[1];buf[bi+2]=col[2];buf[bi+3]=255;
+        }
+      }
+      cx.putImageData(img,0,0);
+    }
+
+    const ang = (Math.PI * 2 / 5) * _di + 0.3 + Math.random() * 0.4;
+    const spd = 0.12 + Math.random() * 0.18;
+    _dcs2.push({
+      el:_el, step:_dstep, render:_drender,
+      x: Math.random() * Math.max(1, _dsW - _DW),
+      y: Math.random() * Math.max(1, _dsH - _DCARD_H),
+      vx: Math.cos(ang)*spd, vy: Math.sin(ang)*spd,
+    });
+  }
+
+  _dcs2.forEach(c => { c.el.style.transform=`translate3d(${c.x}px,${c.y}px,0)`; });
+
+  let _dlast2=0, _dmlast2=0;
+  const _DMFI2 = 1000/60;
+  function _dloop2(ts) {
+    if (ts - _dmlast2 >= _DMFI2) {
+      _dcs2.forEach(c => {
+        c.x+=c.vx; c.y+=c.vy;
+        const mx=_dsW-_DW, my=Math.max(0,_dsH-_DCARD_H);
+        if(c.x<0){c.x=0;c.vx=Math.abs(c.vx);}
+        if(c.x>mx){c.x=mx;c.vx=-Math.abs(c.vx);}
+        if(c.y<0){c.y=0;c.vy=Math.abs(c.vy);}
+        if(c.y>my){c.y=my;c.vy=-Math.abs(c.vy);}
+        c.el.style.transform=`translate3d(${c.x}px,${c.y}px,0)`;
+      });
+      _dmlast2=ts;
+    }
+    if (ts - _dlast2 >= _DFI) {
+      _dcs2.forEach(c => { for(let s=0;s<3;s++) c.step(); c.render(); });
+      _dlast2=ts;
+    }
+    requestAnimationFrame(_dloop2);
+  }
+  requestAnimationFrame(_dloop2);
+})();
+</script>
+</body>
+</html>
