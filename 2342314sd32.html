@@ -393,7 +393,15 @@ button, a, [role="button"], .pill, .info-btn, .toggle-btn, .modal-close,
 .bg-picker-dot.selected { border-color:var(--addr-color); }
 
 /* ── Infinite canvas ── */
-#viewport { position:absolute; top:34px; left:0; right:0; bottom:0; overflow:hidden; cursor:grab; z-index:2; }
+#viewport {
+  position:absolute; top:34px; left:0; right:0; bottom:0;
+  overflow:hidden; cursor:grab; z-index:2;
+  /* Capture all touch gestures (pinch + pan) so the browser doesn't
+     handle them with native page-zoom — the app's pinch handler runs
+     instead. Required since the global `touch-action: manipulation`
+     allows native pinch by default. */
+  touch-action:none;
+}
 #viewport.dragging { cursor:grabbing; }
 /* Two-layer zoom: #world-zoom applies CSS zoom (re-renders content crisp),
    #world applies translate in the zoomed coordinate space.
@@ -4593,21 +4601,23 @@ function schedulePan(x, y) {
   });
 }
 
+// Compute the "default" zoom level — NAV_SCALE on desktop, fit-to-card on
+// mobile (smaller dimension ≤ 768px). Used by both initCamera and flyToModulo
+// so click-to-fly respects the mobile fit instead of jumping to desktop scale.
+function _defaultViewScale() {
+  const vw = viewport.offsetWidth, vh = viewport.offsetHeight;
+  const isMobile = Math.min(window.innerWidth, window.innerHeight) <= 768;
+  if (!isMobile) return NAV_SCALE;
+  const pad = 40;
+  const fitW = (vw - pad * 2) / CARD_W;
+  const fitH = (vh - pad * 2) / CARD_H;
+  return Math.max(Math.min(fitW, fitH, NAV_SCALE), MIN_SCALE);
+}
+
 function initCamera() {
   MIN_SCALE = calcMinScale() * 1.5;
   const vw = viewport.offsetWidth, vh = viewport.offsetHeight;
-  // On mobile (smaller dimension ≤ 768px), fit modulo_01 in viewport
-  const isMobile = Math.min(window.innerWidth, window.innerHeight) <= 768;
-  let initialScale;
-  if (isMobile) {
-    const pad = 40;
-    const fitW = (vw - pad * 2) / CARD_W;
-    const fitH = (vh - pad * 2) / CARD_H;
-    initialScale = Math.max(Math.min(fitW, fitH, NAV_SCALE), MIN_SCALE);
-  } else {
-    initialScale = NAV_SCALE;
-  }
-  scale = initialScale;
+  scale = _defaultViewScale();
   const first = MODULOS[0];
   setTransform(vw/2 - first.cx * scale, vh/2 - first.cy * scale, scale);
 }
@@ -4711,10 +4721,14 @@ viewport.addEventListener('touchstart', e => {
   }
 }, { passive:true });
 
+// Non-passive so we can preventDefault on pinch — keeps the browser from
+// hijacking the gesture as native page-zoom even if `touch-action: none` on
+// #viewport isn't honored on every device.
 viewport.addEventListener('touchmove', e => {
   if (_pinching && e.touches.length >= 2) {
     // Two-finger pinch: scale by ratio of current distance to start distance,
     // anchored to the world point under the gesture midpoint.
+    e.preventDefault(); // block browser page-zoom for the duration of the gesture
     const t0 = e.touches[0], t1 = e.touches[1];
     const dx = t1.clientX - t0.clientX, dy = t1.clientY - t0.clientY;
     const dist = Math.hypot(dx, dy);
@@ -4736,7 +4750,7 @@ viewport.addEventListener('touchmove', e => {
   }
   if (!dragging) return;
   schedulePan(dtx+(e.touches[0].clientX-dsx), dty+(e.touches[0].clientY-dsy));
-}, { passive:true });
+}, { passive:false });  // non-passive so preventDefault() above can run
 
 viewport.addEventListener('touchend', e => {
   // Reset pinch state when fingers lift; if one finger remains, allow pan to resume
@@ -4903,7 +4917,10 @@ function flyToModulo(mod) {
   const _navItem = document.querySelector(`#modulo-nav [data-modid="${mod.id}"]`);
   if (_navItem) _navItem.classList.add('pressed');
   const vw=viewport.offsetWidth, vh=viewport.offsetHeight;
-  const targetScale = NAV_SCALE;
+  // Mobile uses the fit-to-card scale, desktop uses NAV_SCALE — see
+  // _defaultViewScale. Keeps click-to-fly visually consistent with the
+  // initial mobile load (scale ~0.42 portrait / ~0.62 landscape).
+  const targetScale = _defaultViewScale();
   // use original (uncompressed) position as fly target
   const modIdx = MODULOS.indexOf(mod);
   const origPos = _origModuloPos[modIdx] || { cx: mod.cx, cy: mod.cy };
