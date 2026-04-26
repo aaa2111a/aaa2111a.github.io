@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content">
 <title>TokenCluster — v2</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -152,8 +152,86 @@
 
 html, body { width:100%; height:100%; overflow:hidden; background:#000; }
 
+/* ── Mobile foundations ──
+   These rules are no-ops on desktop (mouse/precise-pointer devices) and
+   activate behavior only on touch devices. Safe to ship globally.
+   - touch-action: manipulation eliminates the iOS 300ms double-tap zoom delay
+     on interactive elements (we manage our own pinch on #viewport which keeps
+     touch-action: none implicitly via JS handlers).
+   - -webkit-tap-highlight-color: transparent kills the grey flash on tap.
+   - overscroll-behavior: none prevents iOS rubberband at the page edges.
+   - .root uses 100dvh (dynamic viewport height) so the iOS Safari address-bar
+     collapse doesn't leave a 100vh-sized gap. Falls back to 100vh on browsers
+     without dvh support. */
+html, body {
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior: none;
+  touch-action: manipulation;
+}
+button, a, [role="button"], .pill, .info-btn, .toggle-btn, .modal-close,
+.tr-lock-btn, .info-tab {
+  touch-action: manipulation;
+}
+
+/* ── Mobile tap targets (Apple HIG / WCAG 2.5.5: ≥44 CSS px) ──
+   Adds an invisible ::after overlay sized to at least 44×44 around small
+   buttons so a finger can hit them. The overlay receives the tap and
+   bubbles to the parent (default pointer-events). Visual size unchanged.
+   Gated to (pointer: coarse) — desktop with mouse is completely unaffected
+   (the ::after is never even generated). */
+@media (pointer: coarse) {
+  .pill,
+  .info-btn,
+  #info-close,
+  .info-tab,
+  .card-settle-btn,
+  .tr-lock-btn,
+  .tr-trash,
+  .tr-lock-icon,
+  #bg-color-btn,
+  #toggle,
+  .toggle-btn,
+  #nav-overview-btn {
+    position: relative;
+  }
+  .pill::after,
+  .info-btn::after,
+  #info-close::after,
+  .info-tab::after,
+  .card-settle-btn::after,
+  .tr-lock-btn::after,
+  .tr-trash::after,
+  .tr-lock-icon::after,
+  #bg-color-btn::after,
+  #toggle::after,
+  .toggle-btn::after,
+  #nav-overview-btn::after {
+    content: '';
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    min-width: 44px;
+    min-height: 44px;
+    width: 100%;
+    height: 100%;
+    /* invisible — no background, no border. Pointer events default to auto
+       so taps register and bubble to the actual button. z-index kept low
+       so the overlay never covers another widget that's already taller. */
+    z-index: 1;
+  }
+  /* Tabs in info modal — instead of ::after expansion, grow padding directly
+     so the visible tab is taller (clearer affordance + no risk of covering
+     adjacent tabs since they're laid out flush). */
+  .info-tab {
+    padding-top: 12px;
+    padding-bottom: 12px;
+  }
+  .info-tab::after { display: none; }
+}
+
 .root {
   position:relative; width:100%; height:100vh;
+  height:100dvh; /* progressive enhancement — dvh wins where supported */
   background:var(--bg);
   font-family:-apple-system,'SF Pro Display','Helvetica Neue',sans-serif;
   overflow:hidden; user-select:none;
@@ -167,8 +245,14 @@ html, body { width:100%; height:100%; overflow:hidden; background:#000; }
   border-bottom:0.5px solid var(--topbar-border);
   display:grid; grid-template-columns:1fr auto 1fr; align-items:center;
   padding:0 14px;
+  /* Safe-area: respect notch / Dynamic Island on landscape iPhone.
+     max() keeps the original 14px padding on devices without insets
+     (every desktop browser, every Android, every non-notched iPhone). */
+  padding-left:  max(14px, env(safe-area-inset-left));
+  padding-right: max(14px, env(safe-area-inset-right));
   backdrop-filter:blur(10px);
-  transition:background 0.3s, backdrop-filter 0.3s;
+  -webkit-backdrop-filter:blur(10px); /* iOS Safari (still requires prefix) */
+  transition:background 0.3s, backdrop-filter 0.3s, -webkit-backdrop-filter 0.3s;
 }
 .topbar-title { font-size:12px; color:var(--topbar-text); letter-spacing:.04em; font-weight:500; }
 .topbar-home-dot { width:11px; height:11px; border-radius:50%; background:#ff5f57; flex-shrink:0; display:inline-block; transition:transform 0.15s; }
@@ -1167,6 +1251,7 @@ html, body { width:100%; height:100%; overflow:hidden; background:#000; }
 .overlay {
   position:absolute; inset:0; background:var(--overlay-bg);
   backdrop-filter:blur(4px);
+  -webkit-backdrop-filter:blur(4px); /* iOS Safari */
   display:none; align-items:center; justify-content:center; z-index:400;
   cursor:default;
 }
@@ -1220,29 +1305,82 @@ html, body { width:100%; height:100%; overflow:hidden; background:#000; }
 #pool-full-overlay .pf-sub   { font-size:11px; font-family:monospace; letter-spacing:.06em; color:var(--topbar-text); opacity:0.75; }
 
 /* ── Activity feed (plan.md §6.5) — top-left floating text, no chrome ── */
-#activity-feed {
+/* Activity is wrapped in a collapsible side panel that mirrors the
+   expand-sidebar pattern (slide-in from left + tab on right edge).
+   The content inside (#activity-feed) keeps its content-sized height —
+   the panel is NOT full-viewport tall.
+   Default: open on desktop, closed on touch devices. */
+#activity-sidebar {
   position:fixed;
-  top:48px;         /* clears the 34px topbar + a little breathing room */
-  left:14px;
-  z-index:150;      /* sits above the world but below expand/fullscreen (z-index:500+) */
+  top:48px;             /* clears 34px topbar + breathing room */
+  left:0;
+  width:auto; max-width:420px;
+  z-index:150;          /* above world, below expand/fullscreen overlays */
+  transform:translateX(-100%);  /* closed by default; .open snaps to 0 */
+  transition:transform 0.32s cubic-bezier(0.25,0.46,0.45,0.94);
+  display:flex; flex-direction:column;
+  /* Match the topbar look — same translucent fill + blur — so the panel
+     reads as a continuation of the chrome rather than a floating window.
+     Rounded only on the right side (left edge is flush to viewport). */
+  background:var(--topbar-bg);
+  border-top:0.5px solid var(--topbar-border);
+  border-right:0.5px solid var(--topbar-border);
+  border-bottom:0.5px solid var(--topbar-border);
+  border-radius:0 6px 6px 0;
+  backdrop-filter:blur(10px);
+  -webkit-backdrop-filter:blur(10px);
+  /* Subtle shadow so the panel lifts off the world canvas */
+  box-shadow:2px 2px 8px rgba(0,0,0,0.06), 4px 6px 18px rgba(0,0,0,0.05);
+  transition:transform 0.32s cubic-bezier(0.25,0.46,0.45,0.94),
+             background 0.3s, border-color 0.3s, backdrop-filter 0.3s;
+  /* Solid panel intercepts clicks (don't pan the canvas behind it) */
+  pointer-events:all;
+}
+#activity-sidebar.open { transform:translateX(0); }
+
+#activity-feed {
+  padding:8px 18px 10px;
   display:flex; flex-direction:column;
   gap:3px;
-  pointer-events:none;   /* never intercepts clicks */
-  max-width:42ch;
 }
-/* Shrink + eventually hide on narrow viewports so the feed doesn't cover the
-   modulos when the user resizes the browser window. */
+
+/* Tab — small "›/‹" button glued to the right edge of the panel.
+   Slides with the panel via the same translateX transition. */
+#activity-tab {
+  position:fixed;
+  top:54px;
+  left:0;
+  z-index:151;
+  width:16px; height:40px;
+  background:var(--topbar-bg);
+  border:0.5px solid var(--topbar-border);
+  border-left:none;
+  border-radius:0 4px 4px 0;
+  backdrop-filter:blur(10px);
+  -webkit-backdrop-filter:blur(10px);
+  display:flex; align-items:center; justify-content:center;
+  cursor:pointer; pointer-events:all;
+  font-size:10px; color:var(--sl);
+  transition:left 0.32s cubic-bezier(0.25,0.46,0.45,0.94),
+             background 0.15s, color 0.15s, backdrop-filter 0.3s;
+  user-select:none;
+}
+#activity-tab:hover { color:var(--sv); background:var(--row-hover); }
+/* When sidebar is open, push the tab to sit at the panel's right edge */
+#activity-sidebar.open ~ #activity-tab { left:420px; }
+.at-arrow { display:inline-block; transition:transform 0.32s cubic-bezier(0.25,0.46,0.45,0.94); }
+#activity-sidebar.open ~ #activity-tab .at-arrow { transform:rotate(180deg); }
+
+/* Shrink content + tab offset together on narrower viewports */
 @media (max-width: 1100px) {
-  #activity-feed { max-width:32ch; }
+  #activity-sidebar { max-width:340px; }
+  #activity-sidebar.open ~ #activity-tab { left:340px; }
   .activity-entry { font-size:10px; }
 }
 @media (max-width: 800px) {
-  #activity-feed { max-width:24ch; }
-  .activity-entry { font-size:9px; opacity:0; }
-  .activity-entry { animation-name:activity-fade-in-soft; }
-}
-@media (max-width: 600px) {
-  #activity-feed { display:none; }
+  #activity-sidebar { max-width:280px; }
+  #activity-sidebar.open ~ #activity-tab { left:280px; }
+  .activity-entry { font-size:9px; }
 }
 .activity-entry {
   font-family:monospace;
@@ -1374,38 +1512,124 @@ html, body { width:100%; height:100%; overflow:hidden; background:#000; }
 }
 .tr-lock-btn svg { display:block; }
 
-/* ── Mobile rotate overlay ── */
-#rotate-overlay {
-  display:none;
-  position:fixed; inset:0; z-index:9999;
-  align-items:center; justify-content:center; flex-direction:column; gap:12px;
-  background:var(--bg);
-  opacity:1; transition:opacity 0.5s;
-}
-#rotate-overlay.fade { opacity:0; pointer-events:none; }
-@media (max-width:1024px) and (orientation:portrait) {
-  #rotate-overlay { display:flex; }
-}
-#rotate-overlay-icon {
-  font-size:32px;
-  display:inline-block;
-  animation: rotate-hint 1.6s ease-in-out infinite;
-}
-@keyframes rotate-hint {
-  0%   { transform: rotate(0deg); }
-  40%  { transform: rotate(180deg); }
-  60%  { transform: rotate(180deg); }
-  100% { transform: rotate(360deg); }
-}
-#rotate-overlay-text { font-size:12px; color:var(--topbar-text); letter-spacing:.06em; }
-#rotate-overlay-sub  { font-size:10px; color:var(--topbar-text); opacity:0.55; letter-spacing:.04em; }
-
 /* ── prefers-reduced-motion — WCAG 2.1 §2.2.2 ── */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration:        0.01ms !important;
     animation-iteration-count: 1      !important;
     transition-duration:       0.01ms !important;
+  }
+}
+
+/* ────────────────────────────────────────────────────────────
+   ── Mobile modal pattern (Fase 4 — hybrid sheets + modals) ──
+   ────────────────────────────────────────────────────────────
+   Pattern (per Apple HIG + Material Design guidance):
+   - Big content (info, inventory) → bottom sheet that slides up from
+     the bottom edge, occupies most of the screen, easy to dismiss.
+   - Short confirmations (token-access, lock confirm) → centered modal
+     sized to fit small viewports.
+
+   Gated to (max-width: 1024px) so desktop is completely unaffected.
+   Uses !important sparingly to override JS-set inline positioning
+   (inventory's left/top are computed per-modulo on desktop). */
+@media (max-width: 1024px) {
+
+  /* ── Info window → bottom sheet ────────────────────────────── */
+  #info-window {
+    /* Override the desktop centered fixed-size dialog */
+    top:auto !important;
+    left:0 !important;
+    right:0 !important;
+    bottom:0 !important;
+    width:100vw !important;
+    max-width:100vw !important;
+    height:90vh !important;
+    max-height:90vh !important;
+    /* Bottom-sheet visual: rounded only at the top */
+    border-radius:14px 14px 0 0;
+    /* Slide up from bottom; reset desktop's translate(-50%,-50%) scale */
+    transform:translate(0, 100%) !important;
+    transition:transform 0.28s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.18s ease;
+    /* Safe area for home indicator */
+    padding-bottom:env(safe-area-inset-bottom, 0);
+  }
+  #info-window.open {
+    transform:translate(0, 0) !important;
+  }
+
+  /* Stack the side-by-side image/text layout vertically.
+     The image becomes a header strip; the text scrolls below. */
+  .info-page {
+    flex-direction:column !important;
+  }
+  .info-img {
+    width:100% !important;
+    height:35vh; max-height:280px;
+    border-right:none;
+    border-bottom:0.5px solid var(--node-border);
+  }
+  .info-text {
+    padding:18px 18px 24px;
+    -webkit-overflow-scrolling:touch;
+  }
+
+  /* ── Inventory window → bottom sheet ──────────────────────── */
+  /* JS computes inline left/top per-modulo + zoom for desktop "snap" effect.
+     Override all of those. zoom must be reset or the sheet renders at 93%
+     of full width and gets visually cut off. */
+  #inventory-window {
+    left:0 !important;
+    top:auto !important;
+    bottom:0 !important;
+    right:0 !important;
+    width:100vw !important;
+    max-width:100vw !important;
+    max-height:80vh !important;
+    zoom:1 !important;
+    border-radius:14px 14px 0 0;
+    /* Asymmetric desktop shadow doesn't make sense bottom-anchored */
+    box-shadow:0 -8px 24px rgba(0,0,0,0.12), 0 -2px 6px rgba(0,0,0,0.08);
+    padding-bottom:env(safe-area-inset-bottom, 0);
+  }
+  /* Inventory open animation — slide up from bottom */
+  #inventory-overlay.active #inventory-window {
+    animation:sheet-slide-up 0.28s cubic-bezier(0.32, 0.72, 0, 1);
+  }
+  /* Make inventory grid scroll smoothly on iOS */
+  #inventory-grid {
+    -webkit-overflow-scrolling:touch;
+  }
+
+  @keyframes sheet-slide-up {
+    from { transform:translateY(100%); }
+    to   { transform:translateY(0); }
+  }
+
+  /* ── Centered confirms (.modal, .lock-modal) ──────────────── */
+  /* Keep centered, just constrain width + add safe margins. */
+  .modal {
+    max-width:92vw;
+    max-height:90vh;
+    overflow-y:auto;
+    -webkit-overflow-scrolling:touch;
+  }
+  .lock-modal {
+    width:auto !important;
+    max-width:92vw;
+  }
+
+  /* Bigger close-area dot for inventory close (currently 8×8 + the ::after
+     from Fase 2 doesn't apply since #inventory-close wasn't in that list) */
+  #inventory-close {
+    position:relative;
+  }
+  #inventory-close::after {
+    content:'';
+    position:absolute;
+    top:50%; left:50%;
+    transform:translate(-50%, -50%);
+    width:44px; height:44px;
   }
 }
 
@@ -1488,12 +1712,6 @@ html, body { width:100%; height:100%; overflow:hidden; background:#000; }
 
   <div id="overview-blocker"></div>
 
-  <div id="rotate-overlay">
-    <div id="rotate-overlay-icon">↻</div>
-    <div id="rotate-overlay-text">Enable auto-rotate for a better experience</div>
-    <div id="rotate-overlay-sub">Some browsers may not support landscape mode</div>
-  </div>
-
   <div class="overlay" id="overlay">
     <div class="modal">
       <div class="mt">Token access</div>
@@ -1506,11 +1724,14 @@ html, body { width:100%; height:100%; overflow:hidden; background:#000; }
     </div>
   </div>
 
-  <!-- Activity feed (plan.md §6.5). Fixed top-left, transparent, no window
-       chrome. Subscribes to Firebase `activity/` and renders the last ~10
-       events. z-index is below expand/fullscreen overlays (they visually
-       cover it when active) but the subscription never pauses. -->
-  <div id="activity-feed"></div>
+  <!-- Activity feed (plan.md §6.5). Wrapped in a collapsible side panel
+       that mirrors the expand-sidebar pattern. The panel slides in/out
+       from the left edge; toggle via the tab on its right edge. The feed
+       itself stays the same — content-sized, no scroll. -->
+  <div id="activity-sidebar">
+    <div id="activity-feed"></div>
+  </div>
+  <div id="activity-tab" title="Toggle activity feed"><span class="at-arrow">›</span></div>
 
   <!-- Toast stack — small ephemeral notifications (cooldown alerts, etc.) -->
   <div id="toast-stack"></div>
@@ -2873,19 +3094,56 @@ function buildTokenList(mod) {
         const tip = document.getElementById('lock-tooltip');
         if (tip) tip.classList.remove('visible');
       };
-      lockIcon.addEventListener('mouseenter', () => {
-        if (!_showTip()) return;
+      const _startLiveCountdown = () => {
         const rem = _readRem();
         if (rem != null && rem <= 60000 && !_liveTimer) {
           _liveTimer = setInterval(() => {
             if (!_showTip()) { clearInterval(_liveTimer); _liveTimer = null; }
           }, 1000);
         }
-      });
-      lockIcon.addEventListener('mouseleave', () => {
+      };
+      const _hideAndClearTimer = () => {
         if (_liveTimer) { clearInterval(_liveTimer); _liveTimer = null; }
         _hideTip();
+      };
+      lockIcon.addEventListener('mouseenter', () => {
+        if (!_showTip()) return;
+        _startLiveCountdown();
       });
+      lockIcon.addEventListener('mouseleave', _hideAndClearTimer);
+
+      // Touch equivalent — long-press (500ms) shows the tooltip, since touch
+      // devices have no hover. touchmove > 8px cancels (lets the user pan
+      // through the icon without triggering). Lifting the finger or tapping
+      // elsewhere dismisses the tooltip.
+      let _lpTimer = null;
+      let _lpStartX = 0, _lpStartY = 0;
+      const _onTouchStart = (e) => {
+        if (_lpTimer) clearTimeout(_lpTimer);
+        const t = e.touches[0];
+        _lpStartX = t.clientX; _lpStartY = t.clientY;
+        _lpTimer = setTimeout(() => {
+          _lpTimer = null;
+          if (_showTip()) _startLiveCountdown();
+        }, 500);
+      };
+      const _onTouchMove = (e) => {
+        if (!_lpTimer) return;
+        const t = e.touches[0];
+        if (Math.hypot(t.clientX - _lpStartX, t.clientY - _lpStartY) > 8) {
+          clearTimeout(_lpTimer); _lpTimer = null;
+        }
+      };
+      const _onTouchEnd = () => {
+        if (_lpTimer) { clearTimeout(_lpTimer); _lpTimer = null; }
+        // Hide on lift — defer slightly so a quick tap that fired the tip is
+        // visible for a moment
+        setTimeout(_hideAndClearTimer, 1500);
+      };
+      lockIcon.addEventListener('touchstart', _onTouchStart, { passive: true });
+      lockIcon.addEventListener('touchmove',  _onTouchMove,  { passive: true });
+      lockIcon.addEventListener('touchend',   _onTouchEnd,   { passive: true });
+      lockIcon.addEventListener('touchcancel', _onTouchEnd,  { passive: true });
     }
 
     // Traits (shown when expanded)
@@ -3246,15 +3504,26 @@ const globalAnims = [];
 const PIXEL     = 6;
 const GRID_COLS = 450;
 const GRID_ROWS = 250;
-// Single shared observer instead of one per canvas
+// Single shared observer instead of one per canvas.
+// rootMargin: '-40px' shrinks the visibility area by 40px on every side
+// so cards that have just left the viewport (or are about to) stop rendering
+// a beat earlier — cuts wasted work on partially-visible cards near edges,
+// especially on mobile where the viewport is small. The threshold is still 0
+// so any non-zero overlap with the (shrunk) area counts as visible.
 const _animsByCanvas = new Map();
 const _globalObserver = new IntersectionObserver(entries => {
   entries.forEach(entry => {
     const a = _animsByCanvas.get(entry.target);
     if (a) a.setVisible(entry.isIntersecting);
   });
-}, { threshold: 0 });
-const FRAME_INTERVAL_GLOBAL = 1000 / 60;
+}, { threshold: 0, rootMargin: '-40px' });
+// Frame interval — 60fps on desktop, 30fps on touch devices (mobile/tablet).
+// Cellular automata move ~30 cells/sec at full speed; halving the frame rate
+// is imperceptible quality-wise but cuts CPU + GPU + battery use roughly in
+// half. (pointer: coarse) matches all touch-primary devices including iPad
+// even with a connected mouse, so it scales gracefully.
+const _isTouchDevice = matchMedia('(pointer: coarse)').matches;
+const FRAME_INTERVAL_GLOBAL = _isTouchDevice ? 1000 / 30 : 1000 / 60;
 let _globalLastFrame = 0;
 let _fpsFrames = 0, _fpsLast = 0;
 const _prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -5782,17 +6051,28 @@ window.addEventListener('resize', () => {
   setTransform(tx, ty, scale); // re-clamp current position, don't reset
   drawMinimap();
 });
-setTimeout(() => { initCamera(); drawMinimap(); }, 0);
 
-// Mobile rotate overlay — auto-dismiss after 3s
-(function() {
-  const ov = document.getElementById('rotate-overlay');
-  if (!ov) return;
-  setTimeout(() => {
-    ov.classList.add('fade');
-    setTimeout(() => ov.remove(), 500);
-  }, 3000);
-})();
+// Orientation change → re-fit camera. Mobile resize preserves user's pan/zoom
+// (they may be intentionally zooming via pinch + window resize is desktop-only
+// dragging the window edge). Orientation flip is a rare deliberate action where
+// the user wants the new aspect to fit content properly. Without this, rotating
+// from portrait→landscape leaves scale at the portrait fit (~0.42) and the
+// camera position derived from portrait coords, leaving the modulo half-off
+// screen.
+const _portraitMQ = matchMedia('(orientation: portrait)');
+const _onOrientationChange = () => {
+  // Defer one frame so innerWidth/Height reflect new orientation
+  requestAnimationFrame(() => {
+    MIN_SCALE = calcMinScale() * 1.5;
+    initCamera();
+    drawMinimap();
+  });
+};
+if (_portraitMQ.addEventListener) _portraitMQ.addEventListener('change', _onOrientationChange);
+else _portraitMQ.addListener(_onOrientationChange); // legacy Safari
+window.addEventListener('orientationchange', _onOrientationChange);
+
+setTimeout(() => { initCamera(); drawMinimap(); }, 0);
 
 // ═══════════════════════════════════════════════════════
 // MP4 EXPORT  (WebCodecs + mp4-muxer)
@@ -6757,6 +7037,20 @@ function _gracefulOffline() {
 window.addEventListener('pagehide', _gracefulOffline);
 window.addEventListener('beforeunload', _gracefulOffline);
 
+// bfcache restore — when iOS Safari (and other browsers) freezes the page in
+// back/forward cache, our pagehide handler ran and we may have closed the
+// Firebase socket via goOffline + null'd our presence via REST. On a back-nav
+// restore, the page resumes mid-state with a stale Firebase connection and
+// no presence record. Force a full reload so _initGuestSession runs again.
+//
+// `event.persisted === true` only when the page was hydrated from bfcache
+// (not a normal navigation). On a regular load this fires too but persisted
+// is false, so we no-op. Reload is the safest path — re-establishes the
+// presence record + onDisconnect cleanly with no risk of dangling listeners.
+window.addEventListener('pageshow', (e) => {
+  if (e.persisted) location.reload();
+});
+
 // ═══ Settle (plan.md §5, beta mock flow per §5.6) ═══
 // Phase 1 settle is INTENTIONALLY minimal: emit an activity event + remove
 // the tokens from play for the rest of the guest session. No artifact mint,
@@ -6964,6 +7258,22 @@ function _initActivityFeed() {
 
 if (window.FB) _initActivityFeed();
 else window.addEventListener('fb-ready', _initActivityFeed, { once: true });
+
+// Activity sidebar toggle — same pattern as expand-sidebar. Default state:
+// open on desktop, closed on touch devices (where it would overlap modulo
+// cards in the compressed mobile layout). User can flip either way at any
+// time via the tab on the right edge of the panel.
+(function() {
+  const sidebar = document.getElementById('activity-sidebar');
+  const tab     = document.getElementById('activity-tab');
+  if (!sidebar || !tab) return;
+  // Default open on desktop (mouse/precise), closed on touch
+  const isTouch = matchMedia('(pointer: coarse)').matches;
+  if (!isTouch) sidebar.classList.add('open');
+  tab.addEventListener('click', () => {
+    sidebar.classList.toggle('open');
+  });
+})();
 
 // [Fix #8] Activity TTL: prune entries older than ACTIVITY_TTL_MS so the
 // `activity/` path doesn't grow unbounded forever. Each client runs the
