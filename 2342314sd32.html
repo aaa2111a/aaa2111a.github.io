@@ -1230,6 +1230,20 @@ html, body { width:100%; height:100%; overflow:hidden; background:#000; }
   pointer-events:none;   /* never intercepts clicks */
   max-width:42ch;
 }
+/* Shrink + eventually hide on narrow viewports so the feed doesn't cover the
+   modulos when the user resizes the browser window. */
+@media (max-width: 1100px) {
+  #activity-feed { max-width:32ch; }
+  .activity-entry { font-size:10px; }
+}
+@media (max-width: 800px) {
+  #activity-feed { max-width:24ch; }
+  .activity-entry { font-size:9px; opacity:0; }
+  .activity-entry { animation-name:activity-fade-in-soft; }
+}
+@media (max-width: 600px) {
+  #activity-feed { display:none; }
+}
 .activity-entry {
   font-family:monospace;
   font-size:11px;
@@ -1242,6 +1256,10 @@ html, body { width:100%; height:100%; overflow:hidden; background:#000; }
   text-overflow:ellipsis;
   overflow:hidden;
   user-select:none;
+}
+@keyframes activity-fade-in-soft {
+  from { opacity:0; transform:translateX(-6px); }
+  to   { opacity:0.5; transform:translateX(0); }
 }
 @keyframes activity-fade-in {
   from { opacity:0; transform:translateX(-6px); }
@@ -1307,11 +1325,35 @@ html, body { width:100%; height:100%; overflow:hidden; background:#000; }
   width:10px; height:12px; flex-shrink:0;
   display:inline-flex; align-items:center; justify-content:center;
   margin-left:2px;
+  position:relative; /* anchor for the ::after tooltip */
 }
 .tr-lock-icon svg { display:block; }
 .tr-lock-icon.draft svg  { opacity:0.32; }
 .tr-lock-icon.locked svg { opacity:0.85; }
 .tr-lock-icon.locked svg path { stroke:var(--dot-conn); }
+/* Custom tooltip — text content driven by data-tooltip so the live timer
+   updates the inner text without the browser hiding/reshowing the tip
+   (which is what the native title attribute does). Mirror of .cdot pattern. */
+.tr-lock-icon.locked::after {
+  content:attr(data-tooltip);
+  position:absolute;
+  bottom:calc(100% + 5px);
+  left:50%; transform:translateX(-50%);
+  padding:2px 5px;
+  background:var(--tbar-bg);
+  border:0.5px solid var(--divider);
+  border-radius:3px;
+  font-size:8px; font-family:monospace;
+  color:var(--sl); letter-spacing:.05em;
+  white-space:nowrap;
+  pointer-events:none;
+  opacity:0;
+  transition:opacity 0.12s 0.4s;
+  z-index:50;
+}
+.tr-lock-icon.locked:hover::after { opacity:1; }
+/* No hide-delay when row is collapsed (consistency with .cdot tooltip) */
+.token-row:not(.expanded) .tr-lock-icon.locked::after { transition-delay:0s; }
 
 /* Checkmark button — appears next to trash in the expanded identity row,
    only for own + drafted + non-personal-modulo tokens. Clicking opens the
@@ -1878,9 +1920,12 @@ const ROW_H   = 818;
 const STAGGER = 550;
 
 // Workshop (modulo_00) — personal lab, not synced via Firebase, see plan.md §3.1.
-// Positioned one row above modulos 1-2-3, centered on WCX. cy=447 leaves room
-// for both the workshop's own phase diagram (PD top at y=130) and a ~50px gap
-// below its card bottom (y=656) before modulo 1-2-3's PD top (y=706).
+// Positioned to the LEFT of the central staggered row (modulos 4-5), at cy=WCY.
+// Previous position was above row 1 (cy=447), but in overview-compress mode the
+// workshop's phase diagram overlapped with modulo_02. Moving it to the side of
+// the central band fits an empty area, keeps the overview tight, and the
+// compress factor (0.74) leaves >100px gap with modulo_04 in the compressed view.
+// cx=600 gives 210px width for the "workshop" left-side label.
 //
 // All modulos start EMPTY (refactor step 2, 2026-04-24). In the new draft/locked
 // model, shared modulos only contain tokens after a user explicitly places a draft
@@ -1888,7 +1933,7 @@ const STAGGER = 550;
 // the user populates it manually. The previous PRNG-derived initial distribution
 // (tokens 0-24 across modulos 1-10) has been removed.
 const MODULOS = [
-  { id:'modulo_00', cx:WCX,                    cy:447,            tokens:[], personal:true },
+  { id:'modulo_00', cx:600,                    cy:WCY,            tokens:[], personal:true },
   { id:'modulo_01', cx:WCX - COL_W,           cy:WCY - ROW_H,    tokens:[] },
   { id:'modulo_02', cx:WCX,                    cy:WCY - ROW_H,    tokens:[] },
   { id:'modulo_03', cx:WCX + COL_W,            cy:WCY - ROW_H,    tokens:[] },
@@ -2450,7 +2495,9 @@ function buildModulo(mod) {
     label.textContent = 'workshop';
     // Position: container spans from world x=0 to (card left - gap), text right-aligned.
     // This places the label's right edge right before the card, independent of label width.
-    const LABEL_GAP = 40;
+    // GAP reduced to 20px (was 40) to fit the "workshop" text after the workshop's
+    // 2026-04-26 move to cx=600 (only 210px available to the left).
+    const LABEL_GAP = 20;
     label.style.left   = '0px';
     label.style.width  = (mod.cx - CARD_W / 2 - LABEL_GAP) + 'px';
     label.style.top    = (mod.cy - 22) + 'px'; // vertically centered on card (label is ~44px tall)
@@ -2652,7 +2699,12 @@ function buildRowColors(mod, slotIdx, container) {
       d.addEventListener('click', e => {
         e.stopPropagation();
         if (!isOwnToken(t)) return;
-        nodeColors[mod.id][slotIdx] = (nodeColors[mod.id][slotIdx] === j) ? -1 : j;
+        if (!_canEditSlot(mod.id, slotIdx)) return; // skip if locked
+        // Persist via _writeSlotTrait so the colorSel lands in userDraftTraits
+        // and survives the next _syncModuloState (any listener fire). Without
+        // this the color reverts to the original on the next remote event.
+        const newSel = (nodeColors[mod.id][slotIdx] === j) ? -1 : j;
+        _writeSlotTrait(mod.id, slotIdx, 'colorSel', nodeColors, newSel);
         buildRowColors(mod, slotIdx, container);
         const swatch = document.querySelector(`#tlist-${mod.id} .token-row:nth-child(${slotIdx+1}) .tr-swatch`);
         applySwatch(swatch, mod.id, slotIdx);
@@ -2673,10 +2725,17 @@ function randomizeToken(mod, slotIdx) {
   if (t === undefined) return;
   const td = TOKEN_DATA[t];
   if (!td || !isOwnToken(t)) return;
-  // Color
+  // Bail if the slot is locked (any of the trait setters below would no-op
+  // anyway, but the direct color write was bypassing that check).
+  if (!_canEditSlot(mod.id, slotIdx)) return;
+  // Color — must go through _writeSlotTrait so the draft layer is updated.
+  // Without this, the subsequent setTokenSize/setTokenMode calls trigger
+  // _syncModuloState which reads the OLD colorSel from userDraftTraits and
+  // reverts our random color before the user sees it.
   const palLen = COLS_DATA[td.palette].length;
+  const newColorSel = Math.floor(Math.random() * palLen);
   if (!nodeColors[mod.id]) nodeColors[mod.id] = {};
-  nodeColors[mod.id][slotIdx] = Math.floor(Math.random() * palLen);
+  _writeSlotTrait(mod.id, slotIdx, 'colorSel', nodeColors, newColorSel);
   // Speed
   const newSpeed = 1 + Math.floor(Math.random() * 28);
   if (!moduloTokenOps[mod.id]) moduloTokenOps[mod.id] = [];
@@ -2761,7 +2820,9 @@ function buildTokenList(mod) {
       <div class="tr-swatch"></div>
       <span class="tr-addr"></span>
       <span class="tr-tags" id="tr-tags-${mod.id}-${i}">${getTraitTags(mod.id,i).map(t=>`<span class="tr-tag">${t}</span>`).join('')}</span>
-      ${mod.personal ? '' : `<span class="tr-lock-icon ${_isSlotLocked(mod.id,i)?'locked':'draft'}" title="${_isSlotLocked(mod.id,i)?'locked':'draft (unlocked)'}">${_isSlotLocked(mod.id,i)?_LOCK_ICON_SVG_LOCKED:_LOCK_ICON_SVG_DRAFT}</span>`}
+      ${mod.personal ? '' : (_isSlotLocked(mod.id,i)
+        ? `<span class="tr-lock-icon locked" data-tooltip="locked">${_LOCK_ICON_SVG_LOCKED}</span>`
+        : `<span class="tr-lock-icon draft" title="draft (unlocked)">${_LOCK_ICON_SVG_DRAFT}</span>`)}
       ${own ? '<button class="tr-rand" title="randomize">↺</button>' : ''}
       <span class="tr-arrow">▸</span>`;
     header.querySelector('.tr-addr').textContent = shortAddr(full);
@@ -2769,29 +2830,34 @@ function buildTokenList(mod) {
     const randBtn = header.querySelector('.tr-rand');
     if (randBtn) randBtn.addEventListener('click', e => { e.stopPropagation(); randomizeToken(mod, i); });
 
-    // Lock icon: hover tooltip with remaining time. Static when >60s left (we
-    // recompute once on each mouseenter); live-updating every second when ≤60s
-    // so the user can watch the countdown in the final stretch.
+    // Lock icon: custom CSS tooltip (data-tooltip + ::after) instead of native
+    // `title`. The native title closes/reopens on text change — terrible for a
+    // live countdown. Updating data-tooltip changes only the ::after text, so
+    // the tooltip box stays open and the seconds tick smoothly.
     const lockIcon = header.querySelector('.tr-lock-icon.locked');
     if (lockIcon) {
+      // Strip native title to suppress browser-default tooltip
+      lockIcon.removeAttribute('title');
       let _liveTimer = null;
-      const _refreshTitle = () => {
+      const _refreshTip = () => {
         const tokenNum = mod.tokens[i];
         const entry = fbLocked[mod.id] && fbLocked[mod.id][tokenNum];
         if (!entry || !entry.lockedUntil) return false;
         const rem = entry.lockedUntil - Date.now();
-        lockIcon.title = 'locked · ' + _formatLockRemaining(rem);
+        lockIcon.dataset.tooltip = 'locked · ' + _formatLockRemaining(rem);
         return rem > 0;
       };
+      // Initialize so the tooltip has content from first hover (no flash of empty)
+      _refreshTip();
       lockIcon.addEventListener('mouseenter', () => {
-        if (!_refreshTitle()) return;
+        if (!_refreshTip()) return;
         const tokenNum = mod.tokens[i];
         const entry = fbLocked[mod.id] && fbLocked[mod.id][tokenNum];
         const rem = entry ? entry.lockedUntil - Date.now() : 0;
-        // Only spin up the live updater when we're already in the seconds zone.
+        // Spin up live updater only when in the seconds-zone
         if (rem <= 60000 && !_liveTimer) {
           _liveTimer = setInterval(() => {
-            if (!_refreshTitle()) { clearInterval(_liveTimer); _liveTimer = null; }
+            if (!_refreshTip()) { clearInterval(_liveTimer); _liveTimer = null; }
           }, 1000);
         }
       });
@@ -5744,7 +5810,7 @@ document.getElementById('export-btn').addEventListener('click', () => {
           <div class="info-text-title">Modulos</div>
           <div class="info-text-body">
             <p>10 shared modulos (01–10) + 1 personal workshop (modulo 00). Up to 8 tokens per modulo. Slots are rank-sorted automatically — you don't choose the order. <strong>Navigate:</strong> drag to pan, scroll or pinch to zoom. Click a card to fly to it. ⊞ button (bottom bar) zooms out to show all modulos at once.</p>
-            <p><strong>Shared vs workshop:</strong> shared modulos are public — lock required before settle, anyone can lock their own tokens alongside yours. The workshop (above the first row, labeled "workshop") is solo and local — nobody else sees it, no lock needed, settle works directly with 1 to 8 tokens.</p>
+            <p><strong>Shared vs workshop:</strong> shared modulos are public — lock required before settle, anyone can lock their own tokens alongside yours. The workshop (left of the central row, labeled "workshop") is solo and local — nobody else sees it, no lock needed, settle works directly with 1 to 8 tokens.</p>
             <p><strong>Expand view:</strong> green dot on the card titlebar opens the full-size animation. Inside the expand, the ‹ › tab on the left edge opens the sidebar. The green dot inside the expand titlebar goes fullscreen (ESC to exit). Card and expand are windows into the same simulation.</p>
             <p><strong>Stats header:</strong> combined state of the modulo — total speed, active size, active mode, rect size/density, BIOS status. Shows — when nothing is set. The colored square (swatch) next to the modulo name shows the current active color.</p>
             <p><strong>Phase diagram:</strong> floats above each card. Shows speed per token, active mode with a progress bar for the 5s cycle, rect shift state, and BIOS/DX status. Color weight % is slot-based, not speed-based. In shared modulos, your view includes all locked tokens from everyone plus your own drafts — another user viewing the same modulo sees the locked tokens but not your drafts. Battery bars = token count (4 red = full at 8).</p>
@@ -6516,6 +6582,23 @@ async function _initGuestSession() {
 if (window.FB) _initGuestSession();
 else window.addEventListener('fb-ready', _initGuestSession, { once: true });
 
+// Page unload handler: explicitly close the WebSocket via Firebase.goOffline()
+// so the server immediately runs the onDisconnect cleanup spec instead of
+// waiting 30-60 seconds to time out the silent socket. Without this, refreshing
+// or closing a tab leaves the guest's claims/locks reserved for that long,
+// which can drain the 100-token pool fast in multi-tab testing.
+//
+// pagehide is more reliable than beforeunload (especially on mobile + bfcache).
+// We register both for max coverage. goOffline triggers the server to run our
+// previously-registered onDisconnect spec atomically.
+function _gracefulOffline() {
+  try {
+    if (window.FB && window.FB.goOffline) window.FB.goOffline(window.FB.db);
+  } catch (_) {}
+}
+window.addEventListener('pagehide', _gracefulOffline);
+window.addEventListener('beforeunload', _gracefulOffline);
+
 // ═══ Settle (plan.md §5, beta mock flow per §5.6) ═══
 // Phase 1 settle is INTENTIONALLY minimal: emit an activity event + remove
 // the tokens from play for the rest of the guest session. No artifact mint,
@@ -6857,7 +6940,7 @@ const _LOCK_BTN_SVG =
   import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.1/firebase-app.js";
   import {
     getDatabase, ref, get, set, onValue, update, remove, serverTimestamp, onDisconnect,
-    push, query, limitToLast, onChildAdded, runTransaction, orderByChild, endAt
+    push, query, limitToLast, onChildAdded, runTransaction, orderByChild, endAt, goOffline
   } from "https://www.gstatic.com/firebasejs/12.12.1/firebase-database.js";
 
   const firebaseConfig = {
@@ -6876,7 +6959,7 @@ const _LOCK_BTN_SVG =
   // Minimal API surface exposed to the non-module script above.
   window.FB = {
     app, db, ref, get, set, onValue, update, remove, serverTimestamp, onDisconnect,
-    push, query, limitToLast, onChildAdded, runTransaction, orderByChild, endAt
+    push, query, limitToLast, onChildAdded, runTransaction, orderByChild, endAt, goOffline
   };
   window.dispatchEvent(new CustomEvent('fb-ready'));
 
