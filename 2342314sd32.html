@@ -6582,18 +6582,54 @@ async function _initGuestSession() {
 if (window.FB) _initGuestSession();
 else window.addEventListener('fb-ready', _initGuestSession, { once: true });
 
-// Page unload handler: explicitly close the WebSocket via Firebase.goOffline()
-// so the server immediately runs the onDisconnect cleanup spec instead of
-// waiting 30-60 seconds to time out the silent socket. Without this, refreshing
-// or closing a tab leaves the guest's claims/locks reserved for that long,
-// which can drain the 100-token pool fast in multi-tab testing.
+// Page unload handler — two-pronged cleanup so refresh/close frees the guest's
+// pool slot INSTANTLY instead of waiting 30-60s for Firebase to time out the
+// dead WebSocket.
+//
+// 1. goOffline()      — closes the WebSocket cleanly. The server runs our
+//                       registered onDisconnect spec when it detects the close.
+//                       Best-effort: browser may cancel pending socket ops
+//                       before they reach the server.
+// 2. fetch + keepalive — sends a synchronous PATCH to the Firebase REST API
+//                       that nulls the guest's paths atomically. `keepalive`
+//                       guarantees delivery even after the page is destroyed.
+//                       This is the safety net for #1.
 //
 // pagehide is more reliable than beforeunload (especially on mobile + bfcache).
-// We register both for max coverage. goOffline triggers the server to run our
-// previously-registered onDisconnect spec atomically.
+// Both are registered for max coverage. The double-write to Firebase is
+// idempotent — nulling already-null paths is a no-op.
+const _DB_REST_BASE = 'https://modulo-de521-default-rtdb.firebaseio.com';
+
 function _gracefulOffline() {
+  // 1. Best-effort WebSocket close
   try {
     if (window.FB && window.FB.goOffline) window.FB.goOffline(window.FB.db);
+  } catch (_) {}
+  // 2. Guaranteed REST cleanup (only if we have an active guest session)
+  try {
+    if (typeof SESSION_USER !== 'string' || !SESSION_USER.startsWith('guest-')) return;
+    const payload = {};
+    payload[`guests/${SESSION_USER}`] = null;
+    if (Array.isArray(_myClaimedTokens)) {
+      for (const t of _myClaimedTokens) payload[`tokenClaims/${t}`] = null;
+    }
+    // Also drop any of our locks (won't last anyway, but cleaner)
+    if (typeof fbLocked === 'object' && fbLocked) {
+      for (const modId of Object.keys(fbLocked)) {
+        const locked = fbLocked[modId] || {};
+        for (const tNum of Object.keys(locked)) {
+          if (locked[tNum] && locked[tNum].owner === SESSION_USER) {
+            payload[`session/modules/${modId}/locked/${tNum}`] = null;
+          }
+        }
+      }
+    }
+    fetch(`${_DB_REST_BASE}/.json?print=silent`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+      keepalive: true   // survive page unload
+    }).catch(() => {});
   } catch (_) {}
 }
 window.addEventListener('pagehide', _gracefulOffline);
