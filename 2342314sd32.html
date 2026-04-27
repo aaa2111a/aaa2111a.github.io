@@ -1353,11 +1353,14 @@ button, a, [role="button"], .pill, .info-btn, .toggle-btn, .modal-close,
 }
 
 /* Tab — small "›/‹" button glued to the right edge of the panel.
-   Slides with the panel via the same translateX transition. */
+   Lives INSIDE the panel as an absolutely-positioned child at right:0
+   with translateX(100%) so it sits flush against the panel's actual
+   right edge, no matter how narrow the panel auto-shrinks to fit content. */
 #activity-tab {
-  position:fixed;
-  top:54px;
-  left:0;
+  position:absolute;
+  top:6px;
+  right:0;
+  transform:translateX(100%);
   z-index:151;
   width:16px; height:40px;
   background:var(--topbar-bg);
@@ -1369,25 +1372,20 @@ button, a, [role="button"], .pill, .info-btn, .toggle-btn, .modal-close,
   display:flex; align-items:center; justify-content:center;
   cursor:pointer; pointer-events:all;
   font-size:10px; color:var(--sl);
-  transition:left 0.32s cubic-bezier(0.25,0.46,0.45,0.94),
-             background 0.15s, color 0.15s, backdrop-filter 0.3s;
+  transition:background 0.15s, color 0.15s, backdrop-filter 0.3s;
   user-select:none;
 }
 #activity-tab:hover { color:var(--sv); background:var(--row-hover); }
-/* When sidebar is open, push the tab to sit at the panel's right edge */
-#activity-sidebar.open ~ #activity-tab { left:420px; }
 .at-arrow { display:inline-block; transition:transform 0.32s cubic-bezier(0.25,0.46,0.45,0.94); }
-#activity-sidebar.open ~ #activity-tab .at-arrow { transform:rotate(180deg); }
+#activity-sidebar.open #activity-tab .at-arrow { transform:rotate(180deg); }
 
-/* Shrink content + tab offset together on narrower viewports */
+/* Shrink content on narrower viewports — tab follows automatically */
 @media (max-width: 1100px) {
   #activity-sidebar { max-width:340px; }
-  #activity-sidebar.open ~ #activity-tab { left:340px; }
   .activity-entry { font-size:10px; }
 }
 @media (max-width: 800px) {
   #activity-sidebar { max-width:280px; }
-  #activity-sidebar.open ~ #activity-tab { left:280px; }
   .activity-entry { font-size:9px; }
 }
 .activity-entry {
@@ -1734,12 +1732,13 @@ button, a, [role="button"], .pill, .info-btn, .toggle-btn, .modal-close,
 
   <!-- Activity feed (plan.md §6.5). Wrapped in a collapsible side panel
        that mirrors the expand-sidebar pattern. The panel slides in/out
-       from the left edge; toggle via the tab on its right edge. The feed
-       itself stays the same — content-sized, no scroll. -->
+       from the left edge; toggle via the tab on its right edge. The tab
+       lives inside the panel so it tracks the panel's actual right edge
+       even when the panel auto-shrinks to content width. -->
   <div id="activity-sidebar">
     <div id="activity-feed"></div>
+    <div id="activity-tab" title="Toggle activity feed"><span class="at-arrow">›</span></div>
   </div>
-  <div id="activity-tab" title="Toggle activity feed"><span class="at-arrow">›</span></div>
 
   <!-- Toast stack — small ephemeral notifications (cooldown alerts, etc.) -->
   <div id="toast-stack"></div>
@@ -3271,6 +3270,16 @@ function buildTokenList(mod) {
           if (moduloModeSetters[mod.id]) moduloModeSetters[mod.id]();
         } else {
           setTokenSize(mod.id, i, v);
+          // Symmetric to the MODE handler: if a size is picked while no mode
+          // is set, auto-select "feedback" (the first/default mode) so the
+          // pair is always coherent. Without this, you could end up with a
+          // size set but no mode active — the engine would render nothing.
+          if (getTokenMode(mod.id, i) === null) {
+            setTokenMode(mod.id, i, 'feedback');
+            const fbBtn = modeBtns ? Array.from(modeBtns.querySelectorAll('.dlang-btn')).find(b => b.textContent === 'feedback') : null;
+            if (fbBtn) { modeBtns.querySelectorAll('.dlang-btn').forEach(b => b.classList.remove('active')); fbBtn.classList.add('active'); }
+            if (moduloModeSetters[mod.id]) moduloModeSetters[mod.id]();
+          }
         }
         if (moduloSizeSetters[mod.id]) moduloSizeSetters[mod.id]();
         const el = document.getElementById(`sz-${mod.id}`); if (el) el.textContent = moduloDistinctSizes(mod).join('/') || '-';
@@ -3314,13 +3323,21 @@ function buildTokenList(mod) {
       const { row: modeRow, btns: _modeBtns } = makeRow('MODE');
       modeBtns = _modeBtns;
       makeBtnGroup(modeBtns, ['feedback','shift','noise','modulo','wave','jungle'], getTokenMode(mod.id, i), v => {
-        if (v === null) clearTokenMode(mod.id, i); else setTokenMode(mod.id, i, v);
-        // Auto-set medium size when mode is selected and no size is set yet
-        if (v !== null && getTokenSize(mod.id, i) === null) {
-          setTokenSize(mod.id, i, 'md');
-          // Activate the medium button visually
-          const mdBtn = szBtns ? Array.from(szBtns.querySelectorAll('.dlang-btn')).find(b => b.textContent === 'medium') : null;
-          if (mdBtn) { szBtns.querySelectorAll('.dlang-btn').forEach(b => b.classList.remove('active')); mdBtn.classList.add('active'); }
+        if (v === null) {
+          // Symmetry with the SIZE group: clearing mode also clears the
+          // paired size (you can't have a size without an active mode).
+          clearTokenMode(mod.id, i);
+          clearTokenSize(mod.id, i);
+          if (szBtns) szBtns.querySelectorAll('.dlang-btn').forEach(b => b.classList.remove('active'));
+        } else {
+          setTokenMode(mod.id, i, v);
+          // Auto-set medium size when mode is selected and no size is set yet
+          if (getTokenSize(mod.id, i) === null) {
+            setTokenSize(mod.id, i, 'md');
+            // Activate the medium button visually
+            const mdBtn = szBtns ? Array.from(szBtns.querySelectorAll('.dlang-btn')).find(b => b.textContent === 'medium') : null;
+            if (mdBtn) { szBtns.querySelectorAll('.dlang-btn').forEach(b => b.classList.remove('active')); mdBtn.classList.add('active'); }
+          }
         }
         if (moduloModeSetters[mod.id]) moduloModeSetters[mod.id]();
         if (moduloSizeSetters[mod.id]) moduloSizeSetters[mod.id]();
@@ -3606,6 +3623,16 @@ function startAnim(canvasId, mod) {
       canvas.width  = newW;
       canvas.height = newH;
       ctx.imageSmoothingEnabled = false;
+      // Setting canvas.width clears the canvas to transparent — which renders
+      // as black until the next animation frame paints. Fill immediately with
+      // the current PAL[0] (or the empty-canvas fallback if no palette yet)
+      // so users don't see a black flash during scale transitions like the
+      // overview animation. PAL is closure-captured below; if it's not built
+      // yet, derive the empty color the same way the engine does.
+      const fill = (PAL && PAL.length) ? PAL[0]
+                 : (isNight ? [38, 37, 36] : [209, 207, 199]);
+      ctx.fillStyle = `rgb(${fill[0]},${fill[1]},${fill[2]})`;
+      ctx.fillRect(0, 0, newW, newH);
       // invalidate text instances — positions were valid for old canvas size
       if (typeof _txtInst !== 'undefined')
         for (let i = 0; i < _txtInst.length; i++) _txtInst[i] = null;
@@ -3665,7 +3692,14 @@ function startAnim(canvasId, mod) {
       const hex = COLS_DATA[(TOKEN_DATA[t] ? TOKEN_DATA[t].palette : t % COLS_DATA.length)][getSelIdx(mod.id, si)];
       return [parseInt(hex.slice(1,3),16), parseInt(hex.slice(3,5),16), parseInt(hex.slice(5,7),16)];
     });
-    if (PAL.length === 0) PAL = [[0,0,0]]; // safety
+    // Empty-modulo fallback: paint the canvas in a slightly-grayer-than-card
+    // tone so it reads as "intentionally blank" instead of bleeding into the
+    // page bg or going stark black. Card bg is rgb(219,216,209); this is the
+    // same hue desaturated + ~10pt darker. Light mode hardcoded; night mode
+    // gets a darker neutral so the same "intentional gray" reads correctly.
+    if (PAL.length === 0) {
+      PAL = [isNight ? [38, 37, 36] : [209, 207, 199]];
+    }
 
     const _N = PAL.length;
 
@@ -4962,10 +4996,22 @@ function toggleOverview() {
       _animateFit(stx, sty, sscale, 1.0);
     }
   } else {
+    // Close inventory before entering overview — modulo positions get
+    // compressed toward the centroid in overview, and the inventory's
+    // anchor follows the parent modulo, dragging it across the screen.
+    // Same UX as openExpand which also closes the inventory (line ~5099).
+    if (inventoryModuloId) closeInventory();
     _setOverviewActive(true);
     _overviewSaved = { stx: tx, sty: ty, sscale: scale };
+    // Tighter cluster + smaller padding on mobile so the fit-all scale
+    // stays readable. With desktop values (compress 0.74, pad 60) on a
+    // 375-wide viewport, fitScale collapses to ~0.108 and titles become
+    // unreadable. Tighter values bump it to ~0.20-0.25 — small but legible.
+    const isTouch = matchMedia('(pointer: coarse)').matches ||
+                    Math.min(innerWidth, innerHeight) <= 768;
+    const f   = isTouch ? 0.40 : _OVERVIEW_COMPRESS;
+    const pad = isTouch ? 15   : 60;
     // compute bounding box of compressed positions
-    const f = _OVERVIEW_COMPRESS, pad = 60;
     const ccx = _origModuloPos.map(o => _centroidCx + (o.cx - _centroidCx) * f);
     const ccy = _origModuloPos.map(o => _centroidCy + (o.cy - _centroidCy) * f);
     const minCx = Math.min(...ccx) - CARD_W/2 - pad;
@@ -4978,7 +5024,7 @@ function toggleOverview() {
     const worldCy  = (minCy + maxCy) / 2;
     const targetX  = vw/2 - worldCx * fitScale;
     const targetY  = vh/2 - worldCy * fitScale;
-    _animateFit(targetX, targetY, fitScale, _OVERVIEW_COMPRESS);
+    _animateFit(targetX, targetY, fitScale, f);
   }
 }
 
@@ -6959,9 +7005,54 @@ function _armInactivityTimer(guestId, tokens) {
   reset();
 }
 
+// Stale-guest sweeper — runs once at startup before claiming. Removes any
+// guest whose `connectedAt` is older than STALE_GUEST_MAX_MS (their
+// onDisconnect cleanup must have failed — e.g. browser crash, force-quit,
+// file:// origin where pagehide doesn't fire reliably). Frees their pool
+// claims so a new session can grab them. Without this, the 100-token pool
+// fills up over time as ghost sessions accumulate and you eventually hit
+// "beta full" with no recovery path other than manual DB cleanup.
+//
+// 1 hour matches the inactivity timer on active sessions — anything older
+// than that is definitely abandoned. Idempotent: concurrent tabs running
+// the sweep can both null the same paths safely.
+const STALE_GUEST_MAX_MS = 60 * 60 * 1000; // 1 hour
+
+async function _sweepStaleGuests() {
+  if (!window.FB) return;
+  try {
+    const { db, ref, get, update } = window.FB;
+    const [guestsSnap, claimsSnap] = await Promise.all([
+      get(ref(db, 'guests')),
+      get(ref(db, 'tokenClaims')),
+    ]);
+    const guests = guestsSnap.val() || {};
+    const claims = claimsSnap.val() || {};
+    const cutoff = Date.now() - STALE_GUEST_MAX_MS;
+    const stale = Object.entries(guests).filter(([_, g]) =>
+      !g || !g.connectedAt || g.connectedAt < cutoff
+    ).map(([id]) => id);
+    if (!stale.length) return;
+    const payload = {};
+    for (const guestId of stale) {
+      payload[`guests/${guestId}`] = null;
+    }
+    // Also free their claims (any tokenClaims entry whose value matches a stale guest)
+    for (const [tStr, owner] of Object.entries(claims)) {
+      if (stale.includes(owner)) payload[`tokenClaims/${tStr}`] = null;
+    }
+    await update(ref(db, '/'), payload);
+    console.log(`[guest] swept ${stale.length} stale guests, freed ${Object.keys(payload).length - stale.length} claims`);
+  } catch (err) {
+    console.warn('[guest] stale sweep failed:', err);
+  }
+}
+
 // Main guest-session bootstrap. Runs once on FB ready.
 async function _initGuestSession() {
   if (!window.FB) return;
+  // 0. Sweep stale guests first so the pool reflects only live sessions
+  await _sweepStaleGuests();
   // 1. Generate a guest ID local to this tab
   const guestId = _makeGuestId();
   // 2. Atomically claim POOL_GUEST_TOKENS tokens from the shared pool
