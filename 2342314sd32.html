@@ -1586,6 +1586,26 @@ button, a, [role="button"], .pill, .info-btn, .toggle-btn, .modal-close,
   html.overview-active .tr-tag { font-size: 7px; padding: 0 3px; }
   html.overview-active .tr-rand { display: none; }
 
+  /* ── Bigger green dot for tap on mobile ──────────────────────
+     Default 8px is hard to hit accurately on touch screens — bump to 14px
+     so the visual target matches the existing 44px ::after invisible hit
+     area (set in the global mobile pass). Affects all titlebar dots so
+     the row stays balanced. */
+  .modulo-card .dot { width: 14px; height: 14px; }
+  .modulo-card .modulo-header { gap: 8px; }
+
+  /* ── Wider expand window on mobile ───────────────────────────
+     Default max-width caps at min(96vw, calc((90vh-28px)*1.78)) which on
+     portrait phones leaves visible side-margin. Bump to 100vw and drop
+     the aspect-ratio cap so the canvas fills the screen edge-to-edge. */
+  #expand-window {
+    max-width: 100vw !important;
+    max-height: 95vh !important;
+  }
+  #expand-canvas {
+    max-height: calc(95vh - 28px) !important;
+  }
+
   /* ── Info window → bottom sheet ────────────────────────────── */
   #info-window {
     /* Override the desktop centered fixed-size dialog */
@@ -5435,8 +5455,12 @@ function openExpand(moduloId, cardEl) {
   document.getElementById('expand-tbar-title').textContent = moduloId;
 
   const PIXEL = 6, GRID_COLS = 450, GRID_ROWS = 250;
-  const dispW = Math.min(window.innerWidth * 0.96, (window.innerHeight * 0.90 - 28) * 1.78);
-  const dispH = window.innerHeight * 0.90 - 28;
+  // Mobile: full-width, no aspect cap. Desktop: 96vw with 1.78 aspect cap.
+  const _isMobX = Math.min(window.innerWidth, window.innerHeight) <= 768;
+  const dispW = _isMobX
+    ? window.innerWidth
+    : Math.min(window.innerWidth * 0.96, (window.innerHeight * 0.90 - 28) * 1.78);
+  const dispH = window.innerHeight * (_isMobX ? 0.95 : 0.90) - 28;
   const cols = Math.min(Math.floor(dispW / PIXEL), GRID_COLS);
   const rows = Math.min(Math.floor(dispH / PIXEL), GRID_ROWS);
   expandCanvas.width  = cols * PIXEL;
@@ -5560,10 +5584,13 @@ document.addEventListener('keydown', e => {
 
 function _resizeExpandCanvas(isFS) {
   const PIXEL = 6, GRID_COLS = 450, GRID_ROWS = 250;
+  const _isMobX = Math.min(window.innerWidth, window.innerHeight) <= 768;
   const dispW = isFS ? window.innerWidth
-                     : Math.min(window.innerWidth * 0.96, (window.innerHeight * 0.90 - 28) * 1.78);
+                     : (_isMobX
+                        ? window.innerWidth
+                        : Math.min(window.innerWidth * 0.96, (window.innerHeight * 0.90 - 28) * 1.78));
   const dispH = isFS ? window.innerHeight          // full screen, tbar hidden
-                     : window.innerHeight * 0.90 - 28;
+                     : window.innerHeight * (_isMobX ? 0.95 : 0.90) - 28;
   const cols = Math.min(Math.floor(dispW / PIXEL), GRID_COLS);
   const rows = Math.min(Math.floor(dispH / PIXEL), GRID_ROWS);
   expandCanvas.width  = cols * PIXEL;
@@ -6443,17 +6470,37 @@ window.addEventListener('resize', () => {
   drawMinimap();
 });
 
-// Orientation change → re-fit camera. Mobile resize preserves user's pan/zoom
-// (they may be intentionally zooming via pinch + window resize is desktop-only
-// dragging the window edge). Orientation flip is a rare deliberate action where
-// the user wants the new aspect to fit content properly. Without this, rotating
-// from portrait→landscape leaves scale at the portrait fit (~0.42) and the
-// camera position derived from portrait coords, leaving the modulo half-off
-// screen.
+// Orientation change → re-fit camera + clean up stale UI state.
+// Mobile resize preserves user's pan/zoom (they may be intentionally zooming
+// via pinch + window resize is desktop-only dragging the window edge). But
+// orientation flip swaps W/H entirely — anything anchored to old coords (open
+// inventory, overview snapshot, expand canvas size, in-flight fly animation,
+// active pinch/drag touch state) becomes inconsistent. Reset all of it.
 const _portraitMQ = matchMedia('(orientation: portrait)');
 const _onOrientationChange = () => {
   // Defer one frame so innerWidth/Height reflect new orientation
   requestAnimationFrame(() => {
+    // ── 1. Cancel in-flight gesture state (touches go stale on rotation) ──
+    _pinching   = null;
+    dragging    = false;
+    _flyDownMod = null;
+    // ── 2. Cancel in-flight animations (target coords were captured pre-rotation) ──
+    _flyAnimating = false;
+    // ── 3. Close anything anchored to per-modulo screen coords ──
+    if (inventoryModuloId) closeInventory();
+    // ── 4. Reset overview state — saved tx/ty/scale snapshot is stale,
+    //       and the compressed modulo positions need recompute against the
+    //       new viewport aspect. Cleanest: drop overview, user re-toggles. ──
+    if (_overviewActive) {
+      _setOverviewActive(false);
+      _overviewSaved = null;
+      _setCompress(1.0);
+    }
+    // ── 5. Refresh expand canvas if open (size formula depends on innerWidth/Height) ──
+    if (expandedModuloId) {
+      _resizeExpandCanvas(!!document.fullscreenElement);
+    }
+    // ── 6. Re-fit camera now that state is clean ──
     MIN_SCALE = calcMinScale() * 1.5;
     initCamera();
     drawMinimap();
