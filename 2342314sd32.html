@@ -150,7 +150,10 @@
     0 54px 88px rgba(0,0,0,0.28);
 }
 
-html, body { width:100%; height:100%; overflow:hidden; background:#000; }
+/* Background matches the page (--bg) instead of black so notched iPhones
+   in landscape don't show black bars beside the safe area — the entire
+   viewport including the unsafe edges blends with the page color. */
+html, body { width:100%; height:100%; overflow:hidden; background:var(--bg); }
 
 /* ── Mobile foundations ──
    These rules are no-ops on desktop (mouse/precise-pointer devices) and
@@ -230,7 +233,14 @@ button, a, [role="button"], .pill, .info-btn, .toggle-btn, .modal-close,
 }
 
 .root {
-  position:relative; width:100%; height:100vh;
+  position:relative;
+  /* width: 100vw + min-width: 100vw forces the root to extend edge-to-edge
+     into the iPhone's unsafe area in landscape (notch / dynamic island).
+     Without this, iOS Safari letterboxes content inside the safe area and
+     shows body bg in the side bars. With it, the world canvas (#viewport
+     at left:0 right:0) extends all the way to the physical screen edge. */
+  width:100vw; min-width:100vw;
+  height:100vh;
   height:100dvh; /* progressive enhancement — dvh wins where supported */
   background:var(--bg);
   font-family:-apple-system,'SF Pro Display','Helvetica Neue',sans-serif;
@@ -1540,6 +1550,24 @@ button, a, [role="button"], .pill, .info-btn, .toggle-btn, .modal-close,
    Uses !important sparingly to override JS-set inline positioning
    (inventory's left/top are computed per-modulo on desktop). */
 @media (max-width: 1024px) {
+
+  /* ── Mobile UI shrink (topbar, minimap, modulo-nav at 70%) ───
+     `zoom` (vs transform: scale) updates layout + click areas + child
+     positions, so safe-area paddings, hit-targets, and pill widths all
+     stay coherent at the smaller size. Supported on Chrome/Safari/Edge/FF. */
+  .topbar     { zoom: 0.7; }
+  .minimap    { zoom: 0.7; }
+  .modulo-nav { zoom: 0.7; }
+
+  /* ── Phase diagram hidden in overview (mobile) ───────────────
+     In overview mode the cards compress to tiny tiles. The phase diagram
+     (mode/size sequence chips) becomes unreadable noise that clutters the
+     overview. Hide it during overview only — normal view keeps it visible. */
+  html.overview-active .phase-diagram,
+  html.overview-active .pd-col,
+  html.overview-active .featured-wrap {
+    display: none;
+  }
 
   /* ── Info window → bottom sheet ────────────────────────────── */
   #info-window {
@@ -4903,6 +4931,9 @@ function _setOverviewActive(val) {
   const blk = document.getElementById('overview-blocker');
   if (btn) btn.classList.toggle('active', val);
   if (blk) blk.classList.toggle('active', val);
+  // Expose state to CSS so mobile can hide phase diagrams during overview
+  // (cards become tiny + diagrams turn into illegible noise)
+  document.documentElement.classList.toggle('overview-active', val);
 }
 
 // ── Card-compression for overview ───────────────────────
