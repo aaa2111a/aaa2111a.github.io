@@ -1562,10 +1562,12 @@ button, a, [role="button"], .pill, .info-btn, .toggle-btn, .modal-close,
   /* ── Phase diagram hidden in overview (mobile) ───────────────
      In overview mode the cards compress to tiny tiles. The phase diagram
      (mode/size sequence chips) becomes unreadable noise that clutters the
-     overview. Hide it during overview only — normal view keeps it visible. */
+     overview. Hide it during overview only — normal view keeps it visible.
+     Same reasoning hides the SETTLE button — useless at overview scale. */
   html.overview-active .phase-diagram,
   html.overview-active .pd-col,
-  html.overview-active .featured-wrap {
+  html.overview-active .featured-wrap,
+  html.overview-active .card-settle-btn {
     display: none;
   }
 
@@ -1671,6 +1673,7 @@ button, a, [role="button"], .pill, .info-btn, .toggle-btn, .modal-close,
 </head>
 <body>
 <div id="splash" style="position:fixed;inset:0;background:#BCB8B0;z-index:99999;pointer-events:none;transition:opacity 1.2s ease;"></div>
+
 <!-- Page transition overlay — used for outgoing fade to homepage. Mirrors about.html. -->
 <div id="page-transition" style="position:fixed;inset:0;z-index:2000;background:#c9c6c0;opacity:0;display:none;pointer-events:none;transition:opacity 0.55s ease;"></div>
 <div class="root" id="root">
@@ -2003,7 +2006,7 @@ for (let i = 0; i < TOTAL_TOKENS; i++) {
     rank:    _rankPool[i],
     hasSz, hasMode, hasRS, hasRD, hasBios, hasDX,
     sz:   hasSz   ? _weightedPick(['sm','md','lg'], [0.15,0.55,0.30]) : null,
-    mode: hasMode  ? _weightedPick(['feedback','shift','noise','modulo','wave','jungle'], [0.25,0.15,0.20,0.15,0.15,0.10]) : null,
+    mode: hasMode  ? _weightedPick(['feedback','shift','noise','modulo','wave','jungle','sector','signal'], [0.20,0.12,0.16,0.12,0.13,0.10,0.09,0.08]) : null,
     rs:   hasRS    ? _weightedPick(['sm','md','lg','xl'], [0.15,0.40,0.30,0.15]) : null,
     rd:   hasRD    ? _weightedPick(['lo','md','hi','mx'], [0.30,0.35,0.25,0.10]) : null,
     bios: hasBios  ? (_rng() < 0.70) : null,
@@ -2093,13 +2096,32 @@ function moduloBiosStatText(mod) {
 
 const tokenModes = {}; // { [modId]: { [slotIdx]: modeName } }
 const moduloModeSetters = {};
-const MODE_ABBR = { feedback:'fb', shift:'sh', noise:'no', modulo:'mo', wave:'wv', jungle:'jg' };
+const MODE_ABBR = { feedback:'fb', shift:'sh', noise:'no', modulo:'mo', wave:'wv', jungle:'jg', sector:'se', signal:'sg' };
 
 const tokenSizes = {}; // { [modId]: { [slotIdx]: sizeName } }
 const moduloSizeSetters = {};
 const SIZE_SCALES       = { sm:0.4,  md:1.0, lg:2.0 };
 const SHIFT_BASE_SCALES = { sm:0.15, md:0.4, lg:0.8 }; // one step down — used for non-zone areas in shift mode
 const SHIFT_ZONE_SCALES = { sm:1.0,  md:2.0, lg:2.5 }; // in-zone scale for shift mode (lg boosted)
+
+// SIGNAL_TUNING — variant with smaller, makeRect-compatible sizes (no full-width bands).
+// Defaults captured from user tuning session (2026-04-27).
+// Read by animSignal; was previously tunable via floating panel (removed 2026-04-27).
+window.SIGNAL_TUNING = {
+  skipPct:             50,
+  feedbackMix:         73,
+  pBands:              87,
+  pPeaks:              13,
+  bandShortMaxW:       47,  // 1-60  — short tier band width (6 + rand*this)
+  bandMedMaxW:          1,  // 1-80  — medium tier band width (18 + rand*this)
+  bandLongMaxW:         1,  // 1-100 — long tier band width (40 + rand*this)
+  bandMaxH:            16,  // 1-40  — max band height (rare tier scales from this)
+  bandWaveAmp:          7,
+  peakMaxH:            17,
+  peakBaseW:            2,
+  erosionMaxW:         18,
+  erosionMaxH:         10,
+};
 function getTokenSize(modId, slotIdx) { return (tokenSizes[modId] && tokenSizes[modId][slotIdx] != null) ? tokenSizes[modId][slotIdx] : null; }
 function setTokenSize(modId, slotIdx, s) { if (!_canEditSlot(modId, slotIdx)) return; _writeSlotTrait(modId, slotIdx, 'sz', tokenSizes, s); }
 function clearTokenSize(modId, slotIdx) { if (!_canEditSlot(modId, slotIdx)) return; _writeSlotTrait(modId, slotIdx, 'sz', tokenSizes, null); }
@@ -2107,11 +2129,16 @@ function moduloDistinctSizes(mod) {
   const seen = new Set(); mod.tokens.forEach((_, i) => { const v = getTokenSize(mod.id, i); if (v !== null) seen.add(v); }); return [...seen];
 }
 // Returns the size set on the first slot whose mode matches modeName, or null.
+// `signal` and `modulo` modes disallow `lg` — clamped to `md` here so a
+// randomized token with mode+lg combo doesn't bypass the UI restriction.
 function getSizeForMode(mod, modeName) {
   for (let i = 0; i < mod.tokens.length; i++) {
     if (getTokenMode(mod.id, i) === modeName) {
       const sz = getTokenSize(mod.id, i);
-      if (sz !== null) return sz;
+      if (sz !== null) {
+        if ((modeName === 'signal' || modeName === 'modulo') && sz === 'lg') return 'md';
+        return sz;
+      }
     }
   }
   return null;
@@ -3006,7 +3033,7 @@ function randomizeToken(mod, slotIdx) {
   }
   // Mode
   if (td.hasMode) {
-    setTokenMode(mod.id, slotIdx, ['feedback','shift','noise','modulo','wave','jungle'][Math.floor(Math.random()*6)]);
+    setTokenMode(mod.id, slotIdx, ['feedback','shift','noise','modulo','wave','jungle','sector','signal'][Math.floor(Math.random()*8)]);
     if (moduloModeSetters[mod.id]) moduloModeSetters[mod.id]();
   }
   // RS
@@ -3321,10 +3348,14 @@ function buildTokenList(mod) {
       _syncLgBtn = () => {
         const mode = getTokenMode(mod.id, i);
         const isModulo   = mode === 'modulo';
+        const isSignal  = mode === 'signal';
         const isFeedback = mode === 'feedback';
+        // signal also disallows large size — bands at lg scale break the
+        // localized look the mode is tuned for.
+        const hideLg = isModulo || isSignal;
         if (lgBtn) {
-          lgBtn.style.display = isModulo ? 'none' : '';
-          if (isModulo && lgBtn.classList.contains('active')) {
+          lgBtn.style.display = hideLg ? 'none' : '';
+          if (hideLg && lgBtn.classList.contains('active')) {
             lgBtn.classList.remove('active');
             clearTokenSize(mod.id, i);
             if (moduloSizeSetters[mod.id]) moduloSizeSetters[mod.id]();
@@ -3350,7 +3381,7 @@ function buildTokenList(mod) {
     if (td.hasMode) {
       const { row: modeRow, btns: _modeBtns } = makeRow('MODE');
       modeBtns = _modeBtns;
-      makeBtnGroup(modeBtns, ['feedback','shift','noise','modulo','wave','jungle'], getTokenMode(mod.id, i), v => {
+      makeBtnGroup(modeBtns, ['feedback','shift','noise','modulo','wave','jungle','sector','signal'], getTokenMode(mod.id, i), v => {
         if (v === null) {
           // Symmetry with the SIZE group: clearing mode also clears the
           // paired size (you can't have a size without an active mode).
@@ -3873,6 +3904,251 @@ function startAnim(canvasId, mod) {
       next[idx(cx,cy)]=best;
     }
   }
+  // ── sector ─────────────────────────────────────────────────────────────
+  // Inspired by spec/description-gpt.md: scanline displacement, horizontal
+  // flow with wave distortion, vertical "tearing" spikes, and threshold
+  // bursts that push the rect toward the palette extremes (binary contrast).
+  // The palette stays whatever the modulo produces — we don't force mono —
+  // but threshold bursts collapse rects onto PAL[0] / PAL[last] which gives
+  // a high-contrast "compression artifact" feel even on color palettes.
+  let _sectorT = 0;
+  // Bayer 2×2 ordered-dither matrix for the quantize burst — keeps the
+  // "compressed / posterized" look without collapsing to 2 colors.
+  const _BAYER2 = [[0, 2], [3, 1]]; // values 0..3 → /4 = thresholds
+  function animSector() {
+    // Sector ops are heavy compared to other modes — skip ~65% of dispatches
+    // so it doesn't blow through the grid at high speed settings (e.g. 40 ops).
+    if (Math.random() < 0.65) return;
+    _sectorT += 0.012;
+    const roll = Math.random();
+    // 60% — horizontal displacement, three sub-shapes for visual variation
+    if (roll < 0.60) {
+      const shape = Math.random();
+      const amp = 2 + Math.round(8 * _sizeScale);
+      // 4% — long thin scanline (1-2 rows × wide rect) — rare accent
+      if (shape < 0.04) {
+        const x = Math.floor(Math.random() * GRID_COLS);
+        const y = Math.floor(Math.random() * GRID_ROWS);
+        const wRand = Math.pow(Math.random(), 1.6); // long-tailed
+        const w = 2 + Math.floor(wRand * Math.max(1, Math.round(19 * _sizeScale)));
+        const h = 1 + (Math.random() < 0.4 ? 1 : 0);
+        const wcy = y % GRID_ROWS;
+        const off = Math.round(Math.sin(wcy * 0.11 + _sectorT * 1.4) * amp + (Math.random() - 0.5) * 4);
+        for (let dy = 0; dy < h; dy++) for (let dx = 0; dx < w; dx++) {
+          next[idx(x + dx, y + dy)] = grid[idx(x + dx + off, y + dy)];
+        }
+      }
+      // 56% — short broken segments (a row split into 2-7 chunks, each shifted differently)
+      else if (shape < 0.60) {
+        const y = Math.floor(Math.random() * GRID_ROWS);
+        const wcy = y % GRID_ROWS;
+        const segCount = 2 + Math.floor(Math.random() * 6); // 2..7 segments
+        for (let s = 0; s < segCount; s++) {
+          if (Math.random() < 0.35) continue; // gap between chunks
+          const x = Math.floor(Math.random() * GRID_COLS);
+          // Mix: tiny pixels (1-3), short (4-15), medium (15-50)
+          const tier = Math.random();
+          let w;
+          if      (tier < 0.30) w = 1 + Math.floor(Math.random() * 1);
+          else if (tier < 0.75) w = 2 + Math.floor(Math.random() * Math.max(1, Math.round(4 * _sizeScale)));
+          else                  w = 5 + Math.floor(Math.random() * Math.max(1, Math.round(14 * _sizeScale)));
+          const off = Math.round(Math.sin(wcy * 0.11 + _sectorT * 1.4) * amp + (Math.random() - 0.5) * 6);
+          const h = 1 + Math.floor(Math.random() * 3);
+          for (let dy = 0; dy < h; dy++) for (let dx = 0; dx < w; dx++) {
+            next[idx(x + dx, y + dy)] = grid[idx(x + dx + off, y + dy)];
+          }
+        }
+      }
+      // 40% — square/rect block displaced as a unit (not row-by-row)
+      else {
+        const x = Math.floor(Math.random() * GRID_COLS);
+        const y = Math.floor(Math.random() * GRID_ROWS);
+        const square = Math.random() < 0.5;
+        // Wider size range: tiny (2-4), small (5-12), medium (13-25), big (26-50)
+        const tier = Math.random();
+        let baseSz;
+        if      (tier < 0.25) baseSz = 1 + Math.floor(Math.random() * 2);
+        else if (tier < 0.65) baseSz = 3 + Math.floor(Math.random() * 4);
+        else if (tier < 0.92) baseSz = 7 + Math.floor(Math.random() * Math.max(1, Math.round(7 * _sizeScale)));
+        else                  baseSz = 13 + Math.floor(Math.random() * Math.max(1, Math.round(13 * _sizeScale)));
+        const w = square ? baseSz : baseSz + Math.floor(Math.random() * Math.max(2, baseSz));
+        const h = square ? baseSz : Math.max(2, Math.floor(baseSz * (0.3 + Math.random() * 0.9)));
+        const off = Math.round((Math.random() - 0.5) * 2 * amp);
+        for (let dy = 0; dy < h; dy++) for (let dx = 0; dx < w; dx++) {
+          next[idx(x + dx, y + dy)] = grid[idx(x + dx + off, y + dy)];
+        }
+      }
+    }
+    // 25% — vertical tearing column ("desgarro digital")
+    // Length tiered like the horizontal segments — most short, occasional medium.
+    else if (roll < 0.85) {
+      const cx = Math.floor(Math.random() * GRID_COLS);
+      const halfW = 1 + Math.floor(Math.random() * Math.max(1, Math.round(2 * _sizeScale)));
+      const yStart = Math.floor(Math.random() * GRID_ROWS);
+      const tier = Math.random();
+      let len;
+      if      (tier < 0.40) len = 2 + Math.floor(Math.random() * 4);   // 2-5  (tiny tear)
+      else if (tier < 0.85) len = 5 + Math.floor(Math.random() * 8);   // 5-12 (short)
+      else if (tier < 0.96) len = 12 + Math.floor(Math.random() * 13); // 12-24 (medium)
+      else                  len = 30 + Math.floor(Math.random() * Math.max(1, Math.round(20 * _sizeScale))); // 30-50 (long, rare accent)
+      const srcY = (yStart + (Math.random() < 0.5 ? -20 : 20) + GRID_ROWS) % GRID_ROWS;
+      for (let h = 0; h < len; h++) {
+        const cy = (yStart + h) % GRID_ROWS;
+        for (let w = -halfW; w <= halfW; w++) {
+          next[idx(cx + w, cy)] = grid[idx(cx + w, srcY)];
+        }
+      }
+    }
+    // 15% — quantize burst with Bayer ordered dithering across the FULL
+    // palette. Each cell snaps to one of N levels (not just 2), so we keep
+    // every color in play while still getting that "posterized / compression
+    // artifact" feel. Skip cells where the existing value is already aligned
+    // — the burst pushes color toward extremes but doesn't erase mid-tones.
+    else {
+      if (PAL.length < 2) return;
+      const r = makeRect();
+      const N = PAL.length;
+      const last = N - 1;
+      for (let dy = 0; dy < r.h; dy++) for (let dx = 0; dx < r.w; dx++) {
+        const i = idx(r.x + dx, r.y + dy);
+        const v = grid[i];
+        // Normalize current value [0..1], add Bayer-modulated noise, snap to nearest
+        const bayer = _BAYER2[dy & 1][dx & 1] / 4 - 0.375; // ~[-0.375, +0.375]
+        const norm  = v / last;
+        const jit   = (Math.random() - 0.5) * 0.25;
+        const q     = Math.max(0, Math.min(1, norm + bayer * (1 / N) + jit));
+        next[i]     = Math.round(q * last);
+      }
+    }
+  }
+  // ── signal helpers ─────────────────────────────────────────────────────
+  // Used by animSignal's spatial feedback gradient (signal corner ↘ feedback).
+  // Localized feedback op — same math as animFeedback but anchored at (ox,oy).
+  function _localFeedbackAt(ox, oy) {
+    const w = 2 + Math.floor(Math.random() * Math.max(1, Math.round(12 * _sizeScale)));
+    const h = 2 + Math.floor(Math.random() * Math.max(1, Math.round(6 * _sizeScale)));
+    const sx = ox - (w >> 1), sy = oy - (h >> 1);
+    for (let dy = 0; dy < h; dy++) for (let dx = 0; dx < w; dx++) {
+      const cx = sx + dx, cy = sy + dy;
+      const nb = [grid[idx(cx-1,cy)], grid[idx(cx+1,cy)], grid[idx(cx,cy-1)], grid[idx(cx,cy+1)]];
+      const count = new Array(PAL.length).fill(0);
+      for (const n of nb) if (n < PAL.length) count[n]++;
+      let max = 0, best = grid[idx(cx,cy)];
+      for (let v = 0; v < PAL.length; v++) if (count[v] > max) { max = count[v]; best = v; }
+      next[idx(cx,cy)] = best;
+    }
+  }
+  // Run a single op using the EXACT distribution of `feedback` dt mode
+  // (MODE_PROBS.feedback = 70% fb / 10% shift / 10% noise / 10% modulo).
+  // The fb branch is localized to (ox,oy) so the spatial gradient holds for
+  // the dominant 70%; shift/noise/modulo use their natural random positions.
+  // At fb grad=100 every op runs through here, matching feedback mode 1:1.
+  function _runFeedbackModeOpAt(ox, oy) {
+    const r = Math.random();
+    if      (r < 0.70) _localFeedbackAt(ox, oy);
+    else if (r < 0.80) animShift();
+    else if (r < 0.90) animNoise();
+    else               animModulo();
+  }
+
+  // ── signal ────────────────────────────────────────────────────────────
+  // Variant of `signal` with localized sizes (no full-width bands), tuned to
+  // sit visually compatible with the makeRect-based modes. Reads from
+  // window.SIGNAL_TUNING. Same _pickLit color preservation strategy.
+  let _signalT = 0;
+  function animSignal() {
+    const T = window.SIGNAL_TUNING;
+    // Spatial feedback gradient (TL=signal / BR=feedback). Three-point
+    // interpolation: 0 → pure signal, 50 → perfect bisection, 100 → pure
+    // feedback. Checked BEFORE skip so feedback ops match `feedback` density.
+    const ox = Math.floor(Math.random() * GRID_COLS);
+    const oy = Math.floor(Math.random() * GRID_ROWS);
+    if (T.feedbackMix > 0) {
+      const tBlend = (ox / GRID_COLS + oy / GRID_ROWS) / 2;
+      // Visual-weight remap: signal ops paint many more cells per op than
+      // feedback ops, so a linear 50/50 op-count split LOOKS signal-heavy.
+      // pow(v, 0.4) compensates so v_ui=50 → effective ~0.76, 90 → ~0.96.
+      const v = Math.pow(T.feedbackMix / 100, 0.4);
+      const prob = v <= 0.5 ? (2 * v * tBlend) : (tBlend * (2 - 2 * v) + (2 * v - 1));
+      if (Math.random() < prob) {
+        _runFeedbackModeOpAt(ox, oy);
+        return;
+      }
+    }
+    if (Math.random() < T.skipPct / 100) return;
+    _signalT += 0.008;
+    if (PAL.length < 2) return;
+    const last = PAL.length - 1;
+    const pB = T.pBands / 100;
+    const pP = T.pPeaks / 100;
+    const roll = Math.random();
+    const _pickLit = () => {
+      const N = PAL.length;
+      if (N <= 2) return last;
+      const r = 1 - Math.pow(1 - Math.random(), 2.2);
+      return 1 + Math.floor(r * last);
+    };
+    // BANDS — localized, three tiers (short / medium / long), anchored at (ox, oy)
+    if (roll < pB) {
+      const cy = oy;
+      const tier = Math.random();
+      let h;
+      if      (tier < 0.60) h = 2 + Math.floor(Math.random() * Math.max(1, Math.round((T.bandMaxH * 0.25) * _sizeScale)));
+      else if (tier < 0.93) h = Math.round(T.bandMaxH * 0.31) + Math.floor(Math.random() * Math.max(1, Math.round((T.bandMaxH * 0.31) * _sizeScale)));
+      else                  h = Math.round(T.bandMaxH * 0.56) + Math.floor(Math.random() * Math.max(1, Math.round((T.bandMaxH * 0.44) * _sizeScale)));
+      const bx = ox;
+      const wTier = Math.random();
+      let bw;
+      // Per-design tuning: hand-picked width ranges per (tier × SIZE).
+      // SIZE='lg' is blocked for signal (see _syncLgBtn), so only sm/md exist.
+      //   short tier  — sm: 4-15,  md: 4-20
+      //   medium tier — sm: 13-18, md: 16-22
+      //   long tier   — sm: 23-25, md: 28-29
+      const isMd = _sizeScale >= 0.99 && _sizeScale <= 1.01;
+      if      (wTier < 0.55) bw = 4 + Math.floor(Math.random() * (isMd ? 17 : 12));
+      else if (wTier < 0.92) bw = (isMd ? 16 : 13) + Math.floor(Math.random() * (isMd ? 7 : 6));
+      else                   bw = (isMd ? 28 : 23) + Math.floor(Math.random() * (isMd ? 2 : 3));
+      const ampY = 1 + Math.floor(Math.random() * Math.max(1, T.bandWaveAmp));
+      const freq = 0.025 + Math.random() * 0.05;
+      const phase = _signalT * 1.2 + Math.random() * 6.28;
+      const halfH = h / 2;
+      const v = _pickLit();
+      for (let dx = 0; dx < bw; dx++) {
+        const wave = Math.sin((bx + dx) * freq + phase) * ampY;
+        const top = Math.round(cy + wave - halfH);
+        for (let dy = 0; dy < h; dy++) {
+          next[idx(bx + dx, top + dy)] = v;
+        }
+      }
+    }
+    // PEAKS — vertical antenna spike anchored at (ox, oy)
+    else if (roll < pB + pP) {
+      const cx = ox, baseY = oy;
+      const tier = Math.random();
+      let height;
+      if      (tier < 0.55) height = 4  + Math.floor(Math.random() * Math.max(1, Math.round(T.peakMaxH * 0.16)));
+      else if (tier < 0.92) height = Math.round(T.peakMaxH * 0.26) + Math.floor(Math.random() * Math.max(1, Math.round(T.peakMaxH * 0.29)));
+      else                  height = Math.round(T.peakMaxH * 0.52) + Math.floor(Math.random() * Math.max(1, Math.round(T.peakMaxH * 0.48 * _sizeScale)));
+      const baseHalfW = 1 + Math.floor(Math.random() * Math.max(1, T.peakBaseW));
+      const v = _pickLit();
+      for (let h = 0; h < height; h++) {
+        const taper = 1 - h / height;
+        const halfW = Math.max(0, Math.floor(baseHalfW * taper));
+        for (let w = -halfW; w <= halfW; w++) {
+          next[idx(cx + w, baseY - h)] = v;
+        }
+      }
+    }
+    // EROSION — small patch anchored at (ox, oy)
+    else {
+      const cx = ox, cy = oy;
+      const w = 2 + Math.floor(Math.random() * Math.max(1, Math.round(T.erosionMaxW * _sizeScale)));
+      const h = 2 + Math.floor(Math.random() * Math.max(1, Math.round(T.erosionMaxH * _sizeScale)));
+      for (let dy = 0; dy < h; dy++) for (let dx = 0; dx < w; dx++) {
+        next[idx(cx + dx, cy + dy)] = 0;
+      }
+    }
+  }
 
   // ── Rect shifting — 10 rects moving intermittently over the full grid ──
   const DIRS = [[1,0],[-1,0],[0,1],[0,-1],[1,1],[-1,-1],[1,-1],[-1,1]];
@@ -4385,12 +4661,14 @@ function startAnim(canvasId, mod) {
 
   // step — always evolves the full GRID_COLS×GRID_ROWS grid
   const MODE_PROBS = {
-    feedback: [0.70, 0.10, 0.10, 0.10, 0.00, 0.00],
-    shift:    [0.00, 1.00, 0.00, 0.00, 0.00, 0.00],
-    noise:    [0.10, 0.10, 0.70, 0.10, 0.00, 0.00],
-    modulo:   [0.30, 0.25, 0.20, 0.25, 0.00, 0.00],
-    wave:     [0.00, 0.00, 0.00, 0.00, 1.00, 0.00],
-    jungle:   [0.00, 0.00, 0.00, 0.00, 0.00, 1.00],
+    feedback: [0.70, 0.10, 0.10, 0.10, 0.00, 0.00, 0.00, 0.00],
+    shift:    [0.00, 1.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00],
+    noise:    [0.10, 0.10, 0.70, 0.10, 0.00, 0.00, 0.00, 0.00],
+    modulo:   [0.30, 0.25, 0.20, 0.25, 0.00, 0.00, 0.00, 0.00],
+    wave:     [0.00, 0.00, 0.00, 0.00, 1.00, 0.00, 0.00, 0.00],
+    jungle:   [0.00, 0.00, 0.00, 0.00, 0.00, 1.00, 0.00, 0.00],
+    sector:   [0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 1.00, 0.00],
+    signal:   [0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 1.00],
   };
   const CYCLE_FRAMES = 300; // 5s at 60fps
   let _cycleModes = moduloDistinctModes(mod);
@@ -4408,16 +4686,16 @@ function startAnim(canvasId, mod) {
   const BREATH_FRAMES = 300;
   function step(ops) {
     next.set(grid);
-    let pFb, pSh, pNo, pMo, pWv, pOr;
+    let pFb, pSh, pNo, pMo, pWv, pOr, pGl, pSg;
     if (_xfadeT < XFADE_FRAMES && _cycleModes.length > 1) {
       // crossfade: lerp probs between _xfadeFrom and _xfadeTo
       const alpha = _xfadeT / XFADE_FRAMES;
       const fP = MODE_PROBS[_xfadeFrom] || MODE_PROBS.feedback;
       const tP = MODE_PROBS[_xfadeTo]   || MODE_PROBS.feedback;
-      [pFb, pSh, pNo, pMo, pWv, pOr] = fP.map((p, i) => p * (1 - alpha) + tP[i] * alpha);
+      [pFb, pSh, pNo, pMo, pWv, pOr, pGl, pSg] = fP.map((p, i) => p * (1 - alpha) + tP[i] * alpha);
       _xfadeT++;
     } else {
-      [pFb, pSh, pNo, pMo, pWv, pOr] = MODE_PROBS[_dtMode] || MODE_PROBS.feedback;
+      [pFb, pSh, pNo, pMo, pWv, pOr, pGl, pSg] = MODE_PROBS[_dtMode] || MODE_PROBS.feedback;
       if (_dtMode === 'noise') {
         const PHASE1 = 225; // sin² breath ends here (t=0.75, pNo=0)
         if (_breathFrame < PHASE1) {
@@ -4438,7 +4716,7 @@ function startAnim(canvasId, mod) {
         }
       }
     }
-    const cFb=pFb, cSh=pFb+pSh, cNo=cSh+pNo, cMo=cNo+pMo, cWv=cMo+pWv, cJg=cWv+pOr;
+    const cFb=pFb, cSh=pFb+pSh, cNo=cSh+pNo, cMo=cNo+pMo, cWv=cMo+pWv, cJg=cWv+pOr, cGl=cJg+pGl, cSg=cGl+pSg;
     for (let i=0;i<(ops||8);i++) {
       const r=Math.random();
       if      (r<cFb) animFeedback();
@@ -4447,6 +4725,8 @@ function startAnim(canvasId, mod) {
       else if (r<cMo) animModulo();
       else if (r<cWv) animWave();
       else if (r<cJg) animJungle();
+      else if (r<cGl) animSector();
+      else if (r<cSg) animSignal();
     }
     grid.set(next);
     // Lerp current scales toward targets — completes in ~20% of the cycle (≈1s at 60fps)
@@ -5034,14 +5314,16 @@ function toggleOverview() {
     if (inventoryModuloId) closeInventory();
     _setOverviewActive(true);
     _overviewSaved = { stx: tx, sty: ty, sscale: scale };
-    // Tighter cluster + smaller padding on mobile so the fit-all scale
-    // stays readable. With desktop values (compress 0.74, pad 60) on a
-    // 375-wide viewport, fitScale collapses to ~0.108 and titles become
-    // unreadable. Tighter values bump it to ~0.20-0.25 — small but legible.
+    // Mobile compress factor — calculated to be the tightest cluster that
+    // doesn't cause card overlap. Same-row cards are COL_W apart so need
+    // f ≥ CARD_W/COL_W; staggered rows have ROW_H separation > CARD_H so
+    // they're always safe at this f. Plus 0.02 safety margin → ~25px gap
+    // between adjacent same-row cards on mobile.
     const isTouch = matchMedia('(pointer: coarse)').matches ||
                     Math.min(innerWidth, innerHeight) <= 768;
-    const f   = isTouch ? 0.40 : _OVERVIEW_COMPRESS;
-    const pad = isTouch ? 15   : 60;
+    const noOverlapF = (CARD_W / COL_W) + 0.02;  // ~0.66 with current consts
+    const f   = isTouch ? noOverlapF : _OVERVIEW_COMPRESS;
+    const pad = isTouch ? 15         : 60;
     // compute bounding box of compressed positions
     const ccx = _origModuloPos.map(o => _centroidCx + (o.cx - _centroidCx) * f);
     const ccy = _origModuloPos.map(o => _centroidCy + (o.cy - _centroidCy) * f);
@@ -7567,6 +7849,7 @@ const _LOCK_BTN_SVG =
   '<svg viewBox="0 0 12 12" width="10" height="10">' +
     '<path d="M2.5 6.5 L5 9 L9.5 3.5" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/>' +
   '</svg>';
+
 </script>
 
 <!-- ═══ Firebase Realtime DB — shared session state ═══
