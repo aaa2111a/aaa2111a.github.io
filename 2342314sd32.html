@@ -1563,13 +1563,28 @@ button, a, [role="button"], .pill, .info-btn, .toggle-btn, .modal-close,
      In overview mode the cards compress to tiny tiles. The phase diagram
      (mode/size sequence chips) becomes unreadable noise that clutters the
      overview. Hide it during overview only — normal view keeps it visible.
-     Same reasoning hides the SETTLE button — useless at overview scale. */
+     Same reasoning hides the SETTLE button — useless at overview scale.
+     Stats row trimmed to just the first item (Tokens "X/8") — the others
+     (colors, dt.*, r.*, BIOS) are unreadable noise at compressed scale. */
   html.overview-active .phase-diagram,
   html.overview-active .pd-col,
   html.overview-active .featured-wrap,
   html.overview-active .card-settle-btn {
     display: none;
   }
+  html.overview-active .modulo-stats-row .cs-item:not(:first-child) {
+    display: none;
+  }
+  /* Shrink token row height in overview — default 6px padding makes each
+     row ~24px tall; with 8 tokens the column eats vertical space without
+     adding info at compressed scale. 1px padding gives ~14px rows. */
+  html.overview-active .tr-header {
+    padding-top: 1px;
+    padding-bottom: 1px;
+  }
+  html.overview-active .tr-tags { gap: 2px; }
+  html.overview-active .tr-tag { font-size: 7px; padding: 0 3px; }
+  html.overview-active .tr-rand { display: none; }
 
   /* ── Info window → bottom sheet ────────────────────────────── */
   #info-window {
