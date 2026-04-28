@@ -550,9 +550,32 @@ button, a, [role="button"], .pill, .info-btn, .toggle-btn, .modal-close,
 .pd-col-rect .pd-col-body { justify-content:space-evenly; padding:2px 0; }
 .pd-col-bios .pd-col-body { position:relative; justify-content:flex-start; padding:4px 0 14px; gap:3px; }
 .pd-col-rect .pd-col-body { flex-direction:column; align-items:stretch; }
-.pd-rect-section { display:flex; flex-direction:column; flex:0 0 auto; justify-content:flex-start; align-items:stretch; gap:1px; }
+/* flex-wrap:wrap on the column flex makes overflowing rows spill into a new
+   sub-column to the right instead of pushing the section vertically out of
+   its allocated body space. flex:1 1 0 + min-height:0 lets the rvSection (top)
+   and splitRow (bottom) share the body height equally — neither can grow
+   past its share. align-content:flex-start prevents wrapped sub-columns from
+   being stretched to fill the section's full height. .pd-rect-section-half
+   below overrides flex back to 1 1 50% for the side-by-side half sections
+   (those need 50% width inside the row-split, not 50% height share). */
+.pd-rect-section { display:flex; flex-direction:column; flex:1 1 0; min-height:0; flex-wrap:wrap; align-content:flex-start; justify-content:flex-start; align-items:stretch; gap:1px; }
 .pd-rect-divider { height:0.5px; background:rgba(128,128,128,0.20); flex-shrink:0; margin:2px 8px; }
-.pd-col-rect .pd-row { flex:0 0 auto; flex-direction:row; align-items:center; justify-content:flex-start; padding:0 10px; gap:5px; }
+/* Bottom split: size (left) + density (right) side-by-side, divided vertically */
+.pd-rect-row-split { display:flex; flex-direction:row; align-items:stretch; flex:1 1 0; min-height:0; }
+.pd-rect-section-half { flex:1 1 50%; min-width:0; padding:0; }
+.pd-rect-vdivider { width:0.5px; background:rgba(128,128,128,0.20); align-self:stretch; flex-shrink:0; margin:2px 0; }
+.pd-col-rect .pd-rect-row-split .pd-row { padding:0 3px; gap:2px; }
+/* Compact style applied to ALL rect-shift cells (variant + size + density)
+   so they read uniformly. Was previously only inside .pd-rect-row-split. */
+.pd-col-rect .pd-rect-cell { font-size:6.5px; letter-spacing:.02em; text-transform:uppercase; }
+/* Default rows: rendered muted + italic so they read as engine fallback, not user trait */
+.pd-rect-cell-default { opacity:0.45; font-style:italic; }
+/* Rows are 50% wide so flex-wrap on the column-direction parent produces at
+   most 2 sub-columns (each occupying half the section width). Combined with
+   align-items:stretch this keeps the wrapped sub-columns inside the section.
+   Row height is reduced from 16→11 so 3 rows fit per sub-column within the
+   section's flex share of the col body. */
+.pd-col-rect .pd-row { flex:0 0 auto; flex-direction:row; align-items:center; justify-content:flex-start; padding:0 4px; gap:3px; height:11px; width:50%; box-sizing:border-box; }
 .pd-col-bios .pd-row { flex:0 0 auto; }
 .pd-rect-dot { width:5px; height:5px; border-radius:50%; flex-shrink:0; background:#111; opacity:0; transition:opacity 0.15s; }
 .pd-rect-dot.pd-rect-dot-on { opacity:1; }
@@ -704,8 +727,9 @@ button, a, [role="button"], .pill, .info-btn, .toggle-btn, .modal-close,
 .token-row:last-child { border-bottom:none; }
 .tr-header {
   display:flex; align-items:center; gap:8px;
-  padding:6px 15px; cursor:pointer;
+  padding:6px 24px 6px 15px; cursor:pointer;
   transition:background 0.12s;
+  position:relative; /* anchor for the absolutely-positioned .tr-arrow */
 }
 .tr-header:hover { background:var(--row-hover); }
 .token-row.expanded .tr-header {
@@ -713,12 +737,24 @@ button, a, [role="button"], .pill, .info-btn, .toggle-btn, .modal-close,
   border-left:2px solid var(--row-active-border);
   padding-left:13px;
 }
-.tr-arrow { margin-left:auto; font-size:7px; color:var(--addr-color); transition:transform 0.18s; flex-shrink:0; }
-.tr-tags { display:flex; gap:3px; margin-left:5px; flex-shrink:0; }
+/* Arrow is ABSOLUTELY positioned at the right edge of the row, decoupled from
+   the flex layout. Always pinned to the same x position regardless of how many
+   tags are present or how addr is shrunk. The 24px padding-right on .tr-header
+   reserves space so flex content doesn't overlap with the arrow. */
+.tr-arrow {
+  position:absolute; right:8px; top:50%; transform:translateY(-50%);
+  font-size:7px; color:var(--addr-color); transition:transform 0.18s;
+}
+/* margin-left:auto pushes the right cluster (tags + rand + arrow) to the
+   right edge of the row. Combined with .tr-arrow having margin-left:4px (NOT
+   auto — having two auto margins on the same line splits the slack 50/50,
+   which centers the cluster instead of right-aligning it). */
+.tr-tags { display:flex; gap:3px; margin-left:auto; flex-shrink:0; }
 .tr-tag { font-size:8px; font-family:monospace; letter-spacing:.04em; color:var(--addr-color); border:0.5px solid var(--node-border); border-radius:4px; padding:1px 4px; }
 .tr-rand { width:15px; height:15px; border-radius:50%; border:0.5px solid var(--node-border); background:transparent; color:var(--addr-color); font-size:11px; line-height:1; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; flex-shrink:0; padding:0; margin-left:4px; transition:background 0.15s, color 0.15s, transform 0.35s; }
 .tr-rand:hover { background:var(--row-hover); color:var(--sv); transform:rotate(-180deg); }
-.token-row.expanded .tr-arrow { transform:rotate(90deg); }
+/* Combined transform: keep vertical centering AND apply the rotation when expanded */
+.token-row.expanded .tr-arrow { transform:translateY(-50%) rotate(90deg); }
 /* Non-owned tokens (edit-blocked) — header stays legible, the expanded panel
    dims. The swatch next to the rank keeps full opacity so the actual color
    renders faithfully; the rank/address text is dimmed as a subtle signal of
@@ -789,7 +825,11 @@ button, a, [role="button"], .pill, .info-btn, .toggle-btn, .modal-close,
 .dlang-btn.active { background:var(--row-active-bg); color:var(--sv); border-color:var(--row-active-border); }
 .desire-words { font-size:8px; color:var(--sl); font-family:monospace; line-height:1.6; }
 .tr-idx { font-size:9px; font-family:monospace; color:var(--sl); min-width:22px; flex-shrink:0; }
-.tr-addr { font-size:9px; font-family:monospace; color:var(--addr-color); flex:1; }
+/* flex:0 1 auto — natural width, allowed to SHRINK only (not grow). This
+   lets margin-left:auto on .tr-tags consume the slack and pin the right
+   cluster. min-width:0 + ellipsis lets addr truncate when many tags fill
+   the row. */
+.tr-addr { font-size:9px; font-family:monospace; color:var(--addr-color); flex:0 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .tr-rank { font-size:7.5px; font-family:monospace; color:var(--sl); letter-spacing:.07em; text-transform:uppercase; flex-shrink:0; }
 /* Identity info row inside .tr-traits — ID + RANK displayed as read-only */
 .tr-ident {
@@ -1002,8 +1042,8 @@ button, a, [role="button"], .pill, .info-btn, .toggle-btn, .modal-close,
 /* sidebar — slide desde la izquierda */
 #expand-sidebar {
   position:absolute; left:0; top:0; bottom:0;
-  width:340px;
-  transform:translateX(-340px);
+  width:360px;
+  transform:translateX(-360px);
   transition:transform 0.32s cubic-bezier(0.25,0.46,0.45,0.94);
   z-index:5;
   overflow:visible;
@@ -1024,7 +1064,7 @@ button, a, [role="button"], .pill, .info-btn, .toggle-btn, .modal-close,
 /* card-left-expanded — card-left mientras está en el expand sidebar */
 .card-left-expanded {
   flex:unset;
-  width:340px; min-width:0;
+  width:360px; min-width:0;
   border-right:none;
   height:auto; min-height:100%;
 }
@@ -1035,11 +1075,20 @@ button, a, [role="button"], .pill, .info-btn, .toggle-btn, .modal-close,
 .card-left-expanded .inv-panel,
 .card-left-expanded .add-row {
   zoom:1.4;
-  width:calc(340px / 1.4);
+  width:calc(360px / 1.4);
 }
 /* Label alineado al top cuando los botones wrappean a múltiples líneas */
 .card-left-expanded .tr-trait-line {
   align-items:flex-start;
+}
+/* Rank also shrinks (with ellipsis) in expand/fullscreen so the right cluster
+   keeps eating leftward when 6-7 tags fill the row and the addr already hit 0.
+   Priority: addr collapses first (high flex-shrink), then idx only as a last
+   resort — keeps the swatch column aligned across rows whenever possible. */
+.card-left-expanded .tr-addr { flex-shrink:1000; }
+.card-left-expanded .tr-idx {
+  flex:0 1 auto; min-width:0; flex-shrink:1;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
 }
 /* tab — botón ›/‹ que abre/cierra el sidebar */
 #expand-tab {
@@ -1058,7 +1107,7 @@ button, a, [role="button"], .pill, .info-btn, .toggle-btn, .modal-close,
   transition:left 0.32s cubic-bezier(0.25,0.46,0.45,0.94);
   user-select:none;
 }
-#expand-sidebar.open ~ #expand-tab { left:340px; }
+#expand-sidebar.open ~ #expand-tab { left:360px; }
 
 /* ── Inventory overlay ── */
 #inventory-overlay {
@@ -2010,6 +2059,7 @@ const DX_DIGIT_PATTERNS_INV = DX_DIGIT_PATTERNS.map(pattern => {
   return inv;
 });
 const DX_PATTERN_KEYS = ['x','plus','h','sq','num','numi','m','o'];
+const DX_ABBR = { x:'×', plus:'+', h:'—', sq:'sq', num:'#', numi:'#⁻', m:'m', o:'○' };
 const tokenDitherPatterns = {};
 const moduloDitherPatternSetters = {};
 function getTokenDitherPattern(modId, i) { return (tokenDitherPatterns[modId] && tokenDitherPatterns[modId][i] != null) ? tokenDitherPatterns[modId][i] : null; }
@@ -2049,6 +2099,53 @@ function clearTokenDitherPattern(modId, i) { if (!_canEditSlot(modId, i)) return
 function moduloDistinctDitherPatterns(mod) { const s=new Set(); mod.tokens.forEach((_,i)=>{ const v=getTokenDitherPattern(mod.id,i); if(v!==null) s.add(v); }); return [...s]; }
 function getModuloDxPattern(mod) { for (let i=0;i<mod.tokens.length;i++) { const v=getTokenDitherPattern(mod.id,i); if(v!==null) return v; } return null; }
 
+// Mode subset generator — independent rolls per mode using the weight as
+// probability. So feedback (0.20) appears in ~20% of hasMode tokens, blocks
+// (0.08) appears in ~8%, etc. The weights sum to 1.00 → average ~1 mode per
+// token, variance gives some tokens with 0/2/3/4+ modes naturally.
+// Re-rolls if 0 modes (rare, ~37% of single rolls) so every hasMode token
+// has at least 1 mode. Independent of rank.
+const ALL_MODES    = ['feedback','shift','noise','modulo','wave','jungle','sector','blocks'];
+const MODE_WEIGHTS = [0.20,0.12,0.16,0.12,0.13,0.10,0.09,0.08];
+function _genModesIndependent() {
+  let modes = [];
+  let safety = 32;
+  while (modes.length === 0 && safety-- > 0) {
+    modes = ALL_MODES.filter((m, idx) => _rng() < MODE_WEIGHTS[idx]);
+  }
+  if (modes.length === 0) modes = [ALL_MODES[0]]; // safety fallback (shouldn't hit)
+  return modes;
+}
+
+// Same independent-roll subset logic for DX patterns. Each DX appears in
+// ~weight*100 % of hasDX tokens. Weights sum to 1.00 → ~1 DX per token avg.
+const DX_WEIGHTS = [0.22,0.18,0.15,0.13,0.11,0.09,0.07,0.05]; // matches DX_PATTERN_KEYS
+function _genDxIndependent() {
+  let dxs = [];
+  let safety = 32;
+  while (dxs.length === 0 && safety-- > 0) {
+    dxs = DX_PATTERN_KEYS.filter((k, idx) => _rng() < DX_WEIGHTS[idx]);
+  }
+  if (dxs.length === 0) dxs = [DX_PATTERN_KEYS[0]];
+  return dxs;
+}
+
+// Same independent-roll subset for rect-shift variants. Three variants today:
+// `core` (single rect, 8-direction shift), `core2` (clone of core for now,
+// will diverge), `ladder` (interference-beat variant). Weights ~0.33 each
+// (sums to 1.0 → average ~1 variant per token, like mode/dx).
+const RECT_VARIANTS        = ['core','core2','ladder'];
+const RECT_VARIANT_WEIGHTS = [0.34, 0.33, 0.33];
+function _genRectVariantsIndependent() {
+  let rvs = [];
+  let safety = 32;
+  while (rvs.length === 0 && safety-- > 0) {
+    rvs = RECT_VARIANTS.filter((v, idx) => _rng() < RECT_VARIANT_WEIGHTS[idx]);
+  }
+  if (rvs.length === 0) rvs = [RECT_VARIANTS[0]];
+  return rvs;
+}
+
 const TOKEN_DATA = [];
 for (let i = 0; i < TOTAL_TOKENS; i++) {
   const hasMode = _rng() < 0.75;
@@ -2058,20 +2155,30 @@ for (let i = 0; i < TOTAL_TOKENS; i++) {
   const hasBios = _rng() < 0.15;
   const hasDX   = _dxSet.has(i);
   const pal     = i % COLS_DATA.length;
+  const rank    = _rankPool[i];
+  // Subset of allowed modes/dxs (Option B sorting): independent rolls per
+  // mode/dx weighted by their respective weights. Each mode/dx appears in
+  // ~weight*100 % of tokens. `mode`/`dx` (singular) = currently selected
+  // default (first of subset). The editor can only set them to values in
+  // their subsets.
+  const modes = hasMode ? _genModesIndependent() : null;
+  const dxs   = hasDX   ? _genDxIndependent()   : null;
+  const rvs   = hasRS   ? _genRectVariantsIndependent() : null;
   TOKEN_DATA.push({
     palette: pal,
     sel:     Math.floor(_rng() * COLS_DATA[pal].length),
     speed:   20 + Math.floor(_rng() * 71),
     status:  _weightedPick(['connected','locked','unconnected'], [0.60, 0.20, 0.20]),
     owner:   OTHER_USERS[Math.floor(_rng() * OTHER_USERS.length)],
-    rank:    _rankPool[i],
+    rank,
     hasSz, hasMode, hasRS, hasRD, hasBios, hasDX,
-    sz:   hasSz   ? _weightedPick(['sm','md','lg'], [0.15,0.55,0.30]) : null,
-    mode: hasMode  ? _weightedPick(['feedback','shift','noise','modulo','wave','jungle','sector','blocks'], [0.20,0.12,0.16,0.12,0.13,0.10,0.09,0.08]) : null,
-    rs:   hasRS    ? _weightedPick(['sm','md','lg','xl'], [0.15,0.40,0.30,0.15]) : null,
-    rd:   hasRD    ? _weightedPick(['lo','md','hi','mx'], [0.30,0.35,0.25,0.10]) : null,
-    bios: hasBios  ? (_rng() < 0.70) : null,
-    dx:   hasDX    ? _weightedPick(DX_PATTERN_KEYS, [0.22,0.18,0.15,0.13,0.11,0.09,0.07,0.05]) : null,
+    sz:    hasSz   ? _weightedPick(['sm','md','lg'], [0.15,0.55,0.30]) : null,
+    modes, mode: modes ? modes[0] : null,
+    dxs,   dx:   dxs   ? dxs[0]   : null,
+    rvs,   rv:   rvs   ? rvs[0]   : null, // rect-shift variant subset (Option B)
+    rs:    hasRS  ? _weightedPick(['sm','md','lg','xl'], [0.15,0.40,0.30,0.15]) : null,
+    rd:    hasRD  ? _weightedPick(['lo','md','hi','mx'], [0.30,0.35,0.25,0.10]) : null,
+    bios:  hasBios ? (_rng() < 0.70) : null,
   });
 }
 
@@ -2227,6 +2334,18 @@ function moduloDistinctRectSizes(mod) {
   const seen = new Set(); mod.tokens.forEach((_, i) => { const v = getTokenRectSize(mod.id, i); if (v !== null) seen.add(v); }); return [...seen];
 }
 
+// Rect-shift VARIANT (rv): which algorithm a token contributes — `core`
+// (single rect, 8-direction) or `core2` (clone of core, evolving). Subset model
+// matches mode/dx — token has td.rvs (allowed) + td.rv (current selected).
+const tokenRectVariants = {};
+const moduloRectVariantSetters = {};
+function getTokenRectVariant(modId, i) { return (tokenRectVariants[modId] && tokenRectVariants[modId][i] != null) ? tokenRectVariants[modId][i] : null; }
+function setTokenRectVariant(modId, i, v) { if (!_canEditSlot(modId, i)) return; _writeSlotTrait(modId, i, 'rv', tokenRectVariants, v); }
+function clearTokenRectVariant(modId, i) { if (!_canEditSlot(modId, i)) return; _writeSlotTrait(modId, i, 'rv', tokenRectVariants, null); }
+function moduloDistinctRectVariants(mod) {
+  const seen = new Set(); mod.tokens.forEach((_, i) => { const v = getTokenRectVariant(mod.id, i); if (v !== null) seen.add(v); }); return [...seen];
+}
+
 const tokenRectDensities = {};
 const moduloRectDensitySetters = {};
 const moduloBiosTriggers = {}; // modId → (slotIdx) => pickText(slotIdx)
@@ -2344,8 +2463,8 @@ const userDraftTraits = {};
 // Shape of each entry: { owner, traits, lockedAt, lockedUntil }.
 const fbLocked = {};
 
-// Slot 0 (top) gets the most weight, last slot the least.
-// 1 slot→14, 2 slots→19/9, 3 slots→24/14/4
+// Slot 0 (top) gets the most weight, last slot the least. Total ≈ 28.
+// 1→14, 2→19/9, 3→14/9/5, 4→11/8/6/3, 5→9/7/6/4/2, 6→8/7/5/4/3/1
 function positionDefaultOps(nSlots, si) {
   if (nSlots <= 1) return 14;
   const sum = nSlots * (nSlots + 1) / 2;
@@ -2562,6 +2681,7 @@ function getTraitTags(modId, slotIdx) {
   if (getTokenSize(modId, slotIdx) !== null)        tags.push('SZ');
   if (getTokenMode(modId, slotIdx) !== null)         tags.push('M');
   if (getTokenRectSize(modId, slotIdx) !== null)     tags.push('RS');
+  if (getTokenRectVariant(modId, slotIdx) !== null)  tags.push('RV');
   if (getTokenRectDensity(modId, slotIdx) !== null)  tags.push('RD');
   const b = getBiosState(modId, slotIdx);
   if (b !== undefined)                               tags.push('BIOS');
@@ -2637,6 +2757,7 @@ function _initTokenTraits(modId, slotIdx, tokenNum) {
   if (td.sz)           setTokenSize(modId, slotIdx, td.sz);
   if (td.mode)         setTokenMode(modId, slotIdx, td.mode);
   if (td.rs)           setTokenRectSize(modId, slotIdx, td.rs);
+  if (td.rv)           setTokenRectVariant(modId, slotIdx, td.rv);
   if (td.rd)           setTokenRectDensity(modId, slotIdx, td.rd);
   if (td.bios !== null) setBiosOn(modId, slotIdx, td.bios);
   if (td.dx)            setTokenDitherPattern(modId, slotIdx, td.dx);
@@ -2658,7 +2779,7 @@ function buildPhaseDiagram(mod) {
   // RECT SHIFT and BIOS have fixed widths; colors + mode cols share the rest.
   const PD_RECT_W = 120;
   const PD_BIOS_W = 55;
-  const hasRect   = mod.tokens.some((t, si) => getTokenRectSize(mod.id, si) !== null || getTokenRectDensity(mod.id, si) !== null);
+  const hasRect   = mod.tokens.some((t, si) => getTokenRectSize(mod.id, si) !== null || getTokenRectDensity(mod.id, si) !== null || getTokenRectVariant(mod.id, si) !== null);
   const hasBios   = mod.tokens.some((t, si) => getBiosState(mod.id, si) !== undefined);
   const hasDX     = !!getModuloDxPattern(mod);
   const showLastCol = hasBios || hasDX;
@@ -2714,25 +2835,53 @@ function buildPhaseDiagram(mod) {
     return `<div class="pd-col pd-col-mode" data-mi="${mi}"><div class="pd-col-hdr"><span class="pd-col-hdr-label">Mode ${mi + 1}</span><span class="pd-hdr-dots">${hdrDots}</span></div><div class="pd-col-body"><div class="pd-mode-info"><span class="pd-mode-name">${mode}</span>${sz !== null ? `<span class="pd-mode-sz">${szLabel}</span>` : ''}</div></div><div class="pd-bar"><div class="pd-fill"></div></div></div>`;
   }).join('') || `<div class="pd-col pd-col-mode pd-col-active" data-mi="0"><div class="pd-col-hdr"><span class="pd-col-hdr-label">Mode 1</span></div><div class="pd-col-body"><div class="pd-mode-info"><span class="pd-mode-name">feedback</span><span class="pd-mode-sz">(default)</span></div></div><div class="pd-bar"><div class="pd-fill"></div></div></div>`;
 
-  // Rect-shift column — only rendered when at least one token has RS or RD
+  // Rect-shift column — variant on top (full-width), size + density split
+  // side-by-side below. Uses short nicknames (sm/md/lg/xl, lo/md/hi/mx) so
+  // many selections fit. Defaults surface when rect-shift is active but a
+  // specific sub-trait is empty (engine silently uses 'md'/'md'/'core').
   {
-    const _rsNames = { sm:'small Size', md:'medium Size', lg:'large Size', xl:'x-large Size' };
-    const _rdNames = { lo:'low Density', md:'medium Density', hi:'high Density', mx:'max Density' };
-    const hasAnyRS = mod.tokens.some((t, si) => getTokenRectSize(mod.id, si) !== null);
+    const _rsShort = { sm:'sm', md:'md', lg:'lg', xl:'xl' };
+    const _rdShort = { lo:'lo', md:'md', hi:'hi', mx:'mx' };
+    const _rvShort = { core:'core', core2:'core2', ladder:'ladder' };
+    const hasAnyRS = mod.tokens.some((t, si) => getTokenRectSize(mod.id, si)    !== null);
     const hasAnyRD = mod.tokens.some((t, si) => getTokenRectDensity(mod.id, si) !== null);
+    const hasAnyRV = mod.tokens.some((t, si) => getTokenRectVariant(mod.id, si) !== null);
+    const rectActive = hasAnyRS || hasAnyRD || hasAnyRV;
+
     const rsRows = mod.tokens.map((t, si) => {
       const rs = getTokenRectSize(mod.id, si);
       if (rs === null) return '';
-      return `<div class="pd-row pd-rs-row" data-rs="${rs}"><span class="pd-rect-cell">${_rsNames[rs] || rs}</span><span class="pd-rect-dot pd-rect-dot-rs"></span></div>`;
+      return `<div class="pd-row pd-rs-row" data-rs="${rs}"><span class="pd-rect-cell">${_rsShort[rs] || rs}</span><span class="pd-rect-dot pd-rect-dot-rs"></span></div>`;
     }).join('');
     const rdRows = mod.tokens.map((t, si) => {
       const rd = getTokenRectDensity(mod.id, si);
       if (rd === null) return '';
-      return `<div class="pd-row pd-rd-row" data-rd="${rd}"><span class="pd-rect-cell">${_rdNames[rd] || rd}</span><span class="pd-rect-dot pd-rect-dot-rd"></span></div>`;
+      return `<div class="pd-row pd-rd-row" data-rd="${rd}"><span class="pd-rect-cell">${_rdShort[rd] || rd}</span><span class="pd-rect-dot pd-rect-dot-rd"></span></div>`;
     }).join('');
-    const sep = (hasAnyRS && hasAnyRD) ? `<div class="pd-rect-divider"></div>` : '';
-    const rectBody = `${hasAnyRS ? `<div class="pd-rect-section">${rsRows}</div>` : ''}${sep}${hasAnyRD ? `<div class="pd-rect-section">${rdRows}</div>` : ''}`;
-    var rectCol = `<div class="pd-col pd-col-rect"><div class="pd-col-hdr"><span class="pd-col-hdr-label">rect shift</span></div><div class="pd-col-body">${rectBody}</div><div class="pd-bar"></div></div>`;
+    const rvRows = mod.tokens.map((t, si) => {
+      const rv = getTokenRectVariant(mod.id, si);
+      if (rv === null) return '';
+      return `<div class="pd-row pd-rv-row" data-rv="${rv}"><span class="pd-rect-cell">${_rvShort[rv] || rv}</span><span class="pd-rect-dot pd-rect-dot-rv"></span></div>`;
+    }).join('');
+
+    // Defaults — short label + .pd-rect-cell-default class for muted/italic styling
+    const rsContent = hasAnyRS ? rsRows
+      : (rectActive ? `<div class="pd-row pd-rs-row pd-rs-default" data-rs="md"><span class="pd-rect-cell pd-rect-cell-default">md</span><span class="pd-rect-dot pd-rect-dot-rs"></span></div>` : '');
+    const rdContent = hasAnyRD ? rdRows
+      : (rectActive ? `<div class="pd-row pd-rd-row pd-rd-default" data-rd="md"><span class="pd-rect-cell pd-rect-cell-default">md</span><span class="pd-rect-dot pd-rect-dot-rd"></span></div>` : '');
+    const rvContent = hasAnyRV ? rvRows
+      : (rectActive ? `<div class="pd-row pd-rv-row pd-rv-default" data-rv="core"><span class="pd-rect-cell pd-rect-cell-default">core</span><span class="pd-rect-dot pd-rect-dot-rv"></span></div>` : '');
+
+    // Layout: variant on top (full width), size+density split below
+    const rvSection = rvContent ? `<div class="pd-rect-section">${rvContent}</div>` : '';
+    const splitParts = [];
+    if (rsContent) splitParts.push(`<div class="pd-rect-section pd-rect-section-half">${rsContent}</div>`);
+    if (rsContent && rdContent) splitParts.push(`<div class="pd-rect-vdivider"></div>`);
+    if (rdContent) splitParts.push(`<div class="pd-rect-section pd-rect-section-half">${rdContent}</div>`);
+    const splitRow = splitParts.length ? `<div class="pd-rect-row-split">${splitParts.join('')}</div>` : '';
+    const sepBetween = (rvSection && splitRow) ? `<div class="pd-rect-divider"></div>` : '';
+    const sectionsHtml = rvSection + sepBetween + splitRow;
+    var rectCol = `<div class="pd-col pd-col-rect"><div class="pd-col-hdr"><span class="pd-col-hdr-label">rect shift</span></div><div class="pd-col-body">${sectionsHtml}</div><div class="pd-bar"></div></div>`;
   }
 
   // Last column — BIOS if any token has bios set, else DX if any token has DX, else hidden
@@ -2955,8 +3104,10 @@ function buildLeft(mod) {
         <div class="cs-item"><div class="cs-label">dt.size</div><div class="cs-value" id="sz-${mod.id}">-</div></div>
         <div class="cs-item"><div class="cs-label">dt.mode</div><div class="cs-value" id="mstat-${mod.id}">${moduloDistinctModes(mod).map(m=>MODE_ABBR[m]||m).join('/')}</div></div>
         <div class="cs-item"><div class="cs-label">r.size</div><div class="cs-value" id="rs-${mod.id}">${moduloDistinctRectSizes(mod).join('/')}</div></div>
+        <div class="cs-item"><div class="cs-label">r.var</div><div class="cs-value" id="rv-${mod.id}">${moduloDistinctRectVariants(mod).join('/') || '-'}</div></div>
         <div class="cs-item"><div class="cs-label">r.density</div><div class="cs-value" id="rd-${mod.id}">${moduloDistinctRectDensities(mod).join('/')}</div></div>
         <div class="cs-item"><div class="cs-label">BIOS</div><div class="cs-value" id="dstat-${mod.id}">${dlangs}</div></div>
+        <div class="cs-item"><div class="cs-label">DX</div><div class="cs-value" id="dxstat-${mod.id}">${(()=>{ const v=getModuloDxPattern(mod); return v ? (DX_ABBR[v]||v) : '-'; })()}</div></div>
       </div>
     </div>
     <div class="token-list" id="tlist-${mod.id}"></div>
@@ -3011,8 +3162,12 @@ function buildLeft(mod) {
   if (szstatEl) szstatEl.textContent = moduloDistinctSizes(mod).join('/') || '-'; // distinct sizes across mode-paired slots
   const rsstatEl = document.getElementById(`rs-${mod.id}`);
   if (rsstatEl) { const r = moduloDistinctRectSizes(mod); rsstatEl.textContent = r.length ? r.join('/') : '-'; }
+  const rvstatEl = document.getElementById(`rv-${mod.id}`);
+  if (rvstatEl) { const r = moduloDistinctRectVariants(mod); rvstatEl.textContent = r.length ? r.join('/') : '-'; }
   const rdstatEl = document.getElementById(`rd-${mod.id}`);
   if (rdstatEl) { const r = moduloDistinctRectDensities(mod); rdstatEl.textContent = r.length ? r.join('/') : '-'; }
+  const dxstatEl = document.getElementById(`dxstat-${mod.id}`);
+  if (dxstatEl) { const v = getModuloDxPattern(mod); dxstatEl.textContent = v ? (DX_ABBR[v] || v) : '-'; }
   // Speed stat: correct to total ops (sum of per-slot slider values) now that
   // buildTokenList has initialized moduloTokenOps for every slot.
   if (moduloTokenOps[mod.id]) {
@@ -3101,6 +3256,9 @@ function randomizeToken(mod, slotIdx) {
   if (td.hasRS) {
     setTokenRectSize(mod.id, slotIdx, ['sm','md','lg','xl'][Math.floor(Math.random()*4)]);
     if (moduloRectSizeSetters[mod.id]) moduloRectSizeSetters[mod.id]();
+    const _allowedRvs = (td.rvs && td.rvs.length) ? td.rvs : ['core','core2','ladder'];
+    setTokenRectVariant(mod.id, slotIdx, _allowedRvs[Math.floor(Math.random() * _allowedRvs.length)]);
+    if (moduloRectVariantSetters[mod.id]) moduloRectVariantSetters[mod.id]();
   }
   // RD
   if (td.hasRD) {
@@ -3443,7 +3601,10 @@ function buildTokenList(mod) {
     if (td.hasMode) {
       const { row: modeRow, btns: _modeBtns } = makeRow('MODE');
       modeBtns = _modeBtns;
-      makeBtnGroup(modeBtns, ['feedback','shift','noise','modulo','wave','jungle','sector','blocks'], getTokenMode(mod.id, i), v => {
+      // Only show buttons for modes in this token's allowed subset (td.modes).
+      // Falls back to all 8 modes if td.modes is missing (legacy / safety).
+      const allowedModes = (td.modes && td.modes.length) ? td.modes : ['feedback','shift','noise','modulo','wave','jungle','sector','blocks'];
+      makeBtnGroup(modeBtns, allowedModes, getTokenMode(mod.id, i), v => {
         if (v === null) {
           // Symmetry with the SIZE group: clearing mode also clears the
           // paired size (you can't have a size without an active mode).
@@ -3481,6 +3642,19 @@ function buildTokenList(mod) {
           updateTraitTags(mod.id, i);
         });
         shiftBody.appendChild(rsRow);
+
+        // VARIANT row — shows only the rect-shift variants in this token's
+        // allowed subset (td.rvs). Falls back to all variants if missing.
+        const { row: rvRow, btns: rvBtns } = makeRow('VARIANT');
+        const _ALL_RV_LABELS = [{label:'core',value:'core'},{label:'core2',value:'core2'},{label:'ladder',value:'ladder'}];
+        const allowedRvs = (td.rvs && td.rvs.length) ? td.rvs : ['core','core2','ladder'];
+        const rvLabels = _ALL_RV_LABELS.filter(l => allowedRvs.includes(l.value));
+        makeBtnGroup(rvBtns, rvLabels, getTokenRectVariant(mod.id, i), v => {
+          if (v === null) clearTokenRectVariant(mod.id, i); else setTokenRectVariant(mod.id, i, v);
+          if (moduloRectVariantSetters[mod.id]) moduloRectVariantSetters[mod.id]();
+          updateTraitTags(mod.id, i);
+        });
+        shiftBody.appendChild(rvRow);
       }
 
       if (td.hasRD) {
@@ -3530,11 +3704,15 @@ function buildTokenList(mod) {
     if (td.hasDX || getTokenDitherPattern(mod.id, i) !== null) {
       const dxBody = makeGroup('Dither');
       const { row: dxRow, btns: dxBtns } = makeRow('PATTERN');
-      const DX_LABELS = [
+      const _ALL_DX_LABELS = [
         {value:'x',label:'×'},{value:'plus',label:'+'},
         {value:'h',label:'—'},{value:'sq',label:'sq'},{value:'num',label:'#'},{value:'numi',label:'#⁻'},
         {value:'m',label:'m'},{value:'o',label:'○'},
       ];
+      // Filter to only the DX patterns in this token's allowed subset (td.dxs).
+      // Falls back to all 8 if td.dxs is missing (legacy / safety).
+      const allowedDxs = (td.dxs && td.dxs.length) ? td.dxs : _ALL_DX_LABELS.map(l => l.value);
+      const DX_LABELS = _ALL_DX_LABELS.filter(l => allowedDxs.includes(l.value));
       makeBtnGroup(dxBtns, DX_LABELS, getTokenDitherPattern(mod.id, i), v => {
         if (v === null) clearTokenDitherPattern(mod.id, i); else setTokenDitherPattern(mod.id, i, v);
         if (moduloDitherPatternSetters[mod.id]) moduloDitherPatternSetters[mod.id]();
@@ -3950,7 +4128,7 @@ function startAnim(canvasId, mod) {
         const y = (baseY - h + GRID_ROWS) % GRID_ROWS; // grows upward, wraps
         for (let w = -wHere; w <= wHere; w++) {
           const x = (sx + w + GRID_COLS) % GRID_COLS;
-          if (Math.random() < 0.8) next[idx(x, y)] = 1;
+          if (Math.random() < 0.8) next[idx(x, y)] = _pickWeighted();
         }
       }
     }
@@ -3959,6 +4137,10 @@ function startAnim(canvasId, mod) {
     const r=makeRect();
     for (let dy=0;dy<r.h;dy++) for (let dx=0;dx<r.w;dx++) {
       const cx=r.x+dx,cy=r.y+dy;
+      // Pyramid reinjection (~5% per cell) — counteracts the dominant-color
+      // amplification drift so the on-canvas distribution stays close to the
+      // pyramid weights instead of collapsing toward rank 1.
+      if (Math.random() < 0.05) { next[idx(cx,cy)] = _pickWeighted(); continue; }
       const nb=[grid[idx(cx-1,cy)],grid[idx(cx+1,cy)],grid[idx(cx,cy-1)],grid[idx(cx,cy+1)]];
       const count=new Array(PAL.length).fill(0);
       for (const n of nb) if (n < PAL.length) count[n]++;
@@ -4149,7 +4331,10 @@ function startAnim(canvasId, mod) {
     const _pickLit = () => {
       const N = PAL.length;
       if (N <= 2) return last;
-      const r = 1 - Math.pow(1 - Math.random(), 2.2);
+      // Bias toward LOW indices within accent range [1..last] so accent colors
+      // follow rank prominence (rank 2 most common, rank N rarest) — consistent
+      // with the pyramid distribution used everywhere else.
+      const r = Math.pow(Math.random(), 2.2);
       return 1 + Math.floor(r * last);
     };
     // BANDS — localized, three tiers (short / medium / long), anchored at (ox, oy)
@@ -4225,8 +4410,14 @@ function startAnim(canvasId, mod) {
   let _rdDistinct = moduloDistinctRectDensities(mod);
   let _rdCycleIdx = 0, _rdCycleFrames = 0;
   let _rdDensity = _rdDistinct[0] || 'md';
+  // Rect-shift VARIANT cycling — gathers distinct variants from all tokens
+  // in the modulo and rotates between them at CYCLE_FRAMES (same cadence
+  // as DT mode cycling). Newly-spawned rects use the active variant.
+  let _rvDistinct = moduloDistinctRectVariants(mod);
+  let _rvCycleIdx = 0, _rvCycleFrames = 0;
+  let _activeRectVariant = _rvDistinct[0] || 'core';
   let _activeDxPattern = getModuloDxPattern(mod);
-  // ── rectshifting1 — rect único original ──────────────────────────────────
+  // ── core variant — single rect, 8-direction shift (was _makeRect1) ────────
   function _makeRect1() {
     const p  = RS_PARAMS[_rsSize] || RS_PARAMS.md;
     const cw = p.min + Math.floor(Math.random() * (p.max - p.min));
@@ -4236,38 +4427,79 @@ function startAnim(canvasId, mod) {
     const [ddx, ddy] = DIRS[Math.floor(Math.random() * DIRS.length)];
     return { cx, cy, cw, ch, dx:ddx, dy:ddy, tiles: null };
   }
-  // ── rectshifting2 — escalera de sub-tiles dentro del mismo bounding box ──
+  // ── core2 variant — deformed blob (3-5 overlapping sub-rects within the
+  // bounding box). Shifts in any of the 8 directions; re-rolls dx/dy at
+  // random intervals during active phase for abrupt direction changes.
+  // Tiles share the rect's dx/dy (no per-tile direction) so the whole blob
+  // moves together but with mid-animation pivots.
   function _makeRect2() {
     const p  = RS_PARAMS[_rsSize] || RS_PARAMS.md;
+    const cw = p.min + Math.floor(Math.random() * (p.max - p.min));
+    const ch = p.min + Math.floor(Math.random() * (p.max - p.min));
+    const cx = Math.floor(Math.random() * Math.max(1, GRID_COLS - cw));
+    const cy = Math.floor(Math.random() * Math.max(1, GRID_ROWS - ch));
     const [ddx, ddy] = DIRS[Math.floor(Math.random() * DIRS.length)];
-    // Bounding box escalado x1.4 para compensar cobertura parcial de los tiles (~55%)
-    const bw = Math.min(GRID_COLS, Math.round((p.min + Math.floor(Math.random() * (p.max - p.min))) * 1.4));
-    const bh = Math.min(GRID_ROWS, Math.round((p.min + Math.floor(Math.random() * (p.max - p.min))) * 1.4));
+    const rerollIn = 5 + Math.floor(Math.random() * 11);
+    const nBlobs = 3 + Math.floor(Math.random() * 3); // 3-5 overlapping rects
+    const tiles = [];
+    for (let i = 0; i < nBlobs; i++) {
+      const tw = Math.max(3, Math.round(cw * (0.4 + Math.random() * 0.4)));
+      const th = Math.max(3, Math.round(ch * (0.4 + Math.random() * 0.4)));
+      const tx = cx + Math.floor(Math.random() * Math.max(1, cw - tw));
+      const ty = cy + Math.floor(Math.random() * Math.max(1, ch - th));
+      tiles.push({ x: tx, y: ty, w: tw, h: th });
+    }
+    return { cx, cy, cw, ch, dx: ddx, dy: ddy, tiles, rerollIn };
+  }
+  // ── ladder variant — INTERFERENCE BEAT: two sine waves at coprime
+  // frequencies sum into a compound wave. Tiles ride the compound Y curve
+  // and their height scales with the local envelope |compound| — fat at
+  // crests/troughs, thin at zero-crossings. Creates an AM / heartbeat look.
+  function _makeRect3() {
+    const p  = RS_PARAMS[_rsSize] || RS_PARAMS.md;
+    const bw = Math.min(GRID_COLS, Math.round((p.min + Math.floor(Math.random() * (p.max - p.min))) * 2.112));
+    const bh = Math.min(GRID_ROWS, Math.round((p.min + Math.floor(Math.random() * (p.max - p.min))) * 1.584));
     const bx = Math.floor(Math.random() * Math.max(1, GRID_COLS - bw));
     const by = Math.floor(Math.random() * Math.max(1, GRID_ROWS - bh));
-    const nTiles    = 3 + Math.floor(Math.random() * 3);
-    const tiles     = [];
-    const baseFracW = 0.35 + Math.random() * 0.30;
-    const baseFracH = 0.35 + Math.random() * 0.30;
-    const stepDX    = Math.random() < 0.5 ? 1 : -1;
-    const stepDY    = Math.random() < 0.5 ? 1 : -1;
-    const stepSz    = Math.floor(Math.min(bw, bh) * 0.22);
-    let cx = bx + Math.floor(Math.random() * Math.max(1, bw * 0.35));
-    let cy = by + Math.floor(Math.random() * Math.max(1, bh * 0.35));
+    // Two coprime frequency pairs for visible beat patterns
+    const FREQ_PAIRS = [[2,3],[3,5],[2,5],[3,4],[4,7]];
+    const [f1, f2] = FREQ_PAIRS[Math.floor(Math.random() * FREQ_PAIRS.length)];
+    const ph1 = Math.random() * Math.PI * 2;
+    const ph2 = Math.random() * Math.PI * 2;
+    const ampBase = bh * (0.22 + Math.random() * 0.08);
+    const nTiles = 6 + Math.floor(Math.random() * 4);
+    const tw     = Math.max(3, Math.round(bw * (0.198 + Math.random() * 0.132)));
+    const thBase = Math.max(3, Math.round(bh * (0.242 + Math.random() * 0.132)));
+    const thMin  = Math.max(2, Math.round(thBase * 0.25));
+    const tiles  = [];
     for (let i = 0; i < nTiles; i++) {
-      const scale = 1 - i * 0.08;
-      const tw = Math.max(3, Math.round(bw * baseFracW * scale));
-      const th = Math.max(3, Math.round(bh * baseFracH * scale));
-      const tx = Math.max(bx, Math.min(bx + bw - tw, cx));
-      const ty = Math.max(by, Math.min(by + bh - th, cy));
-      tiles.push({ x: tx, y: ty, w: tw, h: th });
-      cx += stepDX * stepSz;
-      cy += stepDY * stepSz;
+      const t = i / Math.max(1, nTiles - 1);
+      const w1 = Math.sin(t * f1 * Math.PI * 2 + ph1);
+      const w2 = Math.sin(t * f2 * Math.PI * 2 + ph2);
+      const compound = (w1 + w2) * 0.5; // -1..1
+      const th = Math.round(thMin + (thBase - thMin) * Math.abs(compound));
+      const tx = bx + Math.round(t * (bw - tw));
+      const ty = by + Math.round(bh * 0.5 + compound * ampBase - th * 0.5);
+      // Per-tile direction — each fragment scatters independently
+      const [tdx, tdy] = DIRS[Math.floor(Math.random() * DIRS.length)];
+      tiles.push({
+        x: Math.max(bx, Math.min(bx + bw - tw, tx)),
+        y: Math.max(by, Math.min(by + bh - th, ty)),
+        w: tw, h: th, dx: tdx, dy: tdy
+      });
     }
-    return { cx: bx, cy: by, cw: bw, ch: bh, dx: ddx, dy: ddy, tiles };
+    return { cx: bx, cy: by, cw: bw, ch: bh, dx: 1, dy: 0, tiles };
   }
-  // ── activo: rectshifting1 ─────────────────────────────────────────────────
-  function makeRandomRect() { return _makeRect1(); }
+
+  // ── Variant registry + dispatch ──────────────────────────────────────────
+  // Mirrors the mode/dx subset pattern. Variants are added here; the active
+  // variant for new rects comes from _activeRectVariant which cycles through
+  // the modulo's distinct variants (set by all tokens' rvs).
+  const RECT_SHIFT_VARIANTS = { core: _makeRect1, core2: _makeRect2, ladder: _makeRect3 };
+  function makeRandomRect() {
+    const fn = RECT_SHIFT_VARIANTS[_activeRectVariant] || RECT_SHIFT_VARIANTS.core;
+    return fn();
+  }
 
   // Convert RD_PARAMS ms durations to frame counts at 60fps
   function _rdFrameCount(field) {
@@ -4291,9 +4523,30 @@ function startAnim(canvasId, mod) {
   // Advances rect countdown timers — called once per frame from global loop
   function tickRects() {
     if (_rectsPaused) return;
+    // Gate: if no token in this modulo has any rect trait (RS/RD/RV),
+    // keep all rects inactive — otherwise the effect would run by default.
+    if (_rsDistinct.length === 0 && _rdDistinct.length === 0 && _rvDistinct.length === 0) {
+      for (let i = 0; i < rectShifts.length; i++) {
+        if (rectShifts[i].active) {
+          rectShifts[i].active = false;
+          rectShifts[i].countdown = _rdFrameCount('off');
+        }
+      }
+      return;
+    }
     for (let i = 0; i < rectShifts.length; i++) {
       const rs = rectShifts[i];
       rs.countdown--;
+      // Mid-animation direction reroll for core2 — only rects carrying
+      // rerollIn (keeps core/ladder rects untouched). All 8 directions.
+      if (rs.active && rs.rerollIn !== undefined) {
+        rs.rerollIn--;
+        if (rs.rerollIn <= 0) {
+          const d = DIRS[Math.floor(Math.random() * DIRS.length)];
+          rs.dx = d[0]; rs.dy = d[1];
+          rs.rerollIn = 5 + Math.floor(Math.random() * 11);
+        }
+      }
       if (rs.countdown <= 0) {
         if (rs.active) {
           rs.active = false;
@@ -4317,14 +4570,16 @@ function startAnim(canvasId, mod) {
       const rs = rectShifts[s];
       if (!rs.active) continue;
       if (rs.tiles) {
-        // rectshifting2 — sub-tiles
+        // rectshifting2 — sub-tiles; tiles may carry their own dx/dy (per-tile displacement)
         for (const t of rs.tiles) {
+          const tdx = t.dx !== undefined ? t.dx : rs.dx;
+          const tdy = t.dy !== undefined ? t.dy : rs.dy;
           for (let r = t.y; r < t.y + t.h; r++) {
             const rr = r % GRID_ROWS;
             for (let c = t.x; c < t.x + t.w; c++) {
               const cc = c % GRID_COLS;
-              const sr = ((rr - rs.dy) + GRID_ROWS) % GRID_ROWS;
-              const sc = ((cc - rs.dx) + GRID_COLS) % GRID_COLS;
+              const sr = ((rr - tdy) + GRID_ROWS) % GRID_ROWS;
+              const sc = ((cc - tdx) + GRID_COLS) % GRID_COLS;
               next[rr * GRID_COLS + cc]        = grid[sr * GRID_COLS + sc];
               _ditherNext[rr * GRID_COLS + cc] = _ditherNoise[sr * GRID_COLS + sc];
             }
@@ -4887,6 +5142,14 @@ function startAnim(canvasId, mod) {
         _rdDensity = _rdDistinct[_rdCycleIdx];
       }
     }
+    if (_rvDistinct.length > 1) {
+      _rvCycleFrames++;
+      if (_rvCycleFrames >= CYCLE_FRAMES) {
+        _rvCycleFrames = 0;
+        _rvCycleIdx = (_rvCycleIdx + 1) % _rvDistinct.length;
+        _activeRectVariant = _rvDistinct[_rvCycleIdx];
+      }
+    }
     _churnDither();
     _txtFrame++;
     if (_txtFrame % BIOS_CYCLE === 0) {
@@ -4962,6 +5225,12 @@ function startAnim(canvasId, mod) {
     if (el) el.textContent = _rsDistinct.length ? _rsDistinct.join('/') : '-';
     buildPhaseDiagram(mod);
   };
+  moduloRectVariantSetters[mod.id] = () => {
+    _rvDistinct = moduloDistinctRectVariants(mod);
+    _rvCycleIdx = 0; _rvCycleFrames = 0; _activeRectVariant = _rvDistinct[0] || 'core';
+    const el = document.getElementById(`rv-${mod.id}`);
+    if (el) el.textContent = _rvDistinct.length ? _rvDistinct.join('/') : '-';
+  };
   moduloRectDensitySetters[mod.id] = () => {
     _rdDistinct = moduloDistinctRectDensities(mod);
     _rdCycleIdx = 0; _rdCycleFrames = 0; _rdDensity = _rdDistinct[0] || 'md';
@@ -4983,6 +5252,8 @@ function startAnim(canvasId, mod) {
   moduloBiosCycleResetters[mod.id]  = () => { _biosCycleIdx = 0; };
   moduloDitherPatternSetters[mod.id] = () => {
     _activeDxPattern = getModuloDxPattern(mod);
+    const el = document.getElementById(`dxstat-${mod.id}`);
+    if (el) { const v = _activeDxPattern; el.textContent = v ? (DX_ABBR[v] || v) : '-'; }
   };
 }
 
@@ -5743,6 +6014,7 @@ function inventoryTraitTags(tokenNum) {
   if (td.hasSz)   tags.push('SZ');
   if (td.hasMode) tags.push('M');
   if (td.hasRS)   tags.push('RS');
+  if (td.rvs && td.rvs.length) tags.push('RV');
   if (td.hasRD)   tags.push('RD');
   if (td.hasBios) tags.push('BIOS');
   if (td.hasDX)   tags.push('DX');
