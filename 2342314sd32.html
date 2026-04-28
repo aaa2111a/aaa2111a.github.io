@@ -1588,10 +1588,22 @@ button, a, [role="button"], .pill, .info-btn, .toggle-btn, .modal-close,
 
   /* ── Bigger green dot for tap on mobile ──────────────────────
      Default 8px is hard to hit accurately on touch screens — bump to 14px
-     so the visual target matches the existing 44px ::after invisible hit
-     area (set in the global mobile pass). Affects all titlebar dots so
-     the row stays balanced. */
+     for the visual size. But the dot lives inside .world which has
+     transform:scale(...) — at the default mobile zoom (scale ~0.44) a 14px
+     dot renders as ~6px on screen, well below the 13px iOS minimum tap
+     target. So we add an invisible ::before pseudo-element that expands the
+     hit area without affecting layout: 14+40=54px CSS, which renders as
+     ~24px visual at scale 0.44 (and remains generous at higher zooms).
+     Drag on .card-tbar still works because touchstart bubbles up. */
   .modulo-card .dot { width: 14px; height: 14px; }
+  .modulo-card .dot.g { position: relative; }
+  .modulo-card .dot.g::before {
+    content: '';
+    position: absolute;
+    inset: -20px;
+    border-radius: 50%;
+    /* invisible — pointer-events default (auto) lets clicks bubble to .dot.g */
+  }
   .modulo-card .modulo-header { gap: 8px; }
 
   /* ── Wider expand window on mobile ───────────────────────────
@@ -1941,7 +1953,7 @@ for (let i = _rankPool.length - 1; i > 0; i--) {
 }
 // _rankPool[tokenId] = rank (1..TOTAL_TOKENS), unique
 
-// Fisher-Yates shuffle to pick exactly 22 DX-enabled tokens (~44%)
+// Fisher-Yates shuffle to pick exactly 44 DX-enabled tokens (~44% of TOTAL_TOKENS=100)
 const _dxSet  = new Set();
 const _dxPool = Array.from({ length: TOTAL_TOKENS }, (_, i) => i);
 for (let i = _dxPool.length - 1; i > 0; i--) {
@@ -1951,6 +1963,10 @@ for (let i = _dxPool.length - 1; i > 0; i--) {
 _dxPool.slice(0, Math.round(TOTAL_TOKENS * 0.44)).forEach(i => _dxSet.add(i));  // ~44% DX
 
 // ── Dither Pattern Trait ────────────────────────────────────────────────────
+// Patterns marked "internal" are NOT exposed in DX_PATTERN_KEYS / DX_LABELS —
+// they're only rendered as part of the composite "m" multi pattern (see below
+// and _applyDither). dot/slash/v/corners are unused legacy entries kept for
+// reference; they may be removed in a future cleanup.
 const DX_PATTERNS = {
   x:       [[0,0],[0,5],[1,1],[1,4],[2,2],[2,3],[3,2],[3,3],[4,1],[4,4],[5,0],[5,5]],
   dot:     [[0,0],[0,1],[1,0],[1,1],[2,0],[2,1]],
@@ -1960,7 +1976,17 @@ const DX_PATTERNS = {
   v:       [[0,2],[0,3],[1,2],[1,3],[2,2],[2,3],[3,2],[3,3],[4,2],[4,3],[5,2],[5,3]],
   corners: [[0,0],[0,1],[1,0],[1,1],[0,4],[0,5],[1,4],[1,5],[4,0],[4,1],[5,0],[5,1],[4,4],[4,5],[5,4],[5,5]],
   sq:      [[0,0],[0,1],[0,2],[0,3],[0,4],[0,5],[5,0],[5,1],[5,2],[5,3],[5,4],[5,5],[1,0],[2,0],[3,0],[4,0],[1,5],[2,5],[3,5],[4,5]],
+  // ── internal (used only as components of the "m" multi pattern) ────────
+  tri:     [[1,2],[1,3],[2,1],[2,2],[2,3],[2,4],[3,1],[3,2],[3,3],[3,4],[4,0],[4,1],[4,2],[4,3],[4,4],[4,5]],
+  circle:  [[0,1],[0,2],[0,3],[0,4],[1,0],[1,5],[2,0],[2,5],[3,0],[3,5],[4,0],[4,5],[5,1],[5,2],[5,3],[5,4]],
+  diamond: [[0,2],[0,3],[1,1],[1,4],[2,0],[2,5],[3,0],[3,5],[4,1],[4,4],[5,2],[5,3]],
+  checker: [[0,0],[0,1],[0,4],[0,5],[1,0],[1,1],[1,4],[1,5],[2,2],[2,3],[3,2],[3,3],[4,0],[4,1],[4,4],[4,5],[5,0],[5,1],[5,4],[5,5]],
+  // Small mini-circle outline — used by 'o' (Lego-stud look, hollow). 8 px ring centered in 6×6.
+  legoStud:[[1,2],[1,3],[2,1],[2,4],[3,1],[3,4],[4,2],[4,3]],
 };
+// Members of the "m" multi pattern — each cell deterministically picks one
+// shape based on its grid position (stays stable across frames).
+const _DX_MULTI = ['tri','circle','diamond','checker'];
 // Digit patterns — 5×7 px font centered in 12×12 (row offset +2, col offset +3)
 const DX_DIGIT_PATTERNS = [
   [[2,4],[2,5],[2,6],[3,3],[3,7],[4,3],[4,7],[5,3],[5,7],[6,3],[6,7],[7,3],[7,7],[8,4],[8,5],[8,6]], // 0
@@ -1983,7 +2009,7 @@ const DX_DIGIT_PATTERNS_INV = DX_DIGIT_PATTERNS.map(pattern => {
       if (!set.has(r * 12 + c)) inv.push([r, c]);
   return inv;
 });
-const DX_PATTERN_KEYS = ['x','plus','h','sq','num','numi'];
+const DX_PATTERN_KEYS = ['x','plus','h','sq','num','numi','m','o'];
 const tokenDitherPatterns = {};
 const moduloDitherPatternSetters = {};
 function getTokenDitherPattern(modId, i) { return (tokenDitherPatterns[modId] && tokenDitherPatterns[modId][i] != null) ? tokenDitherPatterns[modId][i] : null; }
@@ -2025,7 +2051,7 @@ function getModuloDxPattern(mod) { for (let i=0;i<mod.tokens.length;i++) { const
 
 const TOKEN_DATA = [];
 for (let i = 0; i < TOTAL_TOKENS; i++) {
-  const hasMode = _rng() < 0.60;
+  const hasMode = _rng() < 0.75;
   const hasSz   = hasMode; // SIZE exists iff MODE exists
   const hasRS   = _rng() < 0.40;
   const hasRD   = _rng() < 0.30;
@@ -2041,11 +2067,11 @@ for (let i = 0; i < TOTAL_TOKENS; i++) {
     rank:    _rankPool[i],
     hasSz, hasMode, hasRS, hasRD, hasBios, hasDX,
     sz:   hasSz   ? _weightedPick(['sm','md','lg'], [0.15,0.55,0.30]) : null,
-    mode: hasMode  ? _weightedPick(['feedback','shift','noise','modulo','wave','jungle','sector','signal'], [0.20,0.12,0.16,0.12,0.13,0.10,0.09,0.08]) : null,
+    mode: hasMode  ? _weightedPick(['feedback','shift','noise','modulo','wave','jungle','sector','blocks'], [0.20,0.12,0.16,0.12,0.13,0.10,0.09,0.08]) : null,
     rs:   hasRS    ? _weightedPick(['sm','md','lg','xl'], [0.15,0.40,0.30,0.15]) : null,
     rd:   hasRD    ? _weightedPick(['lo','md','hi','mx'], [0.30,0.35,0.25,0.10]) : null,
     bios: hasBios  ? (_rng() < 0.70) : null,
-    dx:   hasDX    ? _weightedPick(DX_PATTERN_KEYS, [0.18,0.15,0.18,0.16,0.17,0.16]) : null,
+    dx:   hasDX    ? _weightedPick(DX_PATTERN_KEYS, [0.22,0.18,0.15,0.13,0.11,0.09,0.07,0.05]) : null,
   });
 }
 
@@ -2131,7 +2157,7 @@ function moduloBiosStatText(mod) {
 
 const tokenModes = {}; // { [modId]: { [slotIdx]: modeName } }
 const moduloModeSetters = {};
-const MODE_ABBR = { feedback:'fb', shift:'sh', noise:'no', modulo:'mo', wave:'wv', jungle:'jg', sector:'se', signal:'sg' };
+const MODE_ABBR = { feedback:'fb', shift:'sh', noise:'no', modulo:'mo', wave:'wv', jungle:'jg', sector:'se', blocks:'bl' };
 
 const tokenSizes = {}; // { [modId]: { [slotIdx]: sizeName } }
 const moduloSizeSetters = {};
@@ -2139,10 +2165,10 @@ const SIZE_SCALES       = { sm:0.4,  md:1.0, lg:2.0 };
 const SHIFT_BASE_SCALES = { sm:0.15, md:0.4, lg:0.8 }; // one step down — used for non-zone areas in shift mode
 const SHIFT_ZONE_SCALES = { sm:1.0,  md:2.0, lg:2.5 }; // in-zone scale for shift mode (lg boosted)
 
-// SIGNAL_TUNING — variant with smaller, makeRect-compatible sizes (no full-width bands).
+// BLOCKS_TUNING — variant with smaller, makeRect-compatible sizes (no full-width bands).
 // Defaults captured from user tuning session (2026-04-27).
-// Read by animSignal; was previously tunable via floating panel (removed 2026-04-27).
-window.SIGNAL_TUNING = {
+// Read by animBlocks; was previously tunable via floating panel (removed 2026-04-27).
+window.BLOCKS_TUNING = {
   skipPct:             50,
   feedbackMix:         73,
   pBands:              87,
@@ -2164,14 +2190,14 @@ function moduloDistinctSizes(mod) {
   const seen = new Set(); mod.tokens.forEach((_, i) => { const v = getTokenSize(mod.id, i); if (v !== null) seen.add(v); }); return [...seen];
 }
 // Returns the size set on the first slot whose mode matches modeName, or null.
-// `signal` and `modulo` modes disallow `lg` — clamped to `md` here so a
-// randomized token with mode+lg combo doesn't bypass the UI restriction.
+// `blocks`, `modulo`, and `sector` modes disallow `lg` — clamped to `md` here
+// so a randomized token with mode+lg combo doesn't bypass the UI restriction.
 function getSizeForMode(mod, modeName) {
   for (let i = 0; i < mod.tokens.length; i++) {
     if (getTokenMode(mod.id, i) === modeName) {
       const sz = getTokenSize(mod.id, i);
       if (sz !== null) {
-        if ((modeName === 'signal' || modeName === 'modulo') && sz === 'lg') return 'md';
+        if ((modeName === 'blocks' || modeName === 'modulo' || modeName === 'sector') && sz === 'lg') return 'md';
         return sz;
       }
     }
@@ -3068,7 +3094,7 @@ function randomizeToken(mod, slotIdx) {
   }
   // Mode
   if (td.hasMode) {
-    setTokenMode(mod.id, slotIdx, ['feedback','shift','noise','modulo','wave','jungle','sector','signal'][Math.floor(Math.random()*8)]);
+    setTokenMode(mod.id, slotIdx, ['feedback','shift','noise','modulo','wave','jungle','sector','blocks'][Math.floor(Math.random()*8)]);
     if (moduloModeSetters[mod.id]) moduloModeSetters[mod.id]();
   }
   // RS
@@ -3383,11 +3409,12 @@ function buildTokenList(mod) {
       _syncLgBtn = () => {
         const mode = getTokenMode(mod.id, i);
         const isModulo   = mode === 'modulo';
-        const isSignal  = mode === 'signal';
+        const isBlocks   = mode === 'blocks';
+        const isSector   = mode === 'sector';
         const isFeedback = mode === 'feedback';
-        // signal also disallows large size — bands at lg scale break the
-        // localized look the mode is tuned for.
-        const hideLg = isModulo || isSignal;
+        // blocks/sector also disallow large size — bands/glitch ops at lg
+        // scale break the localized look those modes are tuned for.
+        const hideLg = isModulo || isBlocks || isSector;
         if (lgBtn) {
           lgBtn.style.display = hideLg ? 'none' : '';
           if (hideLg && lgBtn.classList.contains('active')) {
@@ -3416,7 +3443,7 @@ function buildTokenList(mod) {
     if (td.hasMode) {
       const { row: modeRow, btns: _modeBtns } = makeRow('MODE');
       modeBtns = _modeBtns;
-      makeBtnGroup(modeBtns, ['feedback','shift','noise','modulo','wave','jungle','sector','signal'], getTokenMode(mod.id, i), v => {
+      makeBtnGroup(modeBtns, ['feedback','shift','noise','modulo','wave','jungle','sector','blocks'], getTokenMode(mod.id, i), v => {
         if (v === null) {
           // Symmetry with the SIZE group: clearing mode also clears the
           // paired size (you can't have a size without an active mode).
@@ -3506,6 +3533,7 @@ function buildTokenList(mod) {
       const DX_LABELS = [
         {value:'x',label:'×'},{value:'plus',label:'+'},
         {value:'h',label:'—'},{value:'sq',label:'sq'},{value:'num',label:'#'},{value:'numi',label:'#⁻'},
+        {value:'m',label:'m'},{value:'o',label:'○'},
       ];
       makeBtnGroup(dxBtns, DX_LABELS, getTokenDitherPattern(mod.id, i), v => {
         if (v === null) clearTokenDitherPattern(mod.id, i); else setTokenDitherPattern(mod.id, i, v);
@@ -4056,8 +4084,8 @@ function startAnim(canvasId, mod) {
       }
     }
   }
-  // ── signal helpers ─────────────────────────────────────────────────────
-  // Used by animSignal's spatial feedback gradient (signal corner ↘ feedback).
+  // ── blocks helpers ─────────────────────────────────────────────────────
+  // Used by animBlocks's spatial feedback gradient (blocks corner ↘ feedback).
   // Localized feedback op — same math as animFeedback but anchored at (ox,oy).
   function _localFeedbackAt(ox, oy) {
     const w = 2 + Math.floor(Math.random() * Math.max(1, Math.round(12 * _sizeScale)));
@@ -4086,22 +4114,23 @@ function startAnim(canvasId, mod) {
     else               animModulo();
   }
 
-  // ── signal ────────────────────────────────────────────────────────────
-  // Variant of `signal` with localized sizes (no full-width bands), tuned to
-  // sit visually compatible with the makeRect-based modes. Reads from
-  // window.SIGNAL_TUNING. Same _pickLit color preservation strategy.
-  let _signalT = 0;
-  function animSignal() {
-    const T = window.SIGNAL_TUNING;
-    // Spatial feedback gradient (TL=signal / BR=feedback). Three-point
-    // interpolation: 0 → pure signal, 50 → perfect bisection, 100 → pure
+  // ── blocks ────────────────────────────────────────────────────────────
+  // Localized makeRect-compatible sizes (no full-width bands), tuned to sit
+  // visually compatible with the other rect-based modes. Reads from
+  // window.BLOCKS_TUNING. Same _pickLit color preservation strategy.
+  // (Was named `signal` before 2026-04-27; renamed for visual clarity.)
+  let _blocksT = 0;
+  function animBlocks() {
+    const T = window.BLOCKS_TUNING;
+    // Spatial feedback gradient (TL=blocks / BR=feedback). Three-point
+    // interpolation: 0 → pure blocks, 50 → perfect bisection, 100 → pure
     // feedback. Checked BEFORE skip so feedback ops match `feedback` density.
     const ox = Math.floor(Math.random() * GRID_COLS);
     const oy = Math.floor(Math.random() * GRID_ROWS);
     if (T.feedbackMix > 0) {
       const tBlend = (ox / GRID_COLS + oy / GRID_ROWS) / 2;
-      // Visual-weight remap: signal ops paint many more cells per op than
-      // feedback ops, so a linear 50/50 op-count split LOOKS signal-heavy.
+      // Visual-weight remap: blocks ops paint many more cells per op than
+      // feedback ops, so a linear 50/50 op-count split LOOKS blocks-heavy.
       // pow(v, 0.4) compensates so v_ui=50 → effective ~0.76, 90 → ~0.96.
       const v = Math.pow(T.feedbackMix / 100, 0.4);
       const prob = v <= 0.5 ? (2 * v * tBlend) : (tBlend * (2 - 2 * v) + (2 * v - 1));
@@ -4111,7 +4140,7 @@ function startAnim(canvasId, mod) {
       }
     }
     if (Math.random() < T.skipPct / 100) return;
-    _signalT += 0.008;
+    _blocksT += 0.008;
     if (PAL.length < 2) return;
     const last = PAL.length - 1;
     const pB = T.pBands / 100;
@@ -4135,7 +4164,7 @@ function startAnim(canvasId, mod) {
       const wTier = Math.random();
       let bw;
       // Per-design tuning: hand-picked width ranges per (tier × SIZE).
-      // SIZE='lg' is blocked for signal (see _syncLgBtn), so only sm/md exist.
+      // SIZE='lg' is blocked for blocks (see _syncLgBtn), so only sm/md exist.
       //   short tier  — sm: 4-15,  md: 4-20
       //   medium tier — sm: 13-18, md: 16-22
       //   long tier   — sm: 23-25, md: 28-29
@@ -4145,7 +4174,7 @@ function startAnim(canvasId, mod) {
       else                   bw = (isMd ? 28 : 23) + Math.floor(Math.random() * (isMd ? 2 : 3));
       const ampY = 1 + Math.floor(Math.random() * Math.max(1, T.bandWaveAmp));
       const freq = 0.025 + Math.random() * 0.05;
-      const phase = _signalT * 1.2 + Math.random() * 6.28;
+      const phase = _blocksT * 1.2 + Math.random() * 6.28;
       const halfH = h / 2;
       const v = _pickLit();
       for (let dx = 0; dx < bw; dx++) {
@@ -4649,11 +4678,42 @@ function startAnim(canvasId, mod) {
 
   // ── Dither render — draws × marks within 1 cell ─────────────
   function _applyDither(buf, W, visCols, visRows, offC, offR) {
+    if (!_activeDxPattern) return;
+
+    // 'o' — small gray Lego-stud filled circles, NO target-color filter (paints
+    // over any cell color) and HIGHER density than the standard patterns. Color
+    // is hardcoded gray (independent of PAL) and rendered with 70% opacity via
+    // manual alpha-blend so the underlying cell color shows through subtly.
+    if (_activeDxPattern === 'o') {
+      const O_DENSITY = 0.90; // 36× the standard 0.025 — near-full cell coverage (90% of cells render the ring)
+      const O_R = 106, O_G = 98, O_B = 98; // #6a6262 — slightly warm dark grey
+      const ALPHA = 0.40;     // 40% opacity — gray ring blends subtly into cell color
+      const INV   = 1 - ALPHA;
+      const pattern = DX_PATTERNS.legoStud;
+      for (let r = 0; r < visRows; r++) {
+        for (let c = 0; c < visCols; c++) {
+          const gi = (offR + r) * GRID_COLS + (offC + c);
+          // No grid[gi] === target check — 'o' paints over ANY color
+          if (_ditherNoise[gi] > O_DENSITY) continue;
+          const baseRow = r * PIXEL, baseCol = c * PIXEL;
+          for (let k = 0; k < pattern.length; k++) {
+            const idx2 = ((baseRow + pattern[k][0]) * W + (baseCol + pattern[k][1])) * 4;
+            // Manual alpha composite: putImageData replaces (no compositing),
+            // so blend with the cell color already in the buffer.
+            buf[idx2]   = (O_R * ALPHA + buf[idx2]   * INV) | 0;
+            buf[idx2+1] = (O_G * ALPHA + buf[idx2+1] * INV) | 0;
+            buf[idx2+2] = (O_B * ALPHA + buf[idx2+2] * INV) | 0;
+            buf[idx2+3] = 255;
+          }
+        }
+      }
+      return;
+    }
+
     if (_ditherTarget < 0 || _ditherTarget >= PAL.length) return;
     const ci = Math.min(_ditherColorIdx, PAL.length - 1);
     if (ci === _ditherTarget) return;
     const [R, G, B] = PAL[ci];
-    if (!_activeDxPattern) return;
     if (_activeDxPattern === 'num' || _activeDxPattern === 'numi') {
       const maxRow = visRows * PIXEL, maxCol = W;
       const NUM_DENSITY = DITHER_DENSITY * 1.95;
@@ -4673,6 +4733,30 @@ function startAnim(canvasId, mod) {
             const pr = baseRow + pattern[k][0], pc = baseCol + pattern[k][1];
             if (pr >= maxRow || pc >= maxCol) continue;
             const idx2 = (pr * W + pc) * 4;
+            buf[idx2] = R; buf[idx2+1] = G; buf[idx2+2] = B; buf[idx2+3] = 255;
+          }
+        }
+      }
+    } else if (_activeDxPattern === 'm') {
+      // "multi" pattern — each qualifying cell renders one of N shapes
+      // (tri/circle/diamond/checker). Shape is picked by binning the cell's
+      // noise value into N equal bands across the [0, DITHER_DENSITY] range
+      // that defines "qualifying". Result: each shape gets exactly 1/N of
+      // qualifying cells in expectation — perfect equity by construction.
+      // Stays stable per cell (noise only churns 0.8%/frame) and follows
+      // rect shifts naturally because applyRectShifts shifts noise too.
+      const N = _DX_MULTI.length;
+      const bandWidth = DITHER_DENSITY / N;
+      for (let r = 0; r < visRows; r++) {
+        for (let c = 0; c < visCols; c++) {
+          const gi = (offR + r) * GRID_COLS + (offC + c);
+          if (grid[gi] !== _ditherTarget) continue;
+          if (_ditherNoise[gi] > DITHER_DENSITY) continue;
+          const shapeIdx = Math.min(N - 1, Math.floor(_ditherNoise[gi] / bandWidth));
+          const pattern = DX_PATTERNS[_DX_MULTI[shapeIdx]];
+          const baseRow = r * PIXEL, baseCol = c * PIXEL;
+          for (let k = 0; k < pattern.length; k++) {
+            const idx2 = ((baseRow + pattern[k][0]) * W + (baseCol + pattern[k][1])) * 4;
             buf[idx2] = R; buf[idx2+1] = G; buf[idx2+2] = B; buf[idx2+3] = 255;
           }
         }
@@ -4703,7 +4787,7 @@ function startAnim(canvasId, mod) {
     wave:     [0.00, 0.00, 0.00, 0.00, 1.00, 0.00, 0.00, 0.00],
     jungle:   [0.00, 0.00, 0.00, 0.00, 0.00, 1.00, 0.00, 0.00],
     sector:   [0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 1.00, 0.00],
-    signal:   [0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 1.00],
+    blocks:   [0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 1.00],
   };
   const CYCLE_FRAMES = 300; // 5s at 60fps
   let _cycleModes = moduloDistinctModes(mod);
@@ -4721,16 +4805,16 @@ function startAnim(canvasId, mod) {
   const BREATH_FRAMES = 300;
   function step(ops) {
     next.set(grid);
-    let pFb, pSh, pNo, pMo, pWv, pOr, pGl, pSg;
+    let pFb, pSh, pNo, pMo, pWv, pOr, pGl, pBl;
     if (_xfadeT < XFADE_FRAMES && _cycleModes.length > 1) {
       // crossfade: lerp probs between _xfadeFrom and _xfadeTo
       const alpha = _xfadeT / XFADE_FRAMES;
       const fP = MODE_PROBS[_xfadeFrom] || MODE_PROBS.feedback;
       const tP = MODE_PROBS[_xfadeTo]   || MODE_PROBS.feedback;
-      [pFb, pSh, pNo, pMo, pWv, pOr, pGl, pSg] = fP.map((p, i) => p * (1 - alpha) + tP[i] * alpha);
+      [pFb, pSh, pNo, pMo, pWv, pOr, pGl, pBl] = fP.map((p, i) => p * (1 - alpha) + tP[i] * alpha);
       _xfadeT++;
     } else {
-      [pFb, pSh, pNo, pMo, pWv, pOr, pGl, pSg] = MODE_PROBS[_dtMode] || MODE_PROBS.feedback;
+      [pFb, pSh, pNo, pMo, pWv, pOr, pGl, pBl] = MODE_PROBS[_dtMode] || MODE_PROBS.feedback;
       if (_dtMode === 'noise') {
         const PHASE1 = 225; // sin² breath ends here (t=0.75, pNo=0)
         if (_breathFrame < PHASE1) {
@@ -4751,7 +4835,7 @@ function startAnim(canvasId, mod) {
         }
       }
     }
-    const cFb=pFb, cSh=pFb+pSh, cNo=cSh+pNo, cMo=cNo+pMo, cWv=cMo+pWv, cJg=cWv+pOr, cGl=cJg+pGl, cSg=cGl+pSg;
+    const cFb=pFb, cSh=pFb+pSh, cNo=cSh+pNo, cMo=cNo+pMo, cWv=cMo+pWv, cJg=cWv+pOr, cGl=cJg+pGl, cBl=cGl+pBl;
     for (let i=0;i<(ops||8);i++) {
       const r=Math.random();
       if      (r<cFb) animFeedback();
@@ -4761,7 +4845,7 @@ function startAnim(canvasId, mod) {
       else if (r<cWv) animWave();
       else if (r<cJg) animJungle();
       else if (r<cGl) animSector();
-      else if (r<cSg) animSignal();
+      else if (r<cBl) animBlocks();
     }
     grid.set(next);
     // Lerp current scales toward targets — completes in ~20% of the cycle (≈1s at 60fps)
