@@ -8,6 +8,13 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Ultra&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/mp4-muxer@5.1.3/build/mp4-muxer.js"></script>
+<!-- ethers v6.13.4 (Phase 2 wallet connect). SRI pinned. Update both URL and -->
+<!-- integrity hash together when bumping version. -->
+<script
+  src="https://cdn.jsdelivr.net/npm/ethers@6.13.4/dist/ethers.umd.min.js"
+  integrity="sha384-6Zl0Pc8zjSz8KvmNeXRvUQgY4ryFb+BwDvKCmLYcBME0joAaru491tQgi9B7zsMM"
+  crossorigin="anonymous"
+  referrerpolicy="no-referrer"></script>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -294,6 +301,40 @@ button, a, [role="button"], .pill, .info-btn, .toggle-btn, .modal-close,
   line-height:1;
 }
 #info-btn:hover { opacity:0.7; }
+
+/* ── Wallet connect button ── */
+#wallet-connect-btn {
+  font-size:10px; padding:2px 9px; border-radius:20px;
+  border:0.5px solid var(--pill-border);
+  color:var(--pill-color);
+  background:var(--pill-bg);
+  font-family:inherit; cursor:pointer; flex-shrink:0;
+  display:inline-flex; align-items:center; justify-content:center;
+  transition:opacity 0.15s;
+  line-height:1;
+}
+#wallet-connect-btn:hover { opacity:0.7; }
+#wallet-info {
+  display:none; align-items:center; gap:6px;
+  font-size:10px; font-family:monospace; letter-spacing:.04em;
+  color:var(--topbar-text);
+}
+#wallet-info.connected { display:inline-flex; }
+#wallet-address {
+  padding:2px 9px; border-radius:20px;
+  border:0.5px solid var(--pill-border);
+  background:var(--pill-bg); color:var(--pill-color);
+}
+#wallet-disconnect-btn {
+  font-size:10px; padding:2px 7px; border-radius:20px;
+  border:0.5px solid var(--pill-border);
+  color:var(--pill-color); background:transparent;
+  font-family:inherit; cursor:pointer;
+  transition:opacity 0.15s;
+  line-height:1;
+}
+#wallet-disconnect-btn:hover { opacity:0.7; }
+#wallet-connect-btn.hidden { display:none; }
 
 /* ── Info backdrop ── */
 #info-backdrop {
@@ -1800,6 +1841,11 @@ button, a, [role="button"], .pill, .info-btn, .toggle-btn, .modal-close,
     <a href="homepage.html#app" class="topbar-home-dot" title="Homepage"></a>
     <div id="topbar-center">
       <span id="topbar-wallet"></span>
+      <button id="wallet-connect-btn" title="Connect wallet">connect</button>
+      <span id="wallet-info">
+        <span id="wallet-address"></span>
+        <button id="wallet-disconnect-btn" title="Disconnect">×</button>
+      </span>
       <span id="topbar-inv-sep">·</span>
       <span id="topbar-inv"></span>
     </div>
@@ -7476,11 +7522,11 @@ document.getElementById('export-btn').addEventListener('click', () => {
             <p><strong>Locked tokens are frozen:</strong> once a token is locked (see Settle), all its trait controls become read-only until the lock expires or you settle. This applies to your own locked tokens too. Traits can only be edited in draft state.</p>
             <p><strong>Color (C.)</strong> — each token has a color dot selector. The selected color is that token's contribution to the modulo's shared palette. Clicking the active dot deselects it — the token stops contributing to the palette entirely. Colors from all tokens are pooled and weighted by slot position.</p>
             <p><strong>Speed (S.)</strong> — slider from 1 to 28 ops per frame. The modulo's total ops/frame is the sum of all token speeds — 4 tokens at speed 14 = 56 ops total. More tokens in a modulo means more total activity even if individual speeds stay the same. The phase diagram shows each token's ops value and its share of the total.</p>
-            <p><strong>Mode (M.)</strong> — animation algorithm. Each mode has a distinct visual behavior: <em>feedback</em> loops cells back into themselves; <em>shift</em> displaces columns and rows; <em>noise</em> scatters random values; <em>modulo</em> applies a mathematical modulo to cell values; <em>wave</em> shifts rows by a sine curve; <em>jungle</em> applies simultaneous horizontal and vertical displacement. 2+ different modes set → they cycle every 5 seconds. The transition is a ~1 second crossfade where both modes run simultaneously blended.</p>
+            <p><strong>Mode (M.)</strong> — animation algorithm. 8 modes, each with a distinct visual behavior: <em>feedback</em> loops cells back into themselves; <em>shift</em> displaces columns and rows; <em>noise</em> scatters random values; <em>modulo</em> applies a mathematical modulo to cell values; <em>wave</em> shifts rows by a sine curve; <em>jungle</em> applies simultaneous horizontal and vertical displacement; <em>sector</em> drives heavier directional displacements with sub-shape variation; <em>blocks</em> paints rectangular regions with a spatial feedback gradient. 2+ different modes set → they cycle every 5 seconds. The transition is a ~1 second crossfade where both modes run simultaneously blended.</p>
             <p><strong>Size (Sz.)</strong> — sm / md / lg. Controls the scale of each DT operation per frame. Size is per-token and paired with that token's Mode — when the modulo cycles to a token's mode, that token's size activates with it. Size does not affect the Rect Shift rectangles — those are controlled by RS independently.</p>
             <p><strong>Rect Shift (RS / RD)</strong> — independent rectangles that slide across the canvas continuously. RS = size of the rects (sm / md / lg / xl), RD = how often they activate and for how long (lo / md / hi / mx).</p>
             <p><strong>BIOS</strong> — ON and OFF are both explicit states. ON: stamps a text message into the grid every 5 seconds at a random position. Turning BIOS ON triggers the text immediately — it does not wait for the next cycle. The stamp is written directly into the grid and permanently deformed by Rect Shifts between refreshes. OFF: the BIOS layer is suppressed for that token.</p>
-            <p><strong>DX</strong> — repeating dither pattern across the canvas. Pattern type (×, +, —, square, digits) is fixed per token. Rule: only the highest-rank token with DX in the modulo sets the active pattern. All others are ignored. The digit patterns (num / numi) are fragile — digit cells disappear when overwritten by other operations. On active modulos with high speed, digit patterns may partially or fully dissolve.</p>
+            <p><strong>DX</strong> — repeating dither pattern across the canvas. 8 pattern types, fixed per token: <em>×</em>, <em>+</em>, <em>—</em>, <em>sq</em> (square), <em>#</em> and <em>#⁻</em> (digit grids, normal and inverted), <em>m</em> (multi — picks one of triangle/circle/diamond/checker per cell), <em>○</em> (gray circles, neutral overlay that paints over any cell at higher density and ignores the modulo's palette). Rule: only the highest-rank token with DX in the modulo sets the active pattern. All others are ignored. The digit patterns (#, #⁻) are fragile — digit cells disappear when overwritten by other operations. On active modulos with high speed, digit patterns may partially or fully dissolve.</p>
             <hr style="border:none;border-top:0.5px solid var(--node-border);margin:6px 0;">
             <p><strong>Mode ↔ Size</strong> — paired per token. Each token's Size only applies when that token's Mode is the active one in the cycle. Deselecting Mode clears Size. Deselecting Size also clears Mode.</p>
             <p><strong>Speed → palette %</strong> — Speed does not affect color weight. Palette contribution is determined by slot position only, not by how fast a token runs.</p>
@@ -8268,6 +8314,129 @@ async function _initGuestSession() {
 
 if (window.FB) _initGuestSession();
 else window.addEventListener('fb-ready', _initGuestSession, { once: true });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Wallet connect (Phase 2 foundation — Pass 1)
+//
+// Pass 1 scope: load ethers, expose connect/disconnect UI, persist last
+// connected address in localStorage, listen to accountsChanged + chainChanged.
+// Does NOT touch SESSION_USER, Firebase, or ownership yet — that comes in
+// Pass 2/3 once the /wallets/ schema is migrated.
+//
+// Target chain: Sepolia (11155111). Chain warning is decorative until the
+// contract is deployed.
+// ─────────────────────────────────────────────────────────────────────────────
+const WALLET_TARGET_CHAIN_ID = 11155111; // Sepolia for testing; mainnet later
+const WALLET_LS_KEY = 'tc-wallet-address';
+
+let _walletAddress = null;     // 0x... when connected, null otherwise
+let _walletProvider = null;    // ethers.BrowserProvider instance
+let _walletChainId = null;     // chain currently exposed by the wallet
+
+function _shortAddr(a) {
+  if (!a || typeof a !== 'string') return '';
+  return a.slice(0, 6) + '…' + a.slice(-4);
+}
+
+function _renderWalletUI() {
+  const btn   = document.getElementById('wallet-connect-btn');
+  const info  = document.getElementById('wallet-info');
+  const addrEl= document.getElementById('wallet-address');
+  if (!btn || !info || !addrEl) return;
+  if (_walletAddress) {
+    btn.classList.add('hidden');
+    info.classList.add('connected');
+    addrEl.textContent = _shortAddr(_walletAddress);
+  } else {
+    btn.classList.remove('hidden');
+    info.classList.remove('connected');
+    addrEl.textContent = '';
+  }
+}
+
+async function _walletConnect({ silent = false } = {}) {
+  if (!window.ethers) {
+    if (!silent) alert('Wallet library not loaded.');
+    return null;
+  }
+  if (!window.ethereum) {
+    if (!silent) alert('No injected wallet found. Install MetaMask or Rabby.');
+    return null;
+  }
+  try {
+    _walletProvider = new window.ethers.BrowserProvider(window.ethereum, 'any');
+    // silent path = no popup, just check if accounts already authorized
+    const method = silent ? 'eth_accounts' : 'eth_requestAccounts';
+    const accounts = await window.ethereum.request({ method });
+    if (!accounts || !accounts.length) {
+      _walletProvider = null;
+      return null;
+    }
+    _walletAddress = window.ethers.getAddress(accounts[0]);
+    try {
+      const net = await _walletProvider.getNetwork();
+      _walletChainId = Number(net.chainId);
+    } catch { _walletChainId = null; }
+    localStorage.setItem(WALLET_LS_KEY, _walletAddress);
+    _renderWalletUI();
+    if (_walletChainId !== null && _walletChainId !== WALLET_TARGET_CHAIN_ID) {
+      console.warn('[wallet] connected on chainId', _walletChainId, '— expected', WALLET_TARGET_CHAIN_ID, '(Sepolia)');
+    }
+    console.log('[wallet] connected', _walletAddress, 'chainId', _walletChainId);
+    return _walletAddress;
+  } catch (err) {
+    if (err && err.code === 4001) {
+      // user rejected — silent
+    } else {
+      console.error('[wallet] connect failed:', err);
+    }
+    _walletProvider = null;
+    return null;
+  }
+}
+
+function _walletDisconnect() {
+  _walletAddress = null;
+  _walletProvider = null;
+  _walletChainId = null;
+  localStorage.removeItem(WALLET_LS_KEY);
+  _renderWalletUI();
+  console.log('[wallet] disconnected');
+}
+
+function _walletAttachListeners() {
+  if (!window.ethereum || !window.ethereum.on) return;
+  window.ethereum.on('accountsChanged', accounts => {
+    if (!accounts || !accounts.length) {
+      _walletDisconnect();
+      return;
+    }
+    _walletAddress = window.ethers ? window.ethers.getAddress(accounts[0]) : accounts[0];
+    localStorage.setItem(WALLET_LS_KEY, _walletAddress);
+    _renderWalletUI();
+    console.log('[wallet] account switched →', _walletAddress);
+  });
+  window.ethereum.on('chainChanged', hex => {
+    _walletChainId = parseInt(hex, 16);
+    if (_walletChainId !== WALLET_TARGET_CHAIN_ID) {
+      console.warn('[wallet] chain switched to', _walletChainId, '— expected', WALLET_TARGET_CHAIN_ID);
+    }
+  });
+}
+
+(function _walletInit() {
+  const btn  = document.getElementById('wallet-connect-btn');
+  const dbtn = document.getElementById('wallet-disconnect-btn');
+  if (btn)  btn.addEventListener('click', () => _walletConnect());
+  if (dbtn) dbtn.addEventListener('click', () => _walletDisconnect());
+  _renderWalletUI();
+  _walletAttachListeners();
+  // Silent reconnect if user was previously connected and wallet is unlocked
+  const last = localStorage.getItem(WALLET_LS_KEY);
+  if (last && window.ethereum) {
+    _walletConnect({ silent: true });
+  }
+})();
 
 // Page unload handler — two-pronged cleanup so refresh/close frees the guest's
 // pool slot INSTANTLY instead of waiting 30-60s for Firebase to time out the
