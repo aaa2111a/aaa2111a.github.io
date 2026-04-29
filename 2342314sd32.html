@@ -351,6 +351,17 @@ button, a, [role="button"], .pill, .info-btn, .toggle-btn, .modal-close,
 }
 #wallet-address.connected { display:inline-flex; align-items:center; }
 #wallet-address.wrong-chain { border-color:#c97a3a; color:#c97a3a; }
+#wallet-chain-warn {
+  display:none;
+  font-size:10px; letter-spacing:.04em;
+  padding:2px 9px; border-radius:20px;
+  border:0.5px solid #c97a3a; color:#c97a3a; background:rgba(201,122,58,0.10);
+  font-family:inherit; cursor:pointer; flex-shrink:0;
+  align-items:center; line-height:1;
+  transition:opacity 0.15s, background 0.15s;
+}
+#wallet-chain-warn:hover { background:rgba(201,122,58,0.18); }
+#wallet-chain-warn.visible { display:inline-flex; }
 
 /* ── Info backdrop ── */
 #info-backdrop {
@@ -632,12 +643,12 @@ button, a, [role="button"], .pill, .info-btn, .toggle-btn, .modal-close,
    align-items:stretch this keeps the wrapped sub-columns inside the section.
    Row height is reduced from 16→11 so 3 rows fit per sub-column within the
    section's flex share of the col body. */
-.pd-col-rect .pd-row { flex:0 0 auto; flex-direction:row; align-items:center; justify-content:flex-start; padding:0 4px; gap:3px; height:11px; width:50%; box-sizing:border-box; }
+.pd-col-rect .pd-row { flex:0 0 auto; flex-direction:row; align-items:center; justify-content:flex-start; padding:0 4px; gap:3px; height:8px; width:50%; box-sizing:border-box; }
 .pd-col-bios .pd-row { flex:0 0 auto; }
 .pd-rect-dot { width:5px; height:5px; border-radius:50%; flex-shrink:0; background:#111; opacity:0; transition:opacity 0.15s; }
 .pd-rect-dot.pd-rect-dot-on { opacity:1; }
 .pd-col-speed .pd-col-body { flex-direction:row; align-items:center; padding:0 4px; justify-content:center; gap:6px; min-width:0; }
-.pd-spd-list { display:flex; flex-direction:row; align-items:flex-start; gap:3px; flex:1 1 auto; flex-wrap:wrap; justify-content:flex-end; align-self:center; min-width:0; }
+.pd-spd-list { display:flex; flex-direction:row; align-items:flex-start; gap:3px; flex:0 1 auto; flex-wrap:wrap; justify-content:flex-end; align-self:center; min-width:0; }
 .pd-spd-col { display:flex; flex-direction:column; justify-content:flex-start; align-items:flex-end; gap:4px; }
 .pd-spd-cell { font-family:monospace; font-size:7px; color:var(--stats-title); opacity:0.70; letter-spacing:.03em; line-height:1.4; }
 .pd-spd-total-wrap { display:flex; align-items:center; justify-content:center; flex:0 0 auto; align-self:stretch; }
@@ -1859,6 +1870,7 @@ button, a, [role="button"], .pill, .info-btn, .toggle-btn, .modal-close,
       <span id="topbar-wallet"></span>
       <span id="wallet-address"></span>
       <button id="wallet-toggle-btn" title="Connect wallet">connect</button>
+      <button id="wallet-chain-warn" title="Switch to Sepolia">wrong chain — switch</button>
       <span id="topbar-inv-sep">·</span>
       <span id="topbar-inv"></span>
     </div>
@@ -8528,23 +8540,26 @@ function _shortAddr(a) {
 function _renderWalletUI() {
   const btn    = document.getElementById('wallet-toggle-btn');
   const addrEl = document.getElementById('wallet-address');
+  const warnEl = document.getElementById('wallet-chain-warn');
   if (!btn || !addrEl) return;
   if (_walletAddress) {
     btn.textContent = 'disconnect';
     btn.title = 'Disconnect wallet';
     addrEl.classList.add('connected');
     addrEl.textContent = _shortAddr(_walletAddress);
-    addrEl.classList.toggle('wrong-chain',
-      _walletChainId !== null && _walletChainId !== WALLET_TARGET_CHAIN_ID);
-    addrEl.title = (_walletChainId === WALLET_TARGET_CHAIN_ID)
-      ? `${_walletAddress} (Sepolia)`
-      : `${_walletAddress} — wrong chain (${_walletChainId}). Click to switch.`;
+    const wrongChain = _walletChainId !== null && _walletChainId !== WALLET_TARGET_CHAIN_ID;
+    addrEl.classList.toggle('wrong-chain', wrongChain);
+    addrEl.title = wrongChain
+      ? `${_walletAddress} — wrong chain (${_walletChainId}). Click to switch.`
+      : `${_walletAddress} (Sepolia)`;
+    if (warnEl) warnEl.classList.toggle('visible', wrongChain);
   } else {
     btn.textContent = 'connect';
     btn.title = 'Connect wallet';
     addrEl.classList.remove('connected', 'wrong-chain');
     addrEl.textContent = '';
     addrEl.title = '';
+    if (warnEl) warnEl.classList.remove('visible');
   }
 }
 
@@ -8691,6 +8706,11 @@ function _walletAttachListeners() {
 (function _walletInit() {
   const btn = document.getElementById('wallet-toggle-btn');
   if (btn) btn.addEventListener('click', () => _walletToggle());
+  const warnBtn = document.getElementById('wallet-chain-warn');
+  if (warnBtn) warnBtn.addEventListener('click', async () => {
+    warnBtn.classList.add('busy');
+    try { await _walletEnsureChain(); } finally { warnBtn.classList.remove('busy'); }
+  });
   _renderWalletUI();
   _walletAttachListeners();
 
