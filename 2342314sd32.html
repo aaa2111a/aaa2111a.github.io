@@ -3,11 +3,39 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content">
+<!--
+  Content Security Policy — beta (Phase 1).
+  Whitelists the specific external origins we currently load from:
+   - jsdelivr (mp4-muxer + ethers, both pinned with SRI)
+   - gstatic (Firebase Web SDK ESM imports — SRI doesn't work for dynamic ESM,
+     so the binding to the exact host is the protection)
+   - googleapis + firebaseio (Firebase REST + websocket endpoints)
+   - Google Fonts (CSS + woff2)
+  'unsafe-inline' is currently REQUIRED because the app uses inline event
+  handlers and inline `<style>` blocks. Phase 2 cleanup: remove unsafe-inline
+  after refactoring innerHTML callsites and moving CSS to <link>. See
+  security audit P2 #6 (memory/security-checklist.md).
+  -->
+<meta http-equiv="Content-Security-Policy" content="
+  default-src 'self';
+  script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://www.gstatic.com;
+  style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
+  font-src 'self' https://fonts.gstatic.com data:;
+  img-src 'self' data: blob:;
+  connect-src 'self' https://*.firebaseio.com wss://*.firebaseio.com https://*.googleapis.com;
+  frame-ancestors 'none';
+  base-uri 'self';
+  form-action 'self';
+">
 <title>TokenCluster — v2</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Ultra&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/mp4-muxer@5.1.3/build/mp4-muxer.js"></script>
+<script
+  src="https://cdn.jsdelivr.net/npm/mp4-muxer@5.1.3/build/mp4-muxer.js"
+  integrity="sha384-SujebcgqCNlLMRSnVkLD+3eWOzsxobv30Bct+0lV+fc1EHHEuvcePwmDgMzpnptj"
+  crossorigin="anonymous"
+  referrerpolicy="no-referrer"></script>
 <!-- ethers v6.13.4 (Phase 2 wallet connect). SRI pinned. Update both URL and -->
 <!-- integrity hash together when bumping version. -->
 <script
@@ -3136,8 +3164,12 @@ function buildModulo(mod) {
       try {
         const result = await settleModulo(mod.id);
         if (!result.ok) {
-          // Nothing to settle — no feedback UI yet, just a dev log
-          console.warn('[settle]', mod.id, result.reason);
+          if (result.reason === 'guest-readonly') {
+            alert('Connect a wallet to settle on shared modulos. Guest sessions can only settle in the workshop.');
+          } else {
+            // Nothing to settle — no feedback UI yet, just a dev log
+            console.warn('[settle]', mod.id, result.reason);
+          }
         }
       } finally {
         settleBtn.disabled = false;
@@ -3889,15 +3921,24 @@ function buildTokenList(mod) {
 
       // Checkmark "apply lock" button — only in shared modulos (lock concept
       // doesn't exist in workshop). Clicking opens the confirmation modal.
+      // Guests are read-only on shared modulos: button disabled with tooltip.
       if (!mod.personal) {
         const lockBtn = document.createElement('button');
         lockBtn.className = 'tr-lock-btn';
-        lockBtn.title = 'lock token (commit to this modulo)';
         lockBtn.innerHTML = _LOCK_BTN_SVG;
-        lockBtn.addEventListener('click', e => {
-          e.stopPropagation();
-          openLockModal(mod.id, mod.tokens[i]);
-        });
+        const guestMode = (typeof _isGuest === 'function') && _isGuest();
+        if (guestMode) {
+          lockBtn.disabled = true;
+          lockBtn.title = 'Connect a wallet to lock tokens';
+          lockBtn.style.opacity = '0.35';
+          lockBtn.style.cursor = 'not-allowed';
+        } else {
+          lockBtn.title = 'lock token (commit to this modulo)';
+          lockBtn.addEventListener('click', e => {
+            e.stopPropagation();
+            openLockModal(mod.id, mod.tokens[i]);
+          });
+        }
         idInfo.appendChild(lockBtn);
       }
     }
@@ -7819,6 +7860,8 @@ const COOLDOWN_MS = 10 * 60 * 1000; // 10 min — plan.md §4.2
 // _syncModuloState flips the slot from draft to locked for all tabs/users.
 async function lockToken(modId, tokenNum, durationMs) {
   if (!window.FB) return { ok: false, reason: 'no-firebase' };
+  // Guest sessions are read-only on shared modulos (Phase 2 / Pass 3).
+  if (_isGuest())                     return { ok: false, reason: 'guest-readonly' };
   const mod = MODULOS.find(m => m.id === modId);
   if (!mod || mod.personal)           return { ok: false, reason: 'not-shared' };
   if (!isOwnToken(tokenNum))          return { ok: false, reason: 'not-owner' };
@@ -8027,21 +8070,26 @@ const _CLAIM_SWEEP_INTERVAL_MS = 5 * 60 * 1000;
 async function _sweepStrayClaims() {
   if (!window.FB) return;
   const { db, ref, get, update } = window.FB;
-  let claims = {}, guests = {};
+  let claims = {}, guests = {}, wallets = {};
   try {
-    const [cs, gs] = await Promise.all([
+    const [cs, gs, ws] = await Promise.all([
       get(ref(db, 'tokenClaims')),
       get(ref(db, 'guests')),
+      get(ref(db, 'wallets')),
     ]);
-    if (cs.exists()) claims = cs.val() || {};
-    if (gs.exists()) guests = gs.val() || {};
+    if (cs.exists()) claims  = cs.val() || {};
+    if (gs.exists()) guests  = gs.val() || {};
+    if (ws.exists()) wallets = ws.val() || {};
   } catch (_) { return; /* network glitch — try next pass */ }
 
   const payload = {};
   let count = 0;
   for (const [tStr, owner] of Object.entries(claims)) {
-    if (typeof owner !== 'string' || !owner.startsWith('guest-')) continue;
-    if (!guests[owner]) {
+    if (typeof owner !== 'string') continue;
+    const basePath = _sessionBasePath(owner);
+    if (!basePath) continue;
+    const sessionRecords = basePath === 'guests' ? guests : wallets;
+    if (!sessionRecords[owner]) {
       payload[`tokenClaims/${tStr}`] = null;
       count++;
     }
@@ -8071,13 +8119,22 @@ function _cooldownRemaining(modId) {
   return rem > 0 ? rem : 0;
 }
 
-// ═══ Guest session model (plan.md §1.4, step 7) ═══
-// Beta-only identity: no wallet, each visitor gets an anonymous guest ID and
-// atomically claims 10 tokens from the shared pool via a Firebase transaction.
-// On disconnect (tab close / network drop / inactivity), the session cleans
-// up automatically via onDisconnect + inactivity timer.
+// ═══ Session model (plan.md §1.4 / Phase 2 wallet — Pass 2) ═══
+// Two session types share the same pool-claim mechanic and Firebase schema:
+//   - Guest:  anonymous, beta-only, single slot for ubk's testing
+//             (id format: "guest-XXXXXXXX", base path: /guests/{id})
+//   - Wallet: real ethereum address from connected wallet
+//             (id format: "0x..." 42 chars, base path: /wallets/{address})
+//
+// Both records hold { tokens, connectedAt, lastActivity }. Token claims
+// (/tokenClaims/{tokenNum}) are written with the session id as value, so a
+// single sweeper can free claims from either type.
+//
+// On disconnect (tab close / network drop / inactivity / user-clicks-disconnect),
+// the session cleans up via onDisconnect + inactivity timer + manual REST.
 
-const POOL_GUEST_TOKENS    = 100;
+const POOL_GUEST_TOKENS     = 100;
+const POOL_WALLET_TOKENS    = 100;
 const INACTIVITY_TIMEOUT_MS = 30 * 60 * 1000; // 30 min (plan.md §1.4)
 
 let _guestInactivityTimer = null;
@@ -8086,6 +8143,22 @@ let _guestDisconnectHandle = null; // OnDisconnect instance for manual cancel
 function _makeGuestId() {
   const rand = Math.random().toString(16).slice(2, 10);
   return 'guest-' + rand;
+}
+
+// Map a session id to its Firebase base path. Returns null for unknown shapes
+// so callers can skip cleanup writes that would otherwise corrupt the DB.
+function _sessionBasePath(id) {
+  if (typeof id !== 'string') return null;
+  if (id.startsWith('guest-')) return 'guests';
+  if (/^0x[0-9a-fA-F]{40}$/.test(id)) return 'wallets';
+  return null;
+}
+
+// True when the current session is a guest (read-only on shared modulos).
+// Wallet sessions are full-rights — they can lock + settle on shared modulos
+// because their identity is verifiable (and in Phase 2 will be on-chain owned).
+function _isGuest() {
+  return _sessionBasePath(SESSION_USER) === 'guests';
 }
 
 // Atomic claim transaction — picks up to `n` free tokens from the pool and
@@ -8145,7 +8218,8 @@ function _registerDisconnectCleanup(guestId, tokens) {
 // (e.g. socket drops mid-refresh).
 function _refreshDisconnectCleanup() {
   if (!window.FB || !window.FB.onDisconnect) return;
-  if (!SESSION_USER || !SESSION_USER.startsWith || !SESSION_USER.startsWith('guest-')) return;
+  const basePath = _sessionBasePath(SESSION_USER);
+  if (!basePath) return;
   const { db, ref, onDisconnect } = window.FB;
 
   // Cancel previous handle (fire-and-forget — server merges by latest spec)
@@ -8155,7 +8229,7 @@ function _refreshDisconnectCleanup() {
 
   // Build the full payload: presence + all claims + all my current locks.
   const payload = {};
-  payload[`guests/${SESSION_USER}`] = null;
+  payload[`${basePath}/${SESSION_USER}`] = null;
   for (const t of _myClaimedTokens) payload[`tokenClaims/${t}`] = null;
   for (const modId of Object.keys(fbLocked)) {
     const locked = fbLocked[modId] || {};
@@ -8168,29 +8242,31 @@ function _refreshDisconnectCleanup() {
 
   _guestDisconnectHandle = onDisconnect(ref(db, '/'));
   _guestDisconnectHandle.update(payload).catch(err => {
-    console.error('[guest] refresh onDisconnect failed:', err);
+    console.error('[session] refresh onDisconnect failed:', err);
   });
 }
 
 // Manual cleanup — used when the inactivity timer fires (we can't rely on
 // onDisconnect since the socket is still open).
-async function _runManualCleanup(guestId, tokens) {
+async function _runManualCleanup(sessionId, tokens) {
   if (!window.FB) return;
+  const basePath = _sessionBasePath(sessionId);
+  if (!basePath) return;
   const { db, ref, update } = window.FB;
   const payload = {};
-  payload[`guests/${guestId}`] = null;
+  payload[`${basePath}/${sessionId}`] = null;
   for (const t of tokens) payload[`tokenClaims/${t}`] = null;
   // Also drop my locks so the sweeper doesn't keep them around waiting for expiry.
   for (const modId of Object.keys(fbLocked)) {
     const locked = fbLocked[modId] || {};
     for (const tokenNumStr of Object.keys(locked)) {
-      if (locked[tokenNumStr] && locked[tokenNumStr].owner === guestId) {
+      if (locked[tokenNumStr] && locked[tokenNumStr].owner === sessionId) {
         payload[`session/modules/${modId}/locked/${tokenNumStr}`] = null;
       }
     }
   }
   try { await update(ref(db, '/'), payload); }
-  catch (err) { console.error('[guest] manual cleanup failed:', err); }
+  catch (err) { console.error('[session] manual cleanup failed:', err); }
   // Cancel the onDisconnect since we've already run cleanup
   if (_guestDisconnectHandle) {
     try { await _guestDisconnectHandle.cancel(); } catch (_) {}
@@ -8231,75 +8307,161 @@ async function _sweepStaleGuests() {
   if (!window.FB) return;
   try {
     const { db, ref, get, update } = window.FB;
-    const [guestsSnap, claimsSnap] = await Promise.all([
+    const [guestsSnap, walletsSnap, claimsSnap] = await Promise.all([
       get(ref(db, 'guests')),
+      get(ref(db, 'wallets')),
       get(ref(db, 'tokenClaims')),
     ]);
-    const guests = guestsSnap.val() || {};
-    const claims = claimsSnap.val() || {};
-    const cutoff = Date.now() - STALE_GUEST_MAX_MS;
-    const stale = Object.entries(guests).filter(([_, g]) =>
-      !g || !g.connectedAt || g.connectedAt < cutoff
-    ).map(([id]) => id);
-    if (!stale.length) return;
+    const guests  = guestsSnap.val()  || {};
+    const wallets = walletsSnap.val() || {};
+    const claims  = claimsSnap.val()  || {};
+    const cutoff  = Date.now() - STALE_GUEST_MAX_MS;
+    const stale = new Set();
     const payload = {};
-    for (const guestId of stale) {
-      payload[`guests/${guestId}`] = null;
+    for (const [id, rec] of Object.entries(guests)) {
+      if (!rec || !rec.connectedAt || rec.connectedAt < cutoff) {
+        stale.add(id);
+        payload[`guests/${id}`] = null;
+      }
     }
-    // Also free their claims (any tokenClaims entry whose value matches a stale guest)
+    for (const [id, rec] of Object.entries(wallets)) {
+      if (!rec || !rec.connectedAt || rec.connectedAt < cutoff) {
+        stale.add(id);
+        payload[`wallets/${id}`] = null;
+      }
+    }
+    if (!stale.size) return;
+    // Also free their claims (any tokenClaims entry whose value matches a stale session)
     for (const [tStr, owner] of Object.entries(claims)) {
-      if (stale.includes(owner)) payload[`tokenClaims/${tStr}`] = null;
+      if (stale.has(owner)) payload[`tokenClaims/${tStr}`] = null;
     }
     await update(ref(db, '/'), payload);
-    console.log(`[guest] swept ${stale.length} stale guests, freed ${Object.keys(payload).length - stale.length} claims`);
+    console.log(`[session] swept ${stale.size} stale sessions, freed ${Object.keys(payload).length - stale.size} claims`);
   } catch (err) {
-    console.warn('[guest] stale sweep failed:', err);
+    console.warn('[session] stale sweep failed:', err);
   }
 }
 
-// Main guest-session bootstrap. Runs once on FB ready.
-async function _initGuestSession() {
-  if (!window.FB) return;
-  // 0. Sweep stale guests first so the pool reflects only live sessions
-  await _sweepStaleGuests();
-  // 1. Generate a guest ID local to this tab
-  const guestId = _makeGuestId();
-  // 2. Atomically claim POOL_GUEST_TOKENS tokens from the shared pool
-  const claimed = await _claimGuestPool(guestId, POOL_GUEST_TOKENS);
-  if (!claimed) {
-    _showPoolFull();
-    return;
-  }
-  // 3. Write presence record
+// Generic session bootstrap — used by both guest and wallet flows. Claims
+// `claimCount` tokens from the shared pool, writes the presence record at
+// `/{basePath}/{sessionId}`, registers cleanup, swaps SESSION_USER, updates
+// ownership, refreshes UI. Returns true on success.
+async function _startSession({ sessionId, basePath, claimCount, label }) {
+  if (!window.FB) return false;
+  // 1. Atomically claim tokens from the shared pool
+  const claimed = await _claimGuestPool(sessionId, claimCount);
+  if (!claimed) { _showPoolFull(); return false; }
+  // 2. Write presence record
   const { db, ref, set } = window.FB;
   const now = Date.now();
   try {
-    await set(ref(db, `guests/${guestId}`), {
+    await set(ref(db, `${basePath}/${sessionId}`), {
       tokens:       claimed,
       connectedAt:  now,
       lastActivity: now,
     });
   } catch (err) {
-    console.error('[guest] presence write failed:', err);
+    console.error(`[${label}] presence write failed:`, err);
   }
-  // 4. Register onDisconnect cleanup
-  _registerDisconnectCleanup(guestId, claimed);
-  // 5. Update SESSION_USER + TOKEN_DATA ownership for claimed tokens
-  SESSION_USER = guestId;
+  // 3. Register onDisconnect cleanup
+  _registerDisconnectCleanup(sessionId, claimed);
+  // 4. Update SESSION_USER + TOKEN_DATA ownership for claimed tokens
+  SESSION_USER = sessionId;
   for (const t of claimed) {
-    if (TOKEN_DATA[t]) TOKEN_DATA[t].owner = guestId;
+    if (TOKEN_DATA[t]) TOKEN_DATA[t].owner = sessionId;
   }
-  // 6. Rebuild inventory so the 10 claimed tokens appear
+  // 5. Rebuild inventory so the claimed tokens appear
   if (typeof _rebuildInventory === 'function') _rebuildInventory();
   if (typeof updatePillTokens === 'function') updatePillTokens();
   if (typeof updateTopbarWallet === 'function') updateTopbarWallet();
-  // 7. Arm inactivity timer
-  _armInactivityTimer(guestId, claimed);
-  console.log('[guest] session started', guestId, 'tokens:', claimed);
+  // 5b. Re-render shared modulo cards so lock buttons reflect the new
+  //     guest/wallet state (the disabled-on-guest UI is decided at build time).
+  if (typeof MODULOS !== 'undefined' && typeof buildLeft === 'function') {
+    for (const m of MODULOS) if (!m.personal) buildLeft(m);
+  }
+  // 6. Arm inactivity timer (resets on user input)
+  _armInactivityTimer(sessionId, claimed);
+  console.log(`[${label}] session started`, sessionId, 'tokens:', claimed);
+  return true;
 }
 
-if (window.FB) _initGuestSession();
-else window.addEventListener('fb-ready', _initGuestSession, { once: true });
+// Tear down the current session in-place (release tokens + clear presence
+// record + cancel onDisconnect + clear inactivity timer + reset SESSION_USER
+// to a fresh placeholder). Used when:
+//   - Wallet disconnects (release wallet session)
+//   - Wallet connects while a guest session is active (release guest first)
+async function _endSession() {
+  if (!SESSION_USER) return;
+  const basePath = _sessionBasePath(SESSION_USER);
+  if (!basePath) return;
+  const sessionId = SESSION_USER;
+  const tokens = _myClaimedTokens.slice();
+  // Clear inactivity timer
+  if (_guestInactivityTimer) {
+    clearTimeout(_guestInactivityTimer);
+    _guestInactivityTimer = null;
+  }
+  // Manual cleanup writes presence=null + claims=null + locks=null
+  await _runManualCleanup(sessionId, tokens);
+  // Reset client state. Note: ownership in TOKEN_DATA is set back to a
+  // placeholder so isOwnToken() returns false until the next session starts.
+  for (const t of tokens) {
+    if (TOKEN_DATA[t] && TOKEN_DATA[t].owner === sessionId) {
+      TOKEN_DATA[t].owner = '0x0000000000000000000000000000000000000000';
+    }
+  }
+  _myClaimedTokens = [];
+  SESSION_USER = '0x0000000000000000000000000000000000000000';
+  if (typeof _rebuildInventory === 'function') _rebuildInventory();
+  if (typeof updatePillTokens === 'function') updatePillTokens();
+  if (typeof updateTopbarWallet === 'function') updateTopbarWallet();
+  if (typeof MODULOS !== 'undefined' && typeof buildLeft === 'function') {
+    for (const m of MODULOS) if (!m.personal) buildLeft(m);
+  }
+  console.log('[session] ended', sessionId);
+}
+
+async function _initGuestSession() {
+  if (!window.FB) return;
+  // Sweep stale sessions first (covers guests AND wallets)
+  await _sweepStaleGuests();
+  const guestId = _makeGuestId();
+  await _startSession({
+    sessionId:  guestId,
+    basePath:   'guests',
+    claimCount: POOL_GUEST_TOKENS,
+    label:      'guest',
+  });
+}
+
+async function _initWalletSession(address) {
+  if (!window.FB) return;
+  if (!address || _sessionBasePath(address) !== 'wallets') return;
+  // If a guest session is currently active, end it (releasing tokens) so the
+  // pool has room for the wallet's claim.
+  if (_sessionBasePath(SESSION_USER) === 'guests') {
+    await _endSession();
+  }
+  // Sweep stale sessions before claiming
+  await _sweepStaleGuests();
+  await _startSession({
+    sessionId:  address,
+    basePath:   'wallets',
+    claimCount: POOL_WALLET_TOKENS,
+    label:      'wallet',
+  });
+}
+
+// At init, defer the guest auto-start until we know whether silent wallet
+// reconnect is going to succeed. The wallet IIFE further down will either
+// trigger _initWalletSession (if reconnect succeeds) or fall back to
+// _initGuestSession via _walletDeferredFallback.
+let _walletReconnectAttempted = false;
+async function _walletDeferredFallback() {
+  if (_walletAddress) return;          // wallet already connected → wallet session in flight
+  if (SESSION_USER && _sessionBasePath(SESSION_USER)) return; // some session already running
+  await _initGuestSession();
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Wallet connect (Phase 2 foundation — Pass 1)
@@ -8415,6 +8577,10 @@ async function _walletConnect({ silent = false } = {}) {
       await _walletEnsureChain();
     }
     console.log('[wallet] connected', _walletAddress, 'chainId', _walletChainId);
+    // Pass 2 — initiate the wallet session (claims pool tokens, writes /wallets/{addr})
+    if (typeof _initWalletSession === 'function') {
+      await _initWalletSession(_walletAddress);
+    }
     return _walletAddress;
   } catch (err) {
     if (err && err.code !== 4001) console.error('[wallet] connect failed:', err);
@@ -8425,13 +8591,19 @@ async function _walletConnect({ silent = false } = {}) {
   }
 }
 
-function _walletDisconnect() {
+async function _walletDisconnect() {
+  // End wallet session FIRST while SESSION_USER still points to the wallet
+  if (typeof _endSession === 'function' && _sessionBasePath(SESSION_USER) === 'wallets') {
+    await _endSession();
+  }
   _walletAddress = null;
   _walletProvider = null;
   _walletChainId = null;
   localStorage.removeItem(WALLET_LS_KEY);
   _renderWalletUI();
   console.log('[wallet] disconnected');
+  // Restart guest fallback so the user keeps a (read-only soon) session
+  if (typeof _initGuestSession === 'function') await _initGuestSession();
 }
 
 async function _walletToggle() {
@@ -8471,9 +8643,22 @@ function _walletAttachListeners() {
   if (btn) btn.addEventListener('click', () => _walletToggle());
   _renderWalletUI();
   _walletAttachListeners();
-  // Silent reconnect if user was previously connected and wallet is unlocked
-  const last = localStorage.getItem(WALLET_LS_KEY);
-  if (last && window.ethereum) _walletConnect({ silent: true });
+
+  // Coordinated bootstrap: try silent wallet reconnect first, then fall back to
+  // a guest session if no wallet was previously connected. This avoids a race
+  // where _initGuestSession claims 100 tokens, then wallet reconnects and we
+  // have to release+reclaim. We block on FB ready before either path runs.
+  async function _bootstrap() {
+    const last = localStorage.getItem(WALLET_LS_KEY);
+    if (last && window.ethereum) {
+      const addr = await _walletConnect({ silent: true });
+      if (addr) return; // wallet session is in flight via _walletConnect
+    }
+    // No wallet → spin up a guest session
+    await _walletDeferredFallback();
+  }
+  if (window.FB) _bootstrap();
+  else window.addEventListener('fb-ready', _bootstrap, { once: true });
 })();
 
 // Page unload handler — two-pronged cleanup so refresh/close frees the guest's
@@ -8499,11 +8684,12 @@ function _gracefulOffline() {
   try {
     if (window.FB && window.FB.goOffline) window.FB.goOffline(window.FB.db);
   } catch (_) {}
-  // 2. Guaranteed REST cleanup (only if we have an active guest session)
+  // 2. Guaranteed REST cleanup (works for both guest and wallet sessions)
   try {
-    if (typeof SESSION_USER !== 'string' || !SESSION_USER.startsWith('guest-')) return;
+    const basePath = _sessionBasePath(SESSION_USER);
+    if (!basePath) return;
     const payload = {};
-    payload[`guests/${SESSION_USER}`] = null;
+    payload[`${basePath}/${SESSION_USER}`] = null;
     if (Array.isArray(_myClaimedTokens)) {
       for (const t of _myClaimedTokens) payload[`tokenClaims/${t}`] = null;
     }
@@ -8563,6 +8749,10 @@ const sessionBurnedTokens = new Set();
 async function settleModulo(modId) {
   const mod = MODULOS.find(m => m.id === modId);
   if (!mod) return { ok: false, reason: 'no-modulo' };
+  // Guest sessions can settle their workshop (mod.personal) since it's local,
+  // but not shared modulos — those affect Firebase / activity feed and need a
+  // verifiable identity (wallet).
+  if (_isGuest() && !mod.personal)   return { ok: false, reason: 'guest-readonly' };
 
   let tokensToBurn = [];
   if (mod.personal) {
@@ -8700,25 +8890,47 @@ function _renderActivityEntry(data) {
   el.className = 'activity-entry';
   // Stash the timestamp so the global ticker can refresh the relative-time label
   if (data.ts) el.dataset.ts = data.ts;
-  const shortOwner = typeof data.owner === 'string' ? shortAddr(data.owner) : '—';
-  const tokStr = data.tokenNum != null ? `#${String(data.tokenNum).padStart(3,'0')}` : '';
-  const relStr = _formatRelTime(data.ts);
-  const relSpan = `<span class="ae-action">·</span><span class="ae-rel">${relStr}</span>`;
-  let inner;
+
+  // ── Strict shape validation before rendering ─────────────────────────────
+  // Even though Phase 1 Firebase rules allow writes, we never trust feed data
+  // — anyone who hits the Realtime DB REST API could inject arbitrary fields.
+  // Reject malformed entries silently so a bad event doesn't poison the feed.
+  const RX_OWNER  = /^(0x[0-9a-fA-F]{40}|guest-[0-9a-f]{6,12})$/;
+  const RX_MODID  = /^modulo_\d{2}$/;
+  const TYPE_OK   = data.type === 'lock' || data.type === 'settle' || data.type === 'expire';
+  const ownerOK   = typeof data.owner === 'string' && RX_OWNER.test(data.owner);
+  const modIdOK   = typeof data.modId === 'string' && RX_MODID.test(data.modId);
+  const tokenOK   = data.tokenNum == null || (Number.isInteger(data.tokenNum) && data.tokenNum >= 0 && data.tokenNum < 10000);
+  if (!TYPE_OK || !modIdOK || !tokenOK || (data.owner != null && !ownerOK)) return;
+
+  const shortOwner = ownerOK ? shortAddr(data.owner) : '—';
+  const tokStr     = data.tokenNum != null ? `#${String(data.tokenNum).padStart(3,'0')}` : '';
+  const relStr     = _formatRelTime(data.ts);
+
+  // Build with createElement + textContent so values can never become HTML.
+  // Helper: span(text, className?) → HTMLSpanElement
+  const span = (text, cls) => {
+    const s = document.createElement('span');
+    if (cls) s.className = cls;
+    s.textContent = text;
+    return s;
+  };
+  const action = txt => span(txt, 'ae-action');
+  const target = txt => span(txt, 'ae-target');
+  const rel    = () => span(relStr, 'ae-rel');
+  const sep    = () => span('·', 'ae-action');
+
   switch (data.type) {
     case 'lock':
-      inner = `<span>${shortOwner}</span><span class="ae-action">locked</span><span>token ${tokStr}</span><span class="ae-action">→</span><span class="ae-target">${data.modId}</span>${relSpan}`;
+      el.append(span(shortOwner), action('locked'), span('token ' + tokStr), action('→'), target(data.modId), sep(), rel());
       break;
     case 'settle':
-      inner = `<span>${shortOwner}</span><span class="ae-action">settled</span><span class="ae-target">${data.modId}</span>${relSpan}`;
+      el.append(span(shortOwner), action('settled'), target(data.modId), sep(), rel());
       break;
     case 'expire':
-      inner = `<span>${shortOwner}</span><span class="ae-action">expired</span><span>token ${tokStr}</span><span class="ae-action">→</span><span class="ae-target">${data.modId}</span>${relSpan}`;
+      el.append(span(shortOwner), action('expired'), span('token ' + tokStr), action('→'), target(data.modId), sep(), rel());
       break;
-    default:
-      inner = `<span>${shortOwner}</span><span class="ae-action">${data.type}</span><span class="ae-target">${data.modId || ''}</span>${relSpan}`;
   }
-  el.innerHTML = inner;
   // Newest at bottom (oldest at top)
   feed.appendChild(el);
   // Trim to the last N visible
@@ -8934,6 +9146,17 @@ const _LOCK_BTN_SVG =
     push, query, limitToLast, onChildAdded, runTransaction, orderByChild, endAt, goOffline
   } from "https://www.gstatic.com/firebasejs/12.12.1/firebase-database.js";
 
+  // ─────────────────────────────────────────────────────────────────────────
+  // Firebase Web SDK config — these values are PUBLIC by design.
+  // The apiKey below is NOT a secret: it identifies the Firebase project on
+  // the client side and is required for the SDK to talk to Google's edge.
+  // Access control happens at the Realtime Database security rules layer
+  // (and, in Phase 2, additionally at a Cloud Function intermediary that
+  // validates wallet signatures — see plan.md §9.5 "Firebase rules tightening
+  // strategy"). Considering Firebase App Check (reCAPTCHA v3) before public
+  // launch to bind requests to the modulo.ubk.art origin specifically.
+  // Reference: https://firebase.google.com/docs/projects/api-keys
+  // ─────────────────────────────────────────────────────────────────────────
   const firebaseConfig = {
     apiKey:            "AIzaSyByGuKWU39MpPz8-W0wagromUi6bO2l8jA",
     authDomain:        "modulo-de521.firebaseapp.com",
