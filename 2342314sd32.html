@@ -8411,11 +8411,37 @@ async function _endSession() {
   }
   _myClaimedTokens = [];
   SESSION_USER = '0x0000000000000000000000000000000000000000';
+  // Clear all drafts that belonged to the ended session. Drafts are local-only
+  // (Layer A in plan.md §1.2) and tied to the user — when the session ends,
+  // they shouldn't carry over into a new session (especially guest, which
+  // is read-only and shouldn't display anyone's pending drafts).
+  if (typeof userDrafts === 'object' && userDrafts) {
+    for (const modId of Object.keys(userDrafts)) {
+      if (userDrafts[modId] && typeof userDrafts[modId].clear === 'function') {
+        userDrafts[modId].clear();
+      } else {
+        delete userDrafts[modId];
+      }
+    }
+  }
+  if (typeof userDraftTraits === 'object' && userDraftTraits) {
+    for (const k of Object.keys(userDraftTraits)) delete userDraftTraits[k];
+  }
+  // Workshop (modulo_00) is also local-only — clear its tokens too since they
+  // belonged to the previous session.
+  if (typeof MODULOS !== 'undefined') {
+    for (const m of MODULOS) if (m.personal) m.tokens = [];
+  }
+  // Re-sync shared modulos so drafts disappear from mod.tokens (only locked
+  // tokens remain visible).
+  if (typeof MODULOS !== 'undefined' && typeof _syncModuloState === 'function') {
+    for (const m of MODULOS) if (!m.personal) _syncModuloState(m);
+  }
   if (typeof _rebuildInventory === 'function') _rebuildInventory();
   if (typeof updatePillTokens === 'function') updatePillTokens();
   if (typeof updateTopbarWallet === 'function') updateTopbarWallet();
   if (typeof MODULOS !== 'undefined' && typeof buildLeft === 'function') {
-    for (const m of MODULOS) if (!m.personal) buildLeft(m);
+    for (const m of MODULOS) buildLeft(m);
   }
   console.log('[session] ended', sessionId);
 }
@@ -8455,10 +8481,16 @@ async function _initWalletSession(address) {
 // reconnect is going to succeed. The wallet IIFE further down will either
 // trigger _initWalletSession (if reconnect succeeds) or fall back to
 // _initGuestSession via _walletDeferredFallback.
+//
+// Detection of "session active" uses _myClaimedTokens.length instead of
+// _sessionBasePath(SESSION_USER) because SESSION_USER is initialized with a
+// placeholder address (0xd3adb33f...) that incorrectly matches the wallet
+// regex — without this, the fallback would think a wallet session is already
+// running and skip the guest claim entirely.
 let _walletReconnectAttempted = false;
 async function _walletDeferredFallback() {
-  if (_walletAddress) return;          // wallet already connected → wallet session in flight
-  if (SESSION_USER && _sessionBasePath(SESSION_USER)) return; // some session already running
+  if (_walletAddress) return;
+  if (_myClaimedTokens && _myClaimedTokens.length > 0) return;
   await _initGuestSession();
 }
 
