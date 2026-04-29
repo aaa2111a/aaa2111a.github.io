@@ -8596,6 +8596,25 @@ async function _walletDisconnect() {
   if (typeof _endSession === 'function' && _sessionBasePath(SESSION_USER) === 'wallets') {
     await _endSession();
   }
+  // Ask the wallet to revoke its eth_accounts permission for this site.
+  // This is EIP-2255 (`wallet_revokePermissions`) — supported by MetaMask v11+,
+  // Rabby, and most modern injected wallets. Without this, the wallet still
+  // considers the site connected and a silent reconnect on next reload would
+  // re-bind. Failing methods (older wallets) just throw and we ignore — the
+  // local state clear below still gives the user a "disconnected" UX.
+  if (window.ethereum && typeof window.ethereum.request === 'function') {
+    try {
+      await window.ethereum.request({
+        method: 'wallet_revokePermissions',
+        params: [{ eth_accounts: {} }],
+      });
+    } catch (err) {
+      // Older wallets or user-rejection — log and continue with local clear.
+      if (err && err.code !== 4001) {
+        console.warn('[wallet] revokePermissions not supported or failed:', err.message || err);
+      }
+    }
+  }
   _walletAddress = null;
   _walletProvider = null;
   _walletChainId = null;
