@@ -302,8 +302,8 @@ button, a, [role="button"], .pill, .info-btn, .toggle-btn, .modal-close,
 }
 #info-btn:hover { opacity:0.7; }
 
-/* ── Wallet connect button ── */
-#wallet-connect-btn {
+/* ── Wallet connect ── */
+#wallet-toggle-btn {
   font-size:10px; padding:2px 9px; border-radius:20px;
   border:0.5px solid var(--pill-border);
   color:var(--pill-color);
@@ -313,28 +313,17 @@ button, a, [role="button"], .pill, .info-btn, .toggle-btn, .modal-close,
   transition:opacity 0.15s;
   line-height:1;
 }
-#wallet-connect-btn:hover { opacity:0.7; }
-#wallet-info {
-  display:none; align-items:center; gap:6px;
-  font-size:10px; font-family:monospace; letter-spacing:.04em;
-  color:var(--topbar-text);
-}
-#wallet-info.connected { display:inline-flex; }
+#wallet-toggle-btn:hover { opacity:0.7; }
+#wallet-toggle-btn.busy { opacity:0.5; cursor:wait; }
 #wallet-address {
+  display:none;
+  font-size:10px; font-family:monospace; letter-spacing:.04em;
   padding:2px 9px; border-radius:20px;
   border:0.5px solid var(--pill-border);
   background:var(--pill-bg); color:var(--pill-color);
 }
-#wallet-disconnect-btn {
-  font-size:10px; padding:2px 7px; border-radius:20px;
-  border:0.5px solid var(--pill-border);
-  color:var(--pill-color); background:transparent;
-  font-family:inherit; cursor:pointer;
-  transition:opacity 0.15s;
-  line-height:1;
-}
-#wallet-disconnect-btn:hover { opacity:0.7; }
-#wallet-connect-btn.hidden { display:none; }
+#wallet-address.connected { display:inline-flex; align-items:center; }
+#wallet-address.wrong-chain { border-color:#c97a3a; color:#c97a3a; }
 
 /* ── Info backdrop ── */
 #info-backdrop {
@@ -1841,11 +1830,8 @@ button, a, [role="button"], .pill, .info-btn, .toggle-btn, .modal-close,
     <a href="homepage.html#app" class="topbar-home-dot" title="Homepage"></a>
     <div id="topbar-center">
       <span id="topbar-wallet"></span>
-      <button id="wallet-connect-btn" title="Connect wallet">connect</button>
-      <span id="wallet-info">
-        <span id="wallet-address"></span>
-        <button id="wallet-disconnect-btn" title="Disconnect">×</button>
-      </span>
+      <span id="wallet-address"></span>
+      <button id="wallet-toggle-btn" title="Connect wallet">connect</button>
       <span id="topbar-inv-sep">·</span>
       <span id="topbar-inv"></span>
     </div>
@@ -8327,6 +8313,14 @@ else window.addEventListener('fb-ready', _initGuestSession, { once: true });
 // contract is deployed.
 // ─────────────────────────────────────────────────────────────────────────────
 const WALLET_TARGET_CHAIN_ID = 11155111; // Sepolia for testing; mainnet later
+const WALLET_TARGET_CHAIN_HEX = '0x' + WALLET_TARGET_CHAIN_ID.toString(16);
+const WALLET_TARGET_CHAIN_INFO = {
+  chainId: WALLET_TARGET_CHAIN_HEX,
+  chainName: 'Sepolia',
+  nativeCurrency: { name: 'Sepolia Ether', symbol: 'ETH', decimals: 18 },
+  rpcUrls: ['https://rpc.sepolia.org', 'https://ethereum-sepolia-rpc.publicnode.com'],
+  blockExplorerUrls: ['https://sepolia.etherscan.io'],
+};
 const WALLET_LS_KEY = 'tc-wallet-address';
 
 let _walletAddress = null;     // 0x... when connected, null otherwise
@@ -8339,18 +8333,56 @@ function _shortAddr(a) {
 }
 
 function _renderWalletUI() {
-  const btn   = document.getElementById('wallet-connect-btn');
-  const info  = document.getElementById('wallet-info');
-  const addrEl= document.getElementById('wallet-address');
-  if (!btn || !info || !addrEl) return;
+  const btn    = document.getElementById('wallet-toggle-btn');
+  const addrEl = document.getElementById('wallet-address');
+  if (!btn || !addrEl) return;
   if (_walletAddress) {
-    btn.classList.add('hidden');
-    info.classList.add('connected');
+    btn.textContent = 'disconnect';
+    btn.title = 'Disconnect wallet';
+    addrEl.classList.add('connected');
     addrEl.textContent = _shortAddr(_walletAddress);
+    addrEl.classList.toggle('wrong-chain',
+      _walletChainId !== null && _walletChainId !== WALLET_TARGET_CHAIN_ID);
+    addrEl.title = (_walletChainId === WALLET_TARGET_CHAIN_ID)
+      ? `${_walletAddress} (Sepolia)`
+      : `${_walletAddress} — wrong chain (${_walletChainId}). Click to switch.`;
   } else {
-    btn.classList.remove('hidden');
-    info.classList.remove('connected');
+    btn.textContent = 'connect';
+    btn.title = 'Connect wallet';
+    addrEl.classList.remove('connected', 'wrong-chain');
     addrEl.textContent = '';
+    addrEl.title = '';
+  }
+}
+
+// Force wallet onto target chain. Tries switch first; if chain is unknown to
+// the wallet, falls back to wallet_addEthereumChain. Returns true on success.
+async function _walletEnsureChain() {
+  if (!window.ethereum) return false;
+  if (_walletChainId === WALLET_TARGET_CHAIN_ID) return true;
+  try {
+    await window.ethereum.request({
+      method: 'wallet_switchEthereumChain',
+      params: [{ chainId: WALLET_TARGET_CHAIN_HEX }],
+    });
+    return true;
+  } catch (err) {
+    // 4902 = chain not added in wallet → try to add it
+    if (err && (err.code === 4902 || err.code === -32603)) {
+      try {
+        await window.ethereum.request({
+          method: 'wallet_addEthereumChain',
+          params: [WALLET_TARGET_CHAIN_INFO],
+        });
+        return true;
+      } catch (addErr) {
+        console.warn('[wallet] addEthereumChain failed:', addErr);
+        return false;
+      }
+    }
+    if (err && err.code === 4001) return false; // user rejected
+    console.warn('[wallet] switchEthereumChain failed:', err);
+    return false;
   }
 }
 
@@ -8363,15 +8395,13 @@ async function _walletConnect({ silent = false } = {}) {
     if (!silent) alert('No injected wallet found. Install MetaMask or Rabby.');
     return null;
   }
+  const btn = document.getElementById('wallet-toggle-btn');
+  if (btn && !silent) btn.classList.add('busy');
   try {
     _walletProvider = new window.ethers.BrowserProvider(window.ethereum, 'any');
-    // silent path = no popup, just check if accounts already authorized
     const method = silent ? 'eth_accounts' : 'eth_requestAccounts';
     const accounts = await window.ethereum.request({ method });
-    if (!accounts || !accounts.length) {
-      _walletProvider = null;
-      return null;
-    }
+    if (!accounts || !accounts.length) { _walletProvider = null; return null; }
     _walletAddress = window.ethers.getAddress(accounts[0]);
     try {
       const net = await _walletProvider.getNetwork();
@@ -8379,19 +8409,19 @@ async function _walletConnect({ silent = false } = {}) {
     } catch { _walletChainId = null; }
     localStorage.setItem(WALLET_LS_KEY, _walletAddress);
     _renderWalletUI();
-    if (_walletChainId !== null && _walletChainId !== WALLET_TARGET_CHAIN_ID) {
-      console.warn('[wallet] connected on chainId', _walletChainId, '— expected', WALLET_TARGET_CHAIN_ID, '(Sepolia)');
+    // Push to target chain (skip on silent reconnect — user already chose chain
+    // last time and a popup on every reload would be annoying).
+    if (!silent && _walletChainId !== WALLET_TARGET_CHAIN_ID) {
+      await _walletEnsureChain();
     }
     console.log('[wallet] connected', _walletAddress, 'chainId', _walletChainId);
     return _walletAddress;
   } catch (err) {
-    if (err && err.code === 4001) {
-      // user rejected — silent
-    } else {
-      console.error('[wallet] connect failed:', err);
-    }
+    if (err && err.code !== 4001) console.error('[wallet] connect failed:', err);
     _walletProvider = null;
     return null;
+  } finally {
+    if (btn) btn.classList.remove('busy');
   }
 }
 
@@ -8404,13 +8434,24 @@ function _walletDisconnect() {
   console.log('[wallet] disconnected');
 }
 
+async function _walletToggle() {
+  if (_walletAddress) {
+    // Click on "disconnect" while connected on wrong chain → offer to switch
+    // first instead of disconnecting (small UX nicety).
+    if (_walletChainId !== WALLET_TARGET_CHAIN_ID) {
+      const switched = await _walletEnsureChain();
+      if (switched) return;
+    }
+    _walletDisconnect();
+  } else {
+    await _walletConnect();
+  }
+}
+
 function _walletAttachListeners() {
   if (!window.ethereum || !window.ethereum.on) return;
   window.ethereum.on('accountsChanged', accounts => {
-    if (!accounts || !accounts.length) {
-      _walletDisconnect();
-      return;
-    }
+    if (!accounts || !accounts.length) { _walletDisconnect(); return; }
     _walletAddress = window.ethers ? window.ethers.getAddress(accounts[0]) : accounts[0];
     localStorage.setItem(WALLET_LS_KEY, _walletAddress);
     _renderWalletUI();
@@ -8418,6 +8459,7 @@ function _walletAttachListeners() {
   });
   window.ethereum.on('chainChanged', hex => {
     _walletChainId = parseInt(hex, 16);
+    _renderWalletUI();
     if (_walletChainId !== WALLET_TARGET_CHAIN_ID) {
       console.warn('[wallet] chain switched to', _walletChainId, '— expected', WALLET_TARGET_CHAIN_ID);
     }
@@ -8425,17 +8467,13 @@ function _walletAttachListeners() {
 }
 
 (function _walletInit() {
-  const btn  = document.getElementById('wallet-connect-btn');
-  const dbtn = document.getElementById('wallet-disconnect-btn');
-  if (btn)  btn.addEventListener('click', () => _walletConnect());
-  if (dbtn) dbtn.addEventListener('click', () => _walletDisconnect());
+  const btn = document.getElementById('wallet-toggle-btn');
+  if (btn) btn.addEventListener('click', () => _walletToggle());
   _renderWalletUI();
   _walletAttachListeners();
   // Silent reconnect if user was previously connected and wallet is unlocked
   const last = localStorage.getItem(WALLET_LS_KEY);
-  if (last && window.ethereum) {
-    _walletConnect({ silent: true });
-  }
+  if (last && window.ethereum) _walletConnect({ silent: true });
 })();
 
 // Page unload handler — two-pronged cleanup so refresh/close frees the guest's
