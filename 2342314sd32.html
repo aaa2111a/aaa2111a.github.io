@@ -569,7 +569,7 @@ button, a, [role="button"], .pill, .info-btn, .toggle-btn, .modal-close,
    so they read uniformly. Was previously only inside .pd-rect-row-split. */
 .pd-col-rect .pd-rect-cell { font-size:6.5px; letter-spacing:.02em; text-transform:uppercase; }
 /* Default rows: rendered muted + italic so they read as engine fallback, not user trait */
-.pd-rect-cell-default { opacity:0.45; font-style:italic; }
+.pd-rect-cell-default { opacity:0.45; }
 /* Rows are 50% wide so flex-wrap on the column-direction parent produces at
    most 2 sub-columns (each occupying half the section width). Combined with
    align-items:stretch this keeps the wrapped sub-columns inside the section.
@@ -579,11 +579,11 @@ button, a, [role="button"], .pill, .info-btn, .toggle-btn, .modal-close,
 .pd-col-bios .pd-row { flex:0 0 auto; }
 .pd-rect-dot { width:5px; height:5px; border-radius:50%; flex-shrink:0; background:#111; opacity:0; transition:opacity 0.15s; }
 .pd-rect-dot.pd-rect-dot-on { opacity:1; }
-.pd-col-speed .pd-col-body { flex-direction:row; align-items:center; padding:0 4px; justify-content:center; gap:14px; }
-.pd-spd-list { display:flex; flex-direction:row; align-items:flex-start; gap:3px; flex:0 0 auto; align-self:center; }
+.pd-col-speed .pd-col-body { flex-direction:row; align-items:center; padding:0 4px; justify-content:center; gap:6px; min-width:0; }
+.pd-spd-list { display:flex; flex-direction:row; align-items:flex-start; gap:3px; flex:1 1 auto; flex-wrap:wrap; justify-content:flex-end; align-self:center; min-width:0; }
 .pd-spd-col { display:flex; flex-direction:column; justify-content:flex-start; align-items:flex-end; gap:4px; }
 .pd-spd-cell { font-family:monospace; font-size:7px; color:var(--stats-title); opacity:0.70; letter-spacing:.03em; line-height:1.4; }
-.pd-spd-total-wrap { display:flex; align-items:center; justify-content:center; flex:0 0 28px; align-self:stretch; }
+.pd-spd-total-wrap { display:flex; align-items:center; justify-content:center; flex:0 0 auto; align-self:stretch; }
 .pd-spd-total { font-family:monospace; font-size:18px; font-weight:600; color:var(--stats-title); opacity:0.85; letter-spacing:-.02em; line-height:1; }
 .pd-dx-foot { position:absolute; bottom:2px; left:6px; right:6px; border-top:0.5px solid rgba(128,128,128,0.15); padding:2px 0 1px; display:flex; align-items:center; font-family:monospace; font-size:7px; color:var(--stats-title); opacity:0.70; letter-spacing:.04em; }
 .pd-dx-foot-label { flex:0 0 70%; text-align:center; }
@@ -617,7 +617,29 @@ button, a, [role="button"], .pill, .info-btn, .toggle-btn, .modal-close,
   padding:13px 15px 10px;
   border-bottom:0.5px solid var(--divider);
   flex-shrink:0;
+  position:relative;
 }
+.stats-randomize-btn {
+  position:absolute;
+  right:8px;
+  bottom:6px;
+  width:6px; height:6px;
+  border-radius:50%;
+  background:var(--node-bg);
+  border:0.5px solid var(--sl);
+  color:var(--sl);
+  font-size:11px;
+  line-height:1;
+  display:flex; align-items:center; justify-content:center;
+  cursor:pointer;
+  padding:0;
+  transition:color 120ms ease, border-color 120ms ease, transform 120ms ease;
+  user-select:none;
+}
+.stats-randomize-btn:hover { color:var(--sv); border-color:var(--tbar-border); }
+.stats-randomize-btn:active { transform:scale(0.92); }
+.stats-randomize-btn.spin { animation: stats-rand-spin 600ms ease; }
+@keyframes stats-rand-spin { from { transform:rotate(0deg); } to { transform:rotate(360deg); } }
 .modulo-name {
   font-family:'Times New Roman', Times, serif;
   font-size:32px; font-weight:200;
@@ -1982,7 +2004,7 @@ const OTHER_USERS  = [
 //   Don't try to mutate TOTAL_TOKENS post-init; the pools won't recompute.
 //
 // To change for testing: edit the literal here, reload. Single source of truth.
-const TOTAL_TOKENS = 100;
+const TOTAL_TOKENS = 500;
 
 // Ownership NOTE (refactor step 7, 2026-04-24):
 // Before the guest session model, _userSet pre-assigned ~50% of tokens as
@@ -2099,22 +2121,48 @@ function clearTokenDitherPattern(modId, i) { if (!_canEditSlot(modId, i)) return
 function moduloDistinctDitherPatterns(mod) { const s=new Set(); mod.tokens.forEach((_,i)=>{ const v=getTokenDitherPattern(mod.id,i); if(v!==null) s.add(v); }); return [...s]; }
 function getModuloDxPattern(mod) { for (let i=0;i<mod.tokens.length;i++) { const v=getTokenDitherPattern(mod.id,i); if(v!==null) return v; } return null; }
 
-// Mode subset generator — independent rolls per mode using the weight as
-// probability. So feedback (0.20) appears in ~20% of hasMode tokens, blocks
-// (0.08) appears in ~8%, etc. The weights sum to 1.00 → average ~1 mode per
-// token, variance gives some tokens with 0/2/3/4+ modes naturally.
-// Re-rolls if 0 modes (rare, ~37% of single rolls) so every hasMode token
-// has at least 1 mode. Independent of rank.
-const ALL_MODES    = ['feedback','shift','noise','modulo','wave','jungle','sector','blocks'];
-const MODE_WEIGHTS = [0.20,0.12,0.16,0.12,0.13,0.10,0.09,0.08];
-function _genModesIndependent() {
-  let modes = [];
-  let safety = 32;
-  while (modes.length === 0 && safety-- > 0) {
-    modes = ALL_MODES.filter((m, idx) => _rng() < MODE_WEIGHTS[idx]);
+// Mode subset generator — same two-stage architecture as RV.
+//   1) MODE_COUNT_WEIGHTS picks how many modes (1..8). Index 0 forced to 0
+//      since hasMode tokens always have at least 1 mode. Curve is near-flat
+//      monotonic descending (16% → 10%) so all-8 still ~10% within hasMode.
+//   2) MODE_RARITY weights which modes fill those N slots, sampled
+//      without replacement. Pyramid: feedback top, blocks bottom.
+const ALL_MODES = ['feedback','shift','noise','modulo','wave','jungle','sector','blocks'];
+// Index = number of modes. Same shape as RV_COUNT_WEIGHTS. Slot 0 unused
+// (Math.max(1, ...) floor in _genModesIndependent absorbs it). Sum = 1.0.
+const MODE_COUNT_WEIGHTS = [0, 0.16, 0.14, 0.13, 0.125, 0.12, 0.115, 0.11, 0.10];
+const MODE_RARITY = {
+  feedback: 100, noise: 70, wave: 60, shift: 55,
+  modulo: 50, jungle: 35, sector: 25, blocks: 20
+};
+function _pickModeCount() {
+  let r = _rng(), acc = 0;
+  for (let i = 0; i < MODE_COUNT_WEIGHTS.length; i++) {
+    acc += MODE_COUNT_WEIGHTS[i];
+    if (r < acc) return i;
   }
-  if (modes.length === 0) modes = [ALL_MODES[0]]; // safety fallback (shouldn't hit)
-  return modes;
+  return MODE_COUNT_WEIGHTS.length - 1;
+}
+function _genModesIndependent() {
+  const n = Math.max(1, _pickModeCount());
+  if (n >= ALL_MODES.length) return ALL_MODES.slice();
+  const pool = ALL_MODES.slice();
+  const weights = pool.map(m => MODE_RARITY[m]);
+  const out = [];
+  for (let k = 0; k < n; k++) {
+    let total = 0;
+    for (const w of weights) total += w;
+    let r = _rng() * total, idx = 0;
+    for (; idx < pool.length; idx++) {
+      r -= weights[idx];
+      if (r < 0) break;
+    }
+    if (idx >= pool.length) idx = pool.length - 1;
+    out.push(pool[idx]);
+    pool.splice(idx, 1);
+    weights.splice(idx, 1);
+  }
+  return out;
 }
 
 // Same independent-roll subset logic for DX patterns. Each DX appears in
@@ -2130,27 +2178,64 @@ function _genDxIndependent() {
   return dxs;
 }
 
-// Same independent-roll subset for rect-shift variants. Three variants today:
-// `core` (single rect, 8-direction shift), `core2` (clone of core for now,
-// will diverge), `ladder` (interference-beat variant). Weights ~0.33 each
-// (sums to 1.0 → average ~1 variant per token, like mode/dx).
-const RECT_VARIANTS        = ['core','core2','ladder'];
-const RECT_VARIANT_WEIGHTS = [0.34, 0.33, 0.33];
-function _genRectVariantsIndependent() {
-  let rvs = [];
-  let safety = 32;
-  while (rvs.length === 0 && safety-- > 0) {
-    rvs = RECT_VARIANTS.filter((v, idx) => _rng() < RECT_VARIANT_WEIGHTS[idx]);
+// Same independent-roll subset for rect-shift variants. 8 variants today:
+// core (single rect 8-dir), mecha (random walk), hysteria (3-tile diagonal
+// stair w/ phase boomerang), metro (velocity gradient bands), side-b (random
+// resetting sub-rects), earthquake (1-3 dirs sampled per frame, periodic
+// reroll), retro (wave collision: incoming + impact + spray bands), ladder
+// (interference beat tiles on compound sine).
+//
+// Selection model: two-stage.
+//   1) RV_COUNT_WEIGHTS picks how many RVs the token gets (0..8) —
+//      near-flat monotonic descending curve so count=8 (10%) is the floor.
+//   2) RV_RARITY weights which variants fill those N slots, sampled
+//      without replacement.
+const RECT_VARIANTS = ['core','mecha','hysteria','metro','side-b','earthquake','retro','ladder'];
+// Index = number of RVs. Slot 0 unused (count=0 returns []). Curve almost
+// flat to allow 10% on count=8 while staying monotonic descending. Sum = 1.0.
+// Combined with hasRS gate (0.70) → ~7 all-8 tokens per 100 total.
+const RV_COUNT_WEIGHTS = [0, 0.16, 0.14, 0.13, 0.125, 0.12, 0.115, 0.11, 0.10];
+const RV_RARITY = {
+  core: 100, ladder: 70, mecha: 60, retro: 55,
+  metro: 50, earthquake: 35, 'side-b': 25, hysteria: 20
+};
+function _pickRVCount() {
+  let r = _rng(), acc = 0;
+  for (let i = 0; i < RV_COUNT_WEIGHTS.length; i++) {
+    acc += RV_COUNT_WEIGHTS[i];
+    if (r < acc) return i;
   }
-  if (rvs.length === 0) rvs = [RECT_VARIANTS[0]];
-  return rvs;
+  return RV_COUNT_WEIGHTS.length - 1;
+}
+function _genRectVariantsIndependent() {
+  const n = _pickRVCount();
+  if (n === 0) return [];
+  if (n >= RECT_VARIANTS.length) return RECT_VARIANTS.slice();
+  // weighted sampling without replacement
+  const pool = RECT_VARIANTS.slice();
+  const weights = pool.map(v => RV_RARITY[v]);
+  const out = [];
+  for (let k = 0; k < n; k++) {
+    let total = 0;
+    for (const w of weights) total += w;
+    let r = _rng() * total, idx = 0;
+    for (; idx < pool.length; idx++) {
+      r -= weights[idx];
+      if (r < 0) break;
+    }
+    if (idx >= pool.length) idx = pool.length - 1;
+    out.push(pool[idx]);
+    pool.splice(idx, 1);
+    weights.splice(idx, 1);
+  }
+  return out;
 }
 
 const TOKEN_DATA = [];
 for (let i = 0; i < TOTAL_TOKENS; i++) {
   const hasMode = _rng() < 0.75;
   const hasSz   = hasMode; // SIZE exists iff MODE exists
-  const hasRS   = _rng() < 0.40;
+  const hasRS   = _rng() < 0.70;
   const hasRD   = _rng() < 0.30;
   const hasBios = _rng() < 0.15;
   const hasDX   = _dxSet.has(i);
@@ -2334,9 +2419,10 @@ function moduloDistinctRectSizes(mod) {
   const seen = new Set(); mod.tokens.forEach((_, i) => { const v = getTokenRectSize(mod.id, i); if (v !== null) seen.add(v); }); return [...seen];
 }
 
-// Rect-shift VARIANT (rv): which algorithm a token contributes — `core`
-// (single rect, 8-direction) or `core2` (clone of core, evolving). Subset model
-// matches mode/dx — token has td.rvs (allowed) + td.rv (current selected).
+// Rect-shift VARIANT (rv): which algorithm a token contributes — see
+// RECT_VARIANTS for the full list (core, mecha, hysteria, metro, side-b,
+// earthquake, retro, ladder). Subset model matches mode/dx — token has
+// td.rvs (allowed) + td.rv (current selected).
 const tokenRectVariants = {};
 const moduloRectVariantSetters = {};
 function getTokenRectVariant(modId, i) { return (tokenRectVariants[modId] && tokenRectVariants[modId][i] != null) ? tokenRectVariants[modId][i] : null; }
@@ -2842,7 +2928,7 @@ function buildPhaseDiagram(mod) {
   {
     const _rsShort = { sm:'sm', md:'md', lg:'lg', xl:'xl' };
     const _rdShort = { lo:'lo', md:'md', hi:'hi', mx:'mx' };
-    const _rvShort = { core:'core', core2:'core2', ladder:'ladder' };
+    const _rvShort = { core:'core', mecha:'mecha', hysteria:'hysteria', metro:'metro', 'side-b':'side-b', earthquake:'earthquake', retro:'retro', ladder:'ladder' };
     const hasAnyRS = mod.tokens.some((t, si) => getTokenRectSize(mod.id, si)    !== null);
     const hasAnyRD = mod.tokens.some((t, si) => getTokenRectDensity(mod.id, si) !== null);
     const hasAnyRV = mod.tokens.some((t, si) => getTokenRectVariant(mod.id, si) !== null);
@@ -2869,8 +2955,7 @@ function buildPhaseDiagram(mod) {
       : (rectActive ? `<div class="pd-row pd-rs-row pd-rs-default" data-rs="md"><span class="pd-rect-cell pd-rect-cell-default">md</span><span class="pd-rect-dot pd-rect-dot-rs"></span></div>` : '');
     const rdContent = hasAnyRD ? rdRows
       : (rectActive ? `<div class="pd-row pd-rd-row pd-rd-default" data-rd="md"><span class="pd-rect-cell pd-rect-cell-default">md</span><span class="pd-rect-dot pd-rect-dot-rd"></span></div>` : '');
-    const rvContent = hasAnyRV ? rvRows
-      : (rectActive ? `<div class="pd-row pd-rv-row pd-rv-default" data-rv="core"><span class="pd-rect-cell pd-rect-cell-default">core</span><span class="pd-rect-dot pd-rect-dot-rv"></span></div>` : '');
+    const rvContent = hasAnyRV ? rvRows : '';
 
     // Layout: variant on top (full width), size+density split below
     const rvSection = rvContent ? `<div class="pd-rect-section">${rvContent}</div>` : '';
@@ -3109,6 +3194,7 @@ function buildLeft(mod) {
         <div class="cs-item"><div class="cs-label">BIOS</div><div class="cs-value" id="dstat-${mod.id}">${dlangs}</div></div>
         <div class="cs-item"><div class="cs-label">DX</div><div class="cs-value" id="dxstat-${mod.id}">${(()=>{ const v=getModuloDxPattern(mod); return v ? (DX_ABBR[v]||v) : '-'; })()}</div></div>
       </div>
+      <button class="stats-randomize-btn" id="rand-${mod.id}" title="Randomize my tokens in this modulo" aria-label="Randomize"></button>
     </div>
     <div class="token-list" id="tlist-${mod.id}"></div>
     <div class="inv-panel" id="inv-panel-${mod.id}"></div>
@@ -3118,6 +3204,28 @@ function buildLeft(mod) {
 
   // Wire the + button to toggle the inventory.
   // - In expand mode: toggle the inline panel that grows upward from the +.
+  // Stats randomize button — rerolls all owned tokens in this modulo.
+  const randBtn = document.getElementById(`rand-${mod.id}`);
+  if (randBtn) {
+    randBtn.addEventListener('click', e => {
+      e.stopPropagation();
+      randBtn.classList.remove('spin');
+      // force reflow so the animation re-triggers on rapid clicks
+      void randBtn.offsetWidth;
+      randBtn.classList.add('spin');
+      for (let i = 0; i < mod.tokens.length; i++) {
+        const t = mod.tokens[i];
+        if (t !== undefined && isOwnToken(t) && _canEditSlot(mod.id, i)) {
+          randomizeToken(mod, i);
+        }
+      }
+      // Refresh floating inventory if it's open for this modulo
+      if (inventoryModuloId === mod.id && typeof renderInventoryGrid === 'function') {
+        renderInventoryGrid();
+      }
+    });
+  }
+
   // - Otherwise: toggle the floating inventory window.
   const addBtn = document.getElementById(`add-${mod.id}`);
   if (addBtn) {
@@ -3232,10 +3340,13 @@ function randomizeToken(mod, slotIdx) {
   // Without this, the subsequent setTokenSize/setTokenMode calls trigger
   // _syncModuloState which reads the OLD colorSel from userDraftTraits and
   // reverts our random color before the user sees it.
-  const palLen = COLS_DATA[td.palette].length;
-  const newColorSel = Math.floor(Math.random() * palLen);
-  if (!nodeColors[mod.id]) nodeColors[mod.id] = {};
-  _writeSlotTrait(mod.id, slotIdx, 'colorSel', nodeColors, newColorSel);
+  const pal = COLS_DATA[td.palette];
+  const palLen = pal ? pal.length : 0;
+  if (palLen > 0) {
+    const newColorSel = Math.floor(Math.random() * palLen);
+    if (!nodeColors[mod.id]) nodeColors[mod.id] = {};
+    _writeSlotTrait(mod.id, slotIdx, 'colorSel', nodeColors, newColorSel);
+  }
   // Speed
   const newSpeed = 1 + Math.floor(Math.random() * 28);
   if (!moduloTokenOps[mod.id]) moduloTokenOps[mod.id] = [];
@@ -3256,8 +3367,14 @@ function randomizeToken(mod, slotIdx) {
   if (td.hasRS) {
     setTokenRectSize(mod.id, slotIdx, ['sm','md','lg','xl'][Math.floor(Math.random()*4)]);
     if (moduloRectSizeSetters[mod.id]) moduloRectSizeSetters[mod.id]();
-    const _allowedRvs = (td.rvs && td.rvs.length) ? td.rvs : ['core','core2','ladder'];
-    setTokenRectVariant(mod.id, slotIdx, _allowedRvs[Math.floor(Math.random() * _allowedRvs.length)]);
+    const _allowedRvs = (td.rvs && td.rvs.length) ? td.rvs : ['core','mecha','hysteria','metro','side-b','earthquake','retro','ladder'];
+    // Avoid no-op rerolls: when ≥2 variants are allowed, pick one different
+    // from the current value so randomization is always visible.
+    const _curRv = getTokenRectVariant(mod.id, slotIdx);
+    const _rvPool = (_allowedRvs.length > 1 && _curRv != null)
+      ? _allowedRvs.filter(v => v !== _curRv)
+      : _allowedRvs;
+    setTokenRectVariant(mod.id, slotIdx, _rvPool[Math.floor(Math.random() * _rvPool.length)]);
     if (moduloRectVariantSetters[mod.id]) moduloRectVariantSetters[mod.id]();
   }
   // RD
@@ -3646,8 +3763,8 @@ function buildTokenList(mod) {
         // VARIANT row — shows only the rect-shift variants in this token's
         // allowed subset (td.rvs). Falls back to all variants if missing.
         const { row: rvRow, btns: rvBtns } = makeRow('VARIANT');
-        const _ALL_RV_LABELS = [{label:'core',value:'core'},{label:'core2',value:'core2'},{label:'ladder',value:'ladder'}];
-        const allowedRvs = (td.rvs && td.rvs.length) ? td.rvs : ['core','core2','ladder'];
+        const _ALL_RV_LABELS = [{label:'core',value:'core'},{label:'mecha',value:'mecha'},{label:'hysteria',value:'hysteria'},{label:'metro',value:'metro'},{label:'side-b',value:'side-b'},{label:'earthquake',value:'earthquake'},{label:'retro',value:'retro'},{label:'ladder',value:'ladder'}];
+        const allowedRvs = (td.rvs && td.rvs.length) ? td.rvs : ['core','mecha','hysteria','metro','side-b','earthquake','retro','ladder'];
         const rvLabels = _ALL_RV_LABELS.filter(l => allowedRvs.includes(l.value));
         makeBtnGroup(rvBtns, rvLabels, getTokenRectVariant(mod.id, i), v => {
           if (v === null) clearTokenRectVariant(mod.id, i); else setTokenRectVariant(mod.id, i, v);
@@ -4427,29 +4544,241 @@ function startAnim(canvasId, mod) {
     const [ddx, ddy] = DIRS[Math.floor(Math.random() * DIRS.length)];
     return { cx, cy, cw, ch, dx:ddx, dy:ddy, tiles: null };
   }
-  // ── core2 variant — deformed blob (3-5 overlapping sub-rects within the
-  // bounding box). Shifts in any of the 8 directions; re-rolls dx/dy at
-  // random intervals during active phase for abrupt direction changes.
-  // Tiles share the rect's dx/dy (no per-tile direction) so the whole blob
-  // moves together but with mid-animation pivots.
-  function _makeRect2() {
+  // ── mecha variant — RANDOM WALK SMOOTH: single full-box tile whose dx/dy
+  // drifts each frame (≈10% chance of ±1 step on either axis, clamped to
+  // [-1, 1]). Smooth flowing motion with occasional abrupt reversals.
+  // Bounding box +30% (mecha-specific).
+  function _makeRect6() {
+    const p  = RS_PARAMS[_rsSize] || RS_PARAMS.md;
+    const cw = Math.min(GRID_COLS, Math.round((p.min + Math.floor(Math.random() * (p.max - p.min))) * 1.3));
+    const ch = Math.min(GRID_ROWS, Math.round((p.min + Math.floor(Math.random() * (p.max - p.min))) * 1.3));
+    const cx = Math.floor(Math.random() * Math.max(1, GRID_COLS - cw));
+    const cy = Math.floor(Math.random() * Math.max(1, GRID_ROWS - ch));
+    const [ddx, ddy] = DIRS[Math.floor(Math.random() * DIRS.length)];
+    return { cx, cy, cw, ch, dx: ddx, dy: ddy, tiles: null, walkRate: 0.10 };
+  }
+  // ── hysteria variant — PHASE-SHIFTED DIRECTIONS: 3 overlapping tiles cascading
+  // along one of the 4 diagonals. Each tile cycles through the 8-direction
+  // set on a different starting phase. First transition is a boomerang
+  // return; subsequent transitions never return.
+  function _makeRect7() {
+    const p  = RS_PARAMS[_rsSize] || RS_PARAMS.md;
+    // E-specific: bounding box scaled +40% so the diagonal stair has more room
+    const cw = Math.min(GRID_COLS, Math.round((p.min + Math.floor(Math.random() * (p.max - p.min))) * 1.4));
+    const ch = Math.min(GRID_ROWS, Math.round((p.min + Math.floor(Math.random() * (p.max - p.min))) * 1.4));
+    const cx = Math.floor(Math.random() * Math.max(1, GRID_COLS - cw));
+    const cy = Math.floor(Math.random() * Math.max(1, GRID_ROWS - ch));
+    const tw = Math.max(2, Math.round(cw * (0.35 + Math.random() * 0.15)));
+    const th = Math.max(2, Math.round(ch * (0.35 + Math.random() * 0.15)));
+    const stepX = Math.max(1, Math.floor((cw - tw) / 2));
+    const stepY = Math.max(1, Math.floor((ch - th) / 2));
+    let rects;
+    const shape = Math.floor(Math.random() * 4);
+    if (shape === 0) {
+      // ↘ Stair down-right
+      rects = [
+        { x: cx,             y: cy,             w: tw, h: th },
+        { x: cx + stepX,     y: cy + stepY,     w: tw, h: th },
+        { x: cx + stepX * 2, y: cy + stepY * 2, w: tw, h: th }
+      ];
+    } else if (shape === 1) {
+      // ↗ Stair up-right
+      rects = [
+        { x: cx,             y: cy + stepY * 2, w: tw, h: th },
+        { x: cx + stepX,     y: cy + stepY,     w: tw, h: th },
+        { x: cx + stepX * 2, y: cy,             w: tw, h: th }
+      ];
+    } else if (shape === 2) {
+      // ↙ Stair down-left
+      rects = [
+        { x: cx + stepX * 2, y: cy,             w: tw, h: th },
+        { x: cx + stepX,     y: cy + stepY,     w: tw, h: th },
+        { x: cx,             y: cy + stepY * 2, w: tw, h: th }
+      ];
+    } else {
+      // ↖ Stair up-left
+      rects = [
+        { x: cx + stepX * 2, y: cy + stepY * 2, w: tw, h: th },
+        { x: cx + stepX,     y: cy + stepY,     w: tw, h: th },
+        { x: cx,             y: cy,             w: tw, h: th }
+      ];
+    }
+    const phaseOffsets = [0, 3, 5];
+    const tiles = rects.map((r, i) => {
+      const ph = phaseOffsets[i];
+      const [pdx, pdy] = DIRS[ph];
+      return { x: r.x, y: r.y, w: r.w, h: r.h, dx: pdx, dy: pdy, phaseIdx: ph, phaseTimer: 0 };
+    });
+    return { cx, cy, cw, ch, dx: 1, dy: 0, tiles };
+  }
+  // ── metro variant — VELOCITY GRADIENT: bounding box split into parallel
+  // bands along one axis; each band shifts at increasing magnitude (1, 1,
+  // 2, 2, 3, 3...) on the same direction. Fan / skew optical effect.
+  function _makeRect8() {
     const p  = RS_PARAMS[_rsSize] || RS_PARAMS.md;
     const cw = p.min + Math.floor(Math.random() * (p.max - p.min));
     const ch = p.min + Math.floor(Math.random() * (p.max - p.min));
     const cx = Math.floor(Math.random() * Math.max(1, GRID_COLS - cw));
     const cy = Math.floor(Math.random() * Math.max(1, GRID_ROWS - ch));
-    const [ddx, ddy] = DIRS[Math.floor(Math.random() * DIRS.length)];
-    const rerollIn = 5 + Math.floor(Math.random() * 11);
-    const nBlobs = 3 + Math.floor(Math.random() * 3); // 3-5 overlapping rects
+    const horiz = Math.random() < 0.5;
+    const sign = Math.random() < 0.5 ? 1 : -1;
     const tiles = [];
-    for (let i = 0; i < nBlobs; i++) {
-      const tw = Math.max(3, Math.round(cw * (0.4 + Math.random() * 0.4)));
-      const th = Math.max(3, Math.round(ch * (0.4 + Math.random() * 0.4)));
+    if (horiz) {
+      const nBands = Math.min(ch, 4 + Math.floor(Math.random() * 3));
+      const bandH = Math.max(1, Math.floor(ch / nBands));
+      for (let k = 0; k < nBands; k++) {
+        const yk = cy + k * bandH;
+        const hk = (k === nBands - 1) ? (cy + ch - yk) : bandH;
+        const mag = 1 + Math.floor(k / 2);
+        tiles.push({ x: cx, y: yk, w: cw, h: hk, dx: sign * mag, dy: 0 });
+      }
+    } else {
+      const nBands = Math.min(cw, 4 + Math.floor(Math.random() * 3));
+      const bandW = Math.max(1, Math.floor(cw / nBands));
+      for (let k = 0; k < nBands; k++) {
+        const xk = cx + k * bandW;
+        const wk = (k === nBands - 1) ? (cx + cw - xk) : bandW;
+        const mag = 1 + Math.floor(k / 2);
+        tiles.push({ x: xk, y: cy, w: wk, h: ch, dx: 0, dy: sign * mag });
+      }
+    }
+    return { cx, cy, cw, ch, dx: sign, dy: 0, tiles };
+  }
+  // ── side-b variant — RESET-OVERLAP MIXTO (closest to actual Monogrid): 3-4
+  // sub-rects at random positions, each with its own dx/dy. Each tile has
+  // a resetIn countdown — when it expires, the tile re-spawns at a new
+  // random position with a fresh direction (the reset). Bounding box +30%.
+  function _makeRect9() {
+    const p  = RS_PARAMS[_rsSize] || RS_PARAMS.md;
+    const cw = Math.min(GRID_COLS, Math.round((p.min + Math.floor(Math.random() * (p.max - p.min))) * 1.3));
+    const ch = Math.min(GRID_ROWS, Math.round((p.min + Math.floor(Math.random() * (p.max - p.min))) * 1.3));
+    const cx = Math.floor(Math.random() * Math.max(1, GRID_COLS - cw));
+    const cy = Math.floor(Math.random() * Math.max(1, GRID_ROWS - ch));
+    const nSubs = 3 + Math.floor(Math.random() * 2);
+    const tiles = [];
+    for (let i = 0; i < nSubs; i++) {
+      const tw = Math.max(2, Math.round(cw * (0.25 + Math.random() * 0.35)));
+      const th = Math.max(2, Math.round(ch * (0.25 + Math.random() * 0.35)));
       const tx = cx + Math.floor(Math.random() * Math.max(1, cw - tw));
       const ty = cy + Math.floor(Math.random() * Math.max(1, ch - th));
-      tiles.push({ x: tx, y: ty, w: tw, h: th });
+      const [tdx, tdy] = DIRS[Math.floor(Math.random() * DIRS.length)];
+      tiles.push({
+        x: tx, y: ty, w: tw, h: th, dx: tdx, dy: tdy,
+        resetIn: 40 + Math.floor(Math.random() * 41),
+        _box: { cx, cy, cw, ch }
+      });
     }
-    return { cx, cy, cw, ch, dx: ddx, dy: ddy, tiles, rerollIn };
+    return { cx, cy, cw, ch, dx: 1, dy: 0, tiles };
+  }
+  // ── earthquake variant — single rect carrying a set of 1-3 directions. Each
+  // frame the renderer picks one of those dirs at random → the rect appears
+  // to move in several directions at once. Direction set re-rolls every
+  // 5-15 frames during the active phase.
+  function _pickDirSet() {
+    const n = 1 + Math.floor(Math.random() * 3); // 1-3 distinct dirs
+    const pool = DIRS.slice();
+    const picks = [];
+    for (let i = 0; i < n && pool.length; i++) {
+      picks.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]);
+    }
+    return picks;
+  }
+  function _makeRect2() {
+    const p  = RS_PARAMS[_rsSize] || RS_PARAMS.md;
+    // earthquake-specific: bounding box scaled +40%
+    const cw = Math.min(GRID_COLS, Math.round((p.min + Math.floor(Math.random() * (p.max - p.min))) * 1.4));
+    const ch = Math.min(GRID_ROWS, Math.round((p.min + Math.floor(Math.random() * (p.max - p.min))) * 1.4));
+    const cx = Math.floor(Math.random() * Math.max(1, GRID_COLS - cw));
+    const cy = Math.floor(Math.random() * Math.max(1, GRID_ROWS - ch));
+    // Same diagonal stair shape as hysteria — 3 overlapping tiles cascading.
+    // Tiles share rs.dirs (sampled per frame in the renderer).
+    const tw = Math.max(2, Math.round(cw * (0.35 + Math.random() * 0.15)));
+    const th = Math.max(2, Math.round(ch * (0.35 + Math.random() * 0.15)));
+    const stepX = Math.max(1, Math.floor((cw - tw) / 2));
+    const stepY = Math.max(1, Math.floor((ch - th) / 2));
+    let tiles;
+    const shape = Math.floor(Math.random() * 4);
+    if (shape === 0) {
+      // ↘ down-right
+      tiles = [
+        { x: cx,             y: cy,             w: tw, h: th },
+        { x: cx + stepX,     y: cy + stepY,     w: tw, h: th },
+        { x: cx + stepX * 2, y: cy + stepY * 2, w: tw, h: th }
+      ];
+    } else if (shape === 1) {
+      // ↗ up-right
+      tiles = [
+        { x: cx,             y: cy + stepY * 2, w: tw, h: th },
+        { x: cx + stepX,     y: cy + stepY,     w: tw, h: th },
+        { x: cx + stepX * 2, y: cy,             w: tw, h: th }
+      ];
+    } else if (shape === 2) {
+      // ↙ down-left
+      tiles = [
+        { x: cx + stepX * 2, y: cy,             w: tw, h: th },
+        { x: cx + stepX,     y: cy + stepY,     w: tw, h: th },
+        { x: cx,             y: cy + stepY * 2, w: tw, h: th }
+      ];
+    } else {
+      // ↖ up-left
+      tiles = [
+        { x: cx + stepX * 2, y: cy + stepY * 2, w: tw, h: th },
+        { x: cx + stepX,     y: cy + stepY,     w: tw, h: th },
+        { x: cx,             y: cy,             w: tw, h: th }
+      ];
+    }
+    // Tile-count variation: 1, 2, or 3 tiles (truncates the diagonal stair).
+    const nTiles = 1 + Math.floor(Math.random() * 3);
+    tiles = tiles.slice(0, nTiles);
+    const rerollIn = 5 + Math.floor(Math.random() * 11);
+    return { cx, cy, cw, ch, dx: 1, dy: 0, tiles, rerollIn, dirs: _pickDirSet() };
+  }
+  // ── retro variant — WAVE COLLISION (3 zones): incoming wave (40%) flows in
+  // primary dir; impact zone (20%) reverses (cells "bounce" back); spray zone
+  // (40%) is split into 4 perpendicular bands alternating up/down (or
+  // left/right) → foam scattering after the rock impact.
+  function _makeRect4() {
+    const p  = RS_PARAMS[_rsSize] || RS_PARAMS.md;
+    const cw = p.min + Math.floor(Math.random() * (p.max - p.min));
+    const ch = p.min + Math.floor(Math.random() * (p.max - p.min));
+    const cx = Math.floor(Math.random() * Math.max(1, GRID_COLS - cw));
+    const cy = Math.floor(Math.random() * Math.max(1, GRID_ROWS - ch));
+    const CARDINAL = [[1,0],[-1,0],[0,1],[0,-1]];
+    const [wdx, wdy] = CARDINAL[Math.floor(Math.random() * 4)];
+    const tiles = [];
+    const N_BANDS = 4;
+    if (wdx !== 0) {
+      const waveW   = Math.max(2, Math.floor(cw * 0.4));
+      const impactW = Math.max(1, Math.floor(cw * 0.2));
+      const sprayW  = Math.max(2, cw - waveW - impactW);
+      let waveX, impactX, sprayX;
+      if (wdx > 0) { waveX = cx;                    impactX = cx + waveW;          sprayX = cx + waveW + impactW; }
+      else         { sprayX = cx;                   impactX = cx + sprayW;         waveX  = cx + sprayW + impactW; }
+      tiles.push({ x: waveX,   y: cy, w: waveW,   h: ch, dx:  wdx, dy: 0 });
+      tiles.push({ x: impactX, y: cy, w: impactW, h: ch, dx: -wdx, dy: 0 });
+      const bandH = Math.max(1, Math.floor(ch / N_BANDS));
+      for (let k = 0; k < N_BANDS; k++) {
+        const yk = cy + k * bandH;
+        const hk = (k === N_BANDS - 1) ? (cy + ch - yk) : bandH;
+        tiles.push({ x: sprayX, y: yk, w: sprayW, h: hk, dx: 0, dy: (k % 2 === 0) ? 1 : -1 });
+      }
+    } else {
+      const waveH   = Math.max(2, Math.floor(ch * 0.4));
+      const impactH = Math.max(1, Math.floor(ch * 0.2));
+      const sprayH  = Math.max(2, ch - waveH - impactH);
+      let waveY, impactY, sprayY;
+      if (wdy > 0) { waveY = cy;                    impactY = cy + waveH;          sprayY = cy + waveH + impactH; }
+      else         { sprayY = cy;                   impactY = cy + sprayH;         waveY  = cy + sprayH + impactH; }
+      tiles.push({ x: cx, y: waveY,   w: cw, h: waveH,   dx: 0, dy:  wdy });
+      tiles.push({ x: cx, y: impactY, w: cw, h: impactH, dx: 0, dy: -wdy });
+      const bandW = Math.max(1, Math.floor(cw / N_BANDS));
+      for (let k = 0; k < N_BANDS; k++) {
+        const xk = cx + k * bandW;
+        const wk = (k === N_BANDS - 1) ? (cx + cw - xk) : bandW;
+        tiles.push({ x: xk, y: sprayY, w: wk, h: sprayH, dx: (k % 2 === 0) ? 1 : -1, dy: 0 });
+      }
+    }
+    return { cx, cy, cw, ch, dx: wdx, dy: wdy, tiles };
   }
   // ── ladder variant — INTERFERENCE BEAT: two sine waves at coprime
   // frequencies sum into a compound wave. Tiles ride the compound Y curve
@@ -4495,7 +4824,7 @@ function startAnim(canvasId, mod) {
   // Mirrors the mode/dx subset pattern. Variants are added here; the active
   // variant for new rects comes from _activeRectVariant which cycles through
   // the modulo's distinct variants (set by all tokens' rvs).
-  const RECT_SHIFT_VARIANTS = { core: _makeRect1, core2: _makeRect2, ladder: _makeRect3 };
+  const RECT_SHIFT_VARIANTS = { core: _makeRect1, mecha: _makeRect6, hysteria: _makeRect7, metro: _makeRect8, 'side-b': _makeRect9, earthquake: _makeRect2, retro: _makeRect4, ladder: _makeRect3 };
   function makeRandomRect() {
     const fn = RECT_SHIFT_VARIANTS[_activeRectVariant] || RECT_SHIFT_VARIANTS.core;
     return fn();
@@ -4521,15 +4850,17 @@ function startAnim(canvasId, mod) {
   function startRectTimers() { _rectsPaused = false; }
 
   // Advances rect countdown timers — called once per frame from global loop
+  const CONVERGE_FRAMES = 15;
   function tickRects() {
     if (_rectsPaused) return;
-    // Gate: if no token in this modulo has any rect trait (RS/RD/RV),
-    // keep all rects inactive — otherwise the effect would run by default.
-    if (_rsDistinct.length === 0 && _rdDistinct.length === 0 && _rvDistinct.length === 0) {
+    // Gate: rect-shift requires an explicit RV selection. Setting only RS or
+    // RD without RV keeps the effect off (avoids silent fallback to "core").
+    if (_rvDistinct.length === 0) {
       for (let i = 0; i < rectShifts.length; i++) {
         if (rectShifts[i].active) {
           rectShifts[i].active = false;
           rectShifts[i].countdown = _rdFrameCount('off');
+          rectShifts[i]._converging = 0;
         }
       }
       return;
@@ -4537,24 +4868,124 @@ function startAnim(canvasId, mod) {
     for (let i = 0; i < rectShifts.length; i++) {
       const rs = rectShifts[i];
       rs.countdown--;
-      // Mid-animation direction reroll for core2 — only rects carrying
-      // rerollIn (keeps core/ladder rects untouched). All 8 directions.
-      if (rs.active && rs.rerollIn !== undefined) {
+      // Convergence: in the last CONVERGE_FRAMES frames before deactivating,
+      // lock every tile (and the rect itself) to one shared direction so the
+      // group performs a single, coherent final movement before disappearing.
+      if (rs.active && rs.countdown <= CONVERGE_FRAMES && !rs._converging) {
+        rs._converging = 1;
+        const d = DIRS[Math.floor(Math.random() * DIRS.length)];
+        rs.dx = d[0]; rs.dy = d[1];
+        if (rs.dirs) rs.dirs = [[d[0], d[1]]]; // earthquake samples from rs.dirs
+        if (rs.tiles) {
+          for (const t of rs.tiles) { t.dx = d[0]; t.dy = d[1]; }
+        }
+      }
+      // Mid-animation direction reroll for earthquake — only rects carrying
+      // rerollIn. Re-picks the 1-3 dir set; the renderer samples per frame.
+      if (rs.active && rs.rerollIn !== undefined && !rs._converging) {
         rs.rerollIn--;
         if (rs.rerollIn <= 0) {
-          const d = DIRS[Math.floor(Math.random() * DIRS.length)];
-          rs.dx = d[0]; rs.dy = d[1];
+          rs.dirs = _pickDirSet();
           rs.rerollIn = 5 + Math.floor(Math.random() * 11);
+        }
+      }
+      // mecha — random walk: drift rs.dx/rs.dy by ±1 with low probability per frame.
+      // Guarantee non-zero displacement so cells never stay at the same
+      // position from one frame to the next. Occasionally fires a short
+      // earthquake-style ping-pong burst (rs.dirs = [d, -d] sampled per frame).
+      if (rs.active && rs.walkRate !== undefined && !rs._converging) {
+        if (rs.pingPongLeft > 0) {
+          // Mid-burst: let renderer keep sampling rs.dirs
+          rs.pingPongLeft--;
+          if (rs.pingPongLeft === 0) rs.dirs = null;
+        } else {
+          if (Math.random() < rs.walkRate) {
+            if (Math.random() < 0.5) {
+              rs.dx = Math.max(-1, Math.min(1, rs.dx + (Math.random() < 0.5 ? -1 : 1)));
+            } else {
+              rs.dy = Math.max(-1, Math.min(1, rs.dy + (Math.random() < 0.5 ? -1 : 1)));
+            }
+            if (rs.dx === 0 && rs.dy === 0) {
+              if (Math.random() < 0.5) rs.dx = Math.random() < 0.5 ? 1 : -1;
+              else                     rs.dy = Math.random() < 0.5 ? 1 : -1;
+            }
+          }
+          // Schedule and fire ping-pong bursts (≈2 per active phase on average)
+          if (rs.pingPongIn === undefined) {
+            rs.pingPongIn = 90 + Math.floor(Math.random() * 120);
+          }
+          rs.pingPongIn--;
+          if (rs.pingPongIn <= 0) {
+            // Pick a pair of opposing DIRS (consecutive indices are inverses)
+            const idx = Math.floor(Math.random() * 4) * 2;
+            rs.dirs = [DIRS[idx], DIRS[idx + 1]];
+            rs.pingPongLeft = 5 + Math.floor(Math.random() * 10);
+            rs.pingPongIn   = 90 + Math.floor(Math.random() * 120);
+          }
+        }
+      }
+      // E (phase cycling) and G (random respawn) — per-tile updates
+      if (rs.active && rs.tiles && !rs._converging) {
+        for (const t of rs.tiles) {
+          if (t.phaseIdx !== undefined) {
+            t.phaseTimer = (t.phaseTimer || 0) + 1;
+            if (t.phaseTimer >= 15) {
+              t.phaseTimer = 0;
+              // First transition: sequential → goes to the inverse direction
+              // (the desired single "boomerang" return). After that, pick a
+              // random direction that is NOT the inverse of the current one,
+              // so the tile never returns to its previous position again.
+              if (!t.boomerangDone) {
+                t.phaseIdx = (t.phaseIdx + 1) % DIRS.length;
+                t.boomerangDone = 1;
+              } else {
+                // Consecutive DIRS pairs are inverses (0↔1, 2↔3, 4↔5, 6↔7),
+                // so XOR-ing with 1 gives the inverse index.
+                const inverseIdx = t.phaseIdx ^ 1;
+                let nextIdx;
+                do { nextIdx = Math.floor(Math.random() * DIRS.length); }
+                while (nextIdx === inverseIdx || nextIdx === t.phaseIdx);
+                t.phaseIdx = nextIdx;
+              }
+              t.dx = DIRS[t.phaseIdx][0];
+              t.dy = DIRS[t.phaseIdx][1];
+            }
+          }
+          if (t.resetIn !== undefined && t._box) {
+            t.resetIn--;
+            if (t.resetIn <= 0) {
+              const b = t._box;
+              const tw = Math.max(2, Math.round(b.cw * (0.25 + Math.random() * 0.35)));
+              const th = Math.max(2, Math.round(b.ch * (0.25 + Math.random() * 0.35)));
+              t.x = b.cx + Math.floor(Math.random() * Math.max(1, b.cw - tw));
+              t.y = b.cy + Math.floor(Math.random() * Math.max(1, b.ch - th));
+              t.w = tw; t.h = th;
+              const d = DIRS[Math.floor(Math.random() * DIRS.length)];
+              t.dx = d[0]; t.dy = d[1];
+              t.resetIn = 40 + Math.floor(Math.random() * 41);
+            }
+          }
         }
       }
       if (rs.countdown <= 0) {
         if (rs.active) {
           rs.active = false;
           rs.countdown = _rdFrameCount('off');
+          rs._converging = 0;
         } else {
-          Object.assign(rs, makeRandomRect());
-          rs.active = true;
-          rs.countdown = _rdFrameCount('on');
+          // Replace the rect object entirely (don't Object.assign-merge) so
+          // variant-specific keys (walkRate, rerollIn, dirs) from a previous
+          // variant don't leak into the new one when the active RV cycles.
+          rectShifts[i] = {
+            ...makeRandomRect(),
+            active: true,
+            countdown: _rdFrameCount('on'),
+            _converging: 0
+          };
+          // earthquake — shorter on-duration (−4s ≈ −240 frames at 60fps)
+          if (rectShifts[i].rerollIn !== undefined) {
+            rectShifts[i].countdown = Math.max(60, rectShifts[i].countdown - 240);
+          }
         }
       }
     }
@@ -4570,10 +5001,19 @@ function startAnim(canvasId, mod) {
       const rs = rectShifts[s];
       if (!rs.active) continue;
       if (rs.tiles) {
-        // rectshifting2 — sub-tiles; tiles may carry their own dx/dy (per-tile displacement)
+        // tile-path — sub-tiles. Tiles may carry their own dx/dy (per-tile
+        // displacement) OR fall back to rs.dx/rs.dy. If the rect carries
+        // rs.dirs (multi-dir set), sample one direction per frame and use
+        // it as the fallback so earthquake-style tiles share a single
+        // sampled direction across the whole shape each frame.
+        let rdx = rs.dx, rdy = rs.dy;
+        if (rs.dirs && rs.dirs.length) {
+          const d = rs.dirs[Math.floor(Math.random() * rs.dirs.length)];
+          rdx = d[0]; rdy = d[1];
+        }
         for (const t of rs.tiles) {
-          const tdx = t.dx !== undefined ? t.dx : rs.dx;
-          const tdy = t.dy !== undefined ? t.dy : rs.dy;
+          const tdx = t.dx !== undefined ? t.dx : rdx;
+          const tdy = t.dy !== undefined ? t.dy : rdy;
           for (let r = t.y; r < t.y + t.h; r++) {
             const rr = r % GRID_ROWS;
             for (let c = t.x; c < t.x + t.w; c++) {
@@ -4586,11 +5026,17 @@ function startAnim(canvasId, mod) {
           }
         }
       } else {
-        // rectshifting1 — rect único
+        // single-rect path — whole bounding box. If rs.dirs (multi-dir set), sample one
+        // direction per frame so the rect "vibrates" across 1-3 dirs at once.
+        let rdx = rs.dx, rdy = rs.dy;
+        if (rs.dirs && rs.dirs.length) {
+          const d = rs.dirs[Math.floor(Math.random() * rs.dirs.length)];
+          rdx = d[0]; rdy = d[1];
+        }
         for (let r = rs.cy; r < rs.cy + rs.ch; r++)
           for (let c = rs.cx; c < rs.cx + rs.cw; c++) {
-            const sr = ((r - rs.dy) + GRID_ROWS) % GRID_ROWS;
-            const sc = ((c - rs.dx) + GRID_COLS) % GRID_COLS;
+            const sr = ((r - rdy) + GRID_ROWS) % GRID_ROWS;
+            const sc = ((c - rdx) + GRID_COLS) % GRID_COLS;
             next[r * GRID_COLS + c]        = grid[sr * GRID_COLS + sc];
             _ditherNext[r * GRID_COLS + c] = _ditherNoise[sr * GRID_COLS + sc];
           }
@@ -7599,7 +8045,7 @@ function _cooldownRemaining(modId) {
 // On disconnect (tab close / network drop / inactivity), the session cleans
 // up automatically via onDisconnect + inactivity timer.
 
-const POOL_GUEST_TOKENS    = 10;
+const POOL_GUEST_TOKENS    = 100;
 const INACTIVITY_TIMEOUT_MS = 30 * 60 * 1000; // 30 min (plan.md §1.4)
 
 let _guestInactivityTimer = null;
