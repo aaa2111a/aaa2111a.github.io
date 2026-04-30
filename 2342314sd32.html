@@ -8292,18 +8292,14 @@ function _refreshDisconnectCleanup() {
     _guestDisconnectHandle.cancel().catch(() => {});
   }
 
-  // Build the full payload: presence + all claims + all my current locks.
+  // Build the full payload: presence + all claims. Locks are NOT included
+  // here anymore because /session/ rules are strict (only Cloud Functions
+  // can write). Orphan locks are reaped by the unlockToken cloud function
+  // when the sweeper detects /wallets/{addr} or /guests/{id} is missing —
+  // typically within 30s of disconnect.
   const payload = {};
   payload[`${basePath}/${SESSION_USER}`] = null;
   for (const t of _myClaimedTokens) payload[`tokenClaims/${t}`] = null;
-  for (const modId of Object.keys(fbLocked)) {
-    const locked = fbLocked[modId] || {};
-    for (const tokenNumStr of Object.keys(locked)) {
-      if (locked[tokenNumStr] && locked[tokenNumStr].owner === SESSION_USER) {
-        payload[`session/modules/${modId}/locked/${tokenNumStr}`] = null;
-      }
-    }
-  }
 
   _guestDisconnectHandle = onDisconnect(ref(db, '/'));
   _guestDisconnectHandle.update(payload).catch(err => {
@@ -8321,15 +8317,9 @@ async function _runManualCleanup(sessionId, tokens) {
   const payload = {};
   payload[`${basePath}/${sessionId}`] = null;
   for (const t of tokens) payload[`tokenClaims/${t}`] = null;
-  // Also drop my locks so the sweeper doesn't keep them around waiting for expiry.
-  for (const modId of Object.keys(fbLocked)) {
-    const locked = fbLocked[modId] || {};
-    for (const tokenNumStr of Object.keys(locked)) {
-      if (locked[tokenNumStr] && locked[tokenNumStr].owner === sessionId) {
-        payload[`session/modules/${modId}/locked/${tokenNumStr}`] = null;
-      }
-    }
-  }
+  // Locks are NOT included — strict rules block direct writes. Orphan locks
+  // get reaped by the unlockToken cloud function when /wallets/ or /guests/
+  // record disappears (sweeper detects it).
   try { await update(ref(db, '/'), payload); }
   catch (err) { console.error('[session] manual cleanup failed:', err); }
   // Cancel the onDisconnect since we've already run cleanup
@@ -8875,17 +8865,9 @@ function _gracefulOffline() {
     if (Array.isArray(_myClaimedTokens)) {
       for (const t of _myClaimedTokens) payload[`tokenClaims/${t}`] = null;
     }
-    // Also drop any of our locks (won't last anyway, but cleaner)
-    if (typeof fbLocked === 'object' && fbLocked) {
-      for (const modId of Object.keys(fbLocked)) {
-        const locked = fbLocked[modId] || {};
-        for (const tNum of Object.keys(locked)) {
-          if (locked[tNum] && locked[tNum].owner === SESSION_USER) {
-            payload[`session/modules/${modId}/locked/${tNum}`] = null;
-          }
-        }
-      }
-    }
+    // Locks are NOT included — strict rules block direct writes. Orphan locks
+    // are reaped by the unlockToken cloud function within 30s when the
+    // sweeper detects the session record is gone.
     fetch(`${_DB_REST_BASE}/.json?print=silent`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
