@@ -314,7 +314,7 @@ button, a, [role="button"], .pill, .info-btn, .toggle-btn, .modal-close,
 .toggle-btn { padding:3px 11px; border-radius:20px; border:0.5px solid var(--toggle-border); background:var(--toggle-bg); color:var(--toggle-color); font-size:10px; cursor:pointer; letter-spacing:.04em; transition:background 0.2s, color 0.2s, border-color 0.2s; }
 #bg-color-btn { width:16px; height:16px; border-radius:50%; border:1.5px solid var(--node-border); cursor:pointer; flex-shrink:0; transition:transform 0.15s; padding:0; }
 #bg-color-btn:hover { transform:scale(1.25); }
-#bg-color-picker { position:fixed; background:var(--node-bg-solid); border:0.5px solid var(--node-border); border-radius:8px; padding:10px; display:none; z-index:9999; box-shadow:0 4px 16px rgba(0,0,0,0.15); }
+#bg-color-picker { position:fixed; background:var(--node-bg-solid); border:0.5px solid var(--node-border); border-radius:8px; padding:10px; display:none; z-index:7999; box-shadow:0 4px 16px rgba(0,0,0,0.15); }
 
 /* ── Info button ── */
 #info-btn {
@@ -636,7 +636,7 @@ button, a, [role="button"], .pill, .info-btn, .toggle-btn, .modal-close,
 /* Compact style applied to ALL rect-shift cells (variant + size + density)
    so they read uniformly. Was previously only inside .pd-rect-row-split. */
 .pd-col-rect .pd-rect-cell { font-size:6.5px; letter-spacing:.02em; text-transform:uppercase; }
-/* Default rows: rendered muted + italic so they read as engine fallback, not user trait */
+/* Default rows: rendered muted (lower opacity) so they read as engine fallback, not user trait */
 .pd-rect-cell-default { opacity:0.45; }
 /* Rows are 50% wide so flex-wrap on the column-direction parent produces at
    most 2 sub-columns (each occupying half the section width). Combined with
@@ -1743,7 +1743,7 @@ button, a, [role="button"], .pill, .info-btn, .toggle-btn, .modal-close,
     border-radius: 50%;
     /* invisible — pointer-events default (auto) lets clicks bubble to .dot.g */
   }
-  .modulo-card .modulo-header { gap: 8px; }
+  /* .modulo-header isn't flex/grid so `gap` was inert; keep header tight on mobile via padding instead */
 
   /* ── Wider expand window on mobile ───────────────────────────
      Default max-width caps at min(96vw, calc((90vh-28px)*1.78)) which on
@@ -2075,7 +2075,7 @@ const OTHER_USERS  = [
 //   Don't try to mutate TOTAL_TOKENS post-init; the pools won't recompute.
 //
 // To change for testing: edit the literal here, reload. Single source of truth.
-const TOTAL_TOKENS = 500;
+const TOTAL_TOKENS = 600;
 
 // Ownership NOTE (refactor step 7, 2026-04-24):
 // Before the guest session model, _userSet pre-assigned ~50% of tokens as
@@ -2095,7 +2095,7 @@ for (let i = _rankPool.length - 1; i > 0; i--) {
 }
 // _rankPool[tokenId] = rank (1..TOTAL_TOKENS), unique
 
-// Fisher-Yates shuffle to pick exactly 44 DX-enabled tokens (~44% of TOTAL_TOKENS=100)
+// Fisher-Yates shuffle to pick exactly 44% of TOTAL_TOKENS as DX-enabled
 const _dxSet  = new Set();
 const _dxPool = Array.from({ length: TOTAL_TOKENS }, (_, i) => i);
 for (let i = _dxPool.length - 1; i > 0; i--) {
@@ -3021,7 +3021,7 @@ function buildPhaseDiagram(mod) {
       return `<div class="pd-row pd-rv-row" data-rv="${rv}"><span class="pd-rect-cell">${_rvShort[rv] || rv}</span><span class="pd-rect-dot pd-rect-dot-rv"></span></div>`;
     }).join('');
 
-    // Defaults — short label + .pd-rect-cell-default class for muted/italic styling
+    // Defaults — short label + .pd-rect-cell-default class for muted (low-opacity) styling
     const rsContent = hasAnyRS ? rsRows
       : (rectActive ? `<div class="pd-row pd-rs-row pd-rs-default" data-rs="md"><span class="pd-rect-cell pd-rect-cell-default">md</span><span class="pd-rect-dot pd-rect-dot-rs"></span></div>` : '');
     const rdContent = hasAnyRD ? rdRows
@@ -3428,43 +3428,70 @@ function randomizeToken(mod, slotIdx) {
   moduloTokenOps[mod.id][slotIdx] = newSpeed;
   const total = moduloTokenOps[mod.id].reduce((a, v) => a + (v || 0), 0);
   if (moduloSpeedSetters[mod.id]) moduloSpeedSetters[mod.id](total);
-  // Sz
+  // Helper: pick a value different from current when ≥2 options are
+  // available, otherwise pick from full pool. Avoids visually no-op rerolls.
+  const _diffPick = (pool, current) => {
+    if (!pool || !pool.length) return null;
+    if (pool.length > 1 && current != null) {
+      const filtered = pool.filter(v => v !== current);
+      if (filtered.length) return filtered[Math.floor(Math.random() * filtered.length)];
+    }
+    return pool[Math.floor(Math.random() * pool.length)];
+  };
+  // Helper: weighted pick (matches init distributions). Used for traits with
+  // no per-token allowed-subset (sz, rs, rd, bios).
+  const _weightedRandom = (values, weights) => {
+    let total = 0;
+    for (const w of weights) total += w;
+    let r = Math.random() * total;
+    for (let i = 0; i < values.length; i++) {
+      r -= weights[i];
+      if (r < 0) return values[i];
+    }
+    return values[values.length - 1];
+  };
+
+  // Sz — weighted 0.15/0.55/0.30 to match init
   if (td.hasSz) {
-    setTokenSize(mod.id, slotIdx, ['sm','md','lg'][Math.floor(Math.random()*3)]);
+    setTokenSize(mod.id, slotIdx, _weightedRandom(['sm','md','lg'], [0.15,0.55,0.30]));
     if (moduloSizeSetters[mod.id]) moduloSizeSetters[mod.id]();
   }
-  // Mode
+  // Mode — respects td.modes subset (token's allowed modes), picks different
+  // from current when possible. Falls back to all 8 only if subset is missing.
   if (td.hasMode) {
-    setTokenMode(mod.id, slotIdx, ['feedback','shift','noise','modulo','wave','jungle','sector','blocks'][Math.floor(Math.random()*8)]);
+    const allowedModes = (td.modes && td.modes.length)
+      ? td.modes
+      : ['feedback','shift','noise','modulo','wave','jungle','sector','blocks'];
+    const cur = getTokenMode(mod.id, slotIdx);
+    setTokenMode(mod.id, slotIdx, _diffPick(allowedModes, cur));
     if (moduloModeSetters[mod.id]) moduloModeSetters[mod.id]();
   }
-  // RS
+  // RS — weighted 0.15/0.40/0.30/0.15 to match init
   if (td.hasRS) {
-    setTokenRectSize(mod.id, slotIdx, ['sm','md','lg','xl'][Math.floor(Math.random()*4)]);
+    setTokenRectSize(mod.id, slotIdx, _weightedRandom(['sm','md','lg','xl'], [0.15,0.40,0.30,0.15]));
     if (moduloRectSizeSetters[mod.id]) moduloRectSizeSetters[mod.id]();
-    const _allowedRvs = (td.rvs && td.rvs.length) ? td.rvs : ['core','mecha','hysteria','metro','side-b','earthquake','retro','ladder'];
-    // Avoid no-op rerolls: when ≥2 variants are allowed, pick one different
-    // from the current value so randomization is always visible.
-    const _curRv = getTokenRectVariant(mod.id, slotIdx);
-    const _rvPool = (_allowedRvs.length > 1 && _curRv != null)
-      ? _allowedRvs.filter(v => v !== _curRv)
-      : _allowedRvs;
-    setTokenRectVariant(mod.id, slotIdx, _rvPool[Math.floor(Math.random() * _rvPool.length)]);
+    // RV — respects td.rvs subset, picks different value when ≥2 allowed
+    const allowedRvs = (td.rvs && td.rvs.length) ? td.rvs : RECT_VARIANTS.slice();
+    const curRv = getTokenRectVariant(mod.id, slotIdx);
+    setTokenRectVariant(mod.id, slotIdx, _diffPick(allowedRvs, curRv));
     if (moduloRectVariantSetters[mod.id]) moduloRectVariantSetters[mod.id]();
   }
-  // RD
+  // RD — weighted 0.30/0.35/0.25/0.10 to match init
   if (td.hasRD) {
-    setTokenRectDensity(mod.id, slotIdx, ['lo','md','hi','mx'][Math.floor(Math.random()*4)]);
+    setTokenRectDensity(mod.id, slotIdx, _weightedRandom(['lo','md','hi','mx'], [0.30,0.35,0.25,0.10]));
     if (moduloRectDensitySetters[mod.id]) moduloRectDensitySetters[mod.id]();
   }
-  // BIOS
+  // BIOS — 70/30 to match init
   if (td.hasBios) {
-    const val = Math.random() < 0.5;
+    const val = Math.random() < 0.70;
     setBiosOn(mod.id, slotIdx, val);
     if (val && moduloBiosTriggers[mod.id]) moduloBiosTriggers[mod.id](slotIdx);
   }
+  // DX — respects td.dxs subset, picks different from current when possible
   if (td.hasDX) {
-    setTokenDitherPattern(mod.id, slotIdx, DX_PATTERN_KEYS[Math.floor(Math.random() * DX_PATTERN_KEYS.length)]);
+    const allowedDxs = (td.dxs && td.dxs.length) ? td.dxs : DX_PATTERN_KEYS.slice();
+    const curDx = getTokenDitherPattern(mod.id, slotIdx);
+    setTokenDitherPattern(mod.id, slotIdx, _diffPick(allowedDxs, curDx));
     if (moduloDitherPatternSetters[mod.id]) moduloDitherPatternSetters[mod.id]();
   }
   if (moduloAnimUpdaters[mod.id]) moduloAnimUpdaters[mod.id]();
@@ -5760,6 +5787,7 @@ function startAnim(canvasId, mod) {
     _rvCycleIdx = 0; _rvCycleFrames = 0; _activeRectVariant = _rvDistinct[0] || 'core';
     const el = document.getElementById(`rv-${mod.id}`);
     if (el) el.textContent = _rvDistinct.length ? _rvDistinct.join('/') : '-';
+    buildPhaseDiagram(mod);
   };
   moduloRectDensitySetters[mod.id] = () => {
     _rdDistinct = moduloDistinctRectDensities(mod);
@@ -7688,8 +7716,8 @@ document.getElementById('export-btn').addEventListener('click', () => {
     const c = document.getElementById('info-canvas-tokens');
     const ctx = c.getContext('2d'); ctx.clearRect(0,0,320,408);
     const px = 14; const cols = Math.floor(320/px); const rows = Math.floor(408/px);
-    const bg = document.body.classList.contains('night') ? [30,30,30] : [219,216,209];
-    const fg = document.body.classList.contains('night') ? [200,195,180] : [20,20,20];
+    const bg = document.getElementById('root').classList.contains('night') ? [30,30,30] : [219,216,209];
+    const fg = document.getElementById('root').classList.contains('night') ? [200,195,180] : [20,20,20];
     const id = ctx.createImageData(320,408);
     const d = id.data;
     for (let i=0;i<d.length;i+=4){d[i]=bg[0];d[i+1]=bg[1];d[i+2]=bg[2];d[i+3]=255;}
@@ -7703,19 +7731,19 @@ document.getElementById('export-btn').addEventListener('click', () => {
     }
     ctx.putImageData(id,0,0);
     // Draw token card outline
-    ctx.strokeStyle = document.body.classList.contains('night') ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.18)';
+    ctx.strokeStyle = document.getElementById('root').classList.contains('night') ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.18)';
     ctx.lineWidth = 1;
     ctx.strokeRect(40, 60, 240, 280);
-    ctx.fillStyle = document.body.classList.contains('night') ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)';
+    ctx.fillStyle = document.getElementById('root').classList.contains('night') ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)';
     ctx.fillRect(40, 60, 240, 280);
-    ctx.fillStyle = document.body.classList.contains('night') ? 'rgba(255,255,255,0.55)' : 'rgba(0,0,0,0.55)';
+    ctx.fillStyle = document.getElementById('root').classList.contains('night') ? 'rgba(255,255,255,0.55)' : 'rgba(0,0,0,0.55)';
     ctx.font = '9px monospace'; ctx.letterSpacing = '0.08em';
     ctx.fillText('TOKEN #07', 52, 85);
     ctx.font = '8px monospace';
-    ctx.fillStyle = document.body.classList.contains('night') ? 'rgba(255,255,255,0.30)' : 'rgba(0,0,0,0.30)';
+    ctx.fillStyle = document.getElementById('root').classList.contains('night') ? 'rgba(255,255,255,0.30)' : 'rgba(0,0,0,0.30)';
     ctx.fillText('0xd3ad...cdef', 52, 102);
     // Seed label
-    ctx.fillStyle = document.body.classList.contains('night') ? 'rgba(255,255,255,0.22)' : 'rgba(0,0,0,0.22)';
+    ctx.fillStyle = document.getElementById('root').classList.contains('night') ? 'rgba(255,255,255,0.22)' : 'rgba(0,0,0,0.22)';
     ctx.fillText('SEED', 52, 310); ctx.fillText('0x4a7f2c1d', 52, 324);
   }
 
@@ -7724,8 +7752,8 @@ document.getElementById('export-btn').addEventListener('click', () => {
     if (!c) return;
     const ctx = c.getContext('2d'); ctx.clearRect(0,0,320,408);
     const px = 10; const cols = Math.floor(320/px); const rows = Math.floor(408/px);
-    const bg = document.body.classList.contains('night') ? [30,30,30] : [219,216,209];
-    const fg = document.body.classList.contains('night') ? [200,195,180] : [20,20,20];
+    const bg = document.getElementById('root').classList.contains('night') ? [30,30,30] : [219,216,209];
+    const fg = document.getElementById('root').classList.contains('night') ? [200,195,180] : [20,20,20];
     const id = ctx.createImageData(320,408);
     const d = id.data;
     for (let i=0;i<d.length;i+=4){d[i]=bg[0];d[i+1]=bg[1];d[i+2]=bg[2];d[i+3]=255;}
@@ -7974,6 +8002,9 @@ function _scheduleOwnExpiry(modId, tokenNum, lockedUntil) {
 // land in plan.md §12 step 4 and §12 step 6 respectively.
 async function unlockToken(modId, tokenNum, options) {
   if (!window.FB) return { ok: false, reason: 'no-firebase' };
+  // Guests are read-only on shared modulos — they shouldn't write to other
+  // users' lock state via the cooperative expiry sweeper. (audits.md P0 #1)
+  if (_isGuest()) return { ok: false, reason: 'guest-readonly' };
   const mod = MODULOS.find(m => m.id === modId);
   if (!mod || mod.personal) return { ok: false, reason: 'not-shared' };
   const entry = fbLocked[modId] && fbLocked[modId][tokenNum];
@@ -8025,17 +8056,18 @@ const _EXPIRY_CHECK_INTERVAL_MS = 30 * 1000;
 
 async function _sweepExpiredLocks() {
   if (!window.FB) return;
+  // Guests are read-only — they don't run cleanup writes. (audits.md P0)
+  if (typeof _isGuest === 'function' && _isGuest()) return;
   const now = Date.now();
-  // Fetch the current guests snapshot once — cheap read, used for orphan detection.
-  // An "orphan" lock is one whose owner (a guestId) no longer exists in guests/
-  // because that guest disconnected. onDisconnect should clear locks via the
-  // multi-path update, but if a client's cleanup misses a lock (e.g. crash),
-  // this catches it. No-op for owners that aren't guest IDs (e.g. wallet addresses).
-  let guestsSnapshot = {};
+  // Fetch current presence snapshots — cheap reads. An "orphan" lock is one
+  // whose owner is no longer in /guests/ or /wallets/ (their session ended
+  // without onDisconnect clearing the lock — e.g. crash, hard close).
+  let guestsSnapshot = {}, walletsSnapshot = {};
   try {
     const { db, ref, get } = window.FB;
-    const snap = await get(ref(db, 'guests'));
-    if (snap.exists()) guestsSnapshot = snap.val() || {};
+    const [g, w] = await Promise.all([get(ref(db, 'guests')), get(ref(db, 'wallets'))]);
+    if (g.exists()) guestsSnapshot  = g.val() || {};
+    if (w.exists()) walletsSnapshot = w.val() || {};
   } catch (_) { /* network glitch — skip orphan check this pass */ }
 
   for (const modId of Object.keys(fbLocked)) {
@@ -8045,8 +8077,12 @@ async function _sweepExpiredLocks() {
       if (!entry) continue;
       const tokenNum = +tokenNumStr;
       const isExpired = entry.lockedUntil && entry.lockedUntil <= now;
-      const ownerIsGuest = typeof entry.owner === 'string' && entry.owner.startsWith('guest-');
-      const isOrphan = ownerIsGuest && !guestsSnapshot[entry.owner];
+      // Orphan: owner is a known session-id shape but the corresponding
+      // record is gone from /guests/ or /wallets/.
+      const owner = entry.owner;
+      const ownerKind = typeof _sessionBasePath === 'function' ? _sessionBasePath(owner) : null;
+      const isOrphan = (ownerKind === 'guests' && !guestsSnapshot[owner]) ||
+                       (ownerKind === 'wallets' && !walletsSnapshot[owner]);
       if (!isExpired && !isOrphan) continue;
       const isMine = entry.owner === SESSION_USER;
       // Cooldown only applies if this user's own lock is being swept (their
@@ -8080,6 +8116,9 @@ const _CLAIM_SWEEP_INTERVAL_MS = 5 * 60 * 1000;
 
 async function _sweepStrayClaims() {
   if (!window.FB) return;
+  // Guests are read-only — skip the sweep write path entirely. Wallet
+  // sessions (and future Cloud Function) handle housekeeping. (audits.md P0)
+  if (typeof _isGuest === 'function' && _isGuest()) return;
   const { db, ref, get, update } = window.FB;
   let claims = {}, guests = {}, wallets = {};
   try {
@@ -8152,15 +8191,23 @@ let _guestInactivityTimer = null;
 let _guestDisconnectHandle = null; // OnDisconnect instance for manual cancel
 
 function _makeGuestId() {
-  const rand = Math.random().toString(16).slice(2, 10);
-  return 'guest-' + rand;
+  // Always 8 hex chars — Math.random().toString(16) can produce fewer when
+  // trailing zeros strip, so we generate from raw 32-bit ints and pad.
+  // Activity feed RX_OWNER expects guest-[6,12], padding ensures match.
+  const a = Math.floor(Math.random() * 0xffffffff).toString(16).padStart(8, '0');
+  return 'guest-' + a;
 }
 
 // Map a session id to its Firebase base path. Returns null for unknown shapes
 // so callers can skip cleanup writes that would otherwise corrupt the DB.
+// The zero address (post-_endSession placeholder) and the deadbeef placeholder
+// (initial SESSION_USER) are explicitly rejected so they don't trigger spurious
+// writes to wallets/0x000…000 or wallets/0xd3adb33f… in cleanup paths.
 function _sessionBasePath(id) {
   if (typeof id !== 'string') return null;
   if (id.startsWith('guest-')) return 'guests';
+  if (/^0x0+$/.test(id)) return null;                          // zero address
+  if (/^0xd3adb33f/.test(id)) return null;                     // initial placeholder
   if (/^0x[0-9a-fA-F]{40}$/.test(id)) return 'wallets';
   return null;
 }
@@ -8286,18 +8333,31 @@ async function _runManualCleanup(sessionId, tokens) {
 }
 
 // Inactivity: 30min since last user input → cleanup + reload. Any pointer/key
-// event resets the timer. Called once at startup; the timer itself re-arms.
-function _armInactivityTimer(guestId, tokens) {
+// event resets the timer.
+//
+// Re-callable safely: on subsequent calls (e.g. session swap), the previous
+// listener set is detached before re-attaching. Without this, listeners would
+// stack and each event would trigger N timer resets. (audits.md P2 #17)
+let _inactivityListeners = null;
+function _armInactivityTimer(sessionId, tokens) {
   const reset = () => {
     if (_guestInactivityTimer) clearTimeout(_guestInactivityTimer);
     _guestInactivityTimer = setTimeout(async () => {
-      await _runManualCleanup(guestId, tokens);
+      await _runManualCleanup(sessionId, tokens);
       location.reload();
     }, INACTIVITY_TIMEOUT_MS);
   };
-  ['mousemove','mousedown','keydown','wheel','touchstart','scroll'].forEach(evt => {
+  // Detach previous listeners (if any) before re-attaching for this session
+  if (_inactivityListeners) {
+    for (const { evt, fn } of _inactivityListeners) {
+      window.removeEventListener(evt, fn);
+    }
+  }
+  _inactivityListeners = [];
+  for (const evt of ['mousemove','mousedown','keydown','wheel','touchstart','scroll']) {
     window.addEventListener(evt, reset, { passive: true });
-  });
+    _inactivityListeners.push({ evt, fn: reset });
+  }
   reset();
 }
 
@@ -8316,6 +8376,9 @@ const STALE_GUEST_MAX_MS = 60 * 60 * 1000; // 1 hour
 
 async function _sweepStaleGuests() {
   if (!window.FB) return;
+  // Guests don't write to /guests/ /wallets/ /tokenClaims/ — skip entirely.
+  // (audits.md P0 #1)
+  if (typeof _isGuest === 'function' && _isGuest()) return;
   try {
     const { db, ref, get, update } = window.FB;
     const [guestsSnap, walletsSnap, claimsSnap] = await Promise.all([
@@ -8474,9 +8537,10 @@ async function _initGuestSession() {
 async function _initWalletSession(address) {
   if (!window.FB) return;
   if (!address || _sessionBasePath(address) !== 'wallets') return;
-  // If a guest session is currently active, end it (releasing tokens) so the
-  // pool has room for the wallet's claim.
-  if (_sessionBasePath(SESSION_USER) === 'guests') {
+  // End any active session (guest OR wallet) before claiming for the new
+  // wallet. Wallet→wallet swap is rare (only via accountsChanged race) but
+  // covering it here makes the function idempotent for any caller.
+  if (SESSION_USER !== address && _sessionBasePath(SESSION_USER)) {
     await _endSession();
   }
   // Sweep stale sessions before claiming
@@ -8499,7 +8563,6 @@ async function _initWalletSession(address) {
 // placeholder address (0xd3adb33f...) that incorrectly matches the wallet
 // regex — without this, the fallback would think a wallet session is already
 // running and skip the guest claim entirely.
-let _walletReconnectAttempted = false;
 async function _walletDeferredFallback() {
   if (_walletAddress) return;
   if (_myClaimedTokens && _myClaimedTokens.length > 0) return;
@@ -8575,8 +8638,10 @@ async function _walletEnsureChain() {
     });
     return true;
   } catch (err) {
-    // 4902 = chain not added in wallet → try to add it
-    if (err && (err.code === 4902 || err.code === -32603)) {
+    // 4902 = chain not added in wallet → try to add it. (-32603 was previously
+    // also caught here but it's "internal error" per JSON-RPC spec — too broad,
+    // would prompt addEthereumChain on unrelated failures. audits.md P2 #11)
+    if (err && err.code === 4902) {
       try {
         await window.ethereum.request({
           method: 'wallet_addEthereumChain',
@@ -8609,7 +8674,16 @@ async function _walletConnect({ silent = false } = {}) {
     _walletProvider = new window.ethers.BrowserProvider(window.ethereum, 'any');
     const method = silent ? 'eth_accounts' : 'eth_requestAccounts';
     const accounts = await window.ethereum.request({ method });
-    if (!accounts || !accounts.length) { _walletProvider = null; return null; }
+    if (!accounts || !accounts.length) {
+      _walletProvider = null;
+      // Silent path: stale LS entry but wallet revoked → ensure UI is clean.
+      if (silent) {
+        _walletAddress = null;
+        localStorage.removeItem(WALLET_LS_KEY);
+        _renderWalletUI();
+      }
+      return null;
+    }
     _walletAddress = window.ethers.getAddress(accounts[0]);
     try {
       const net = await _walletProvider.getNetwork();
@@ -8622,7 +8696,7 @@ async function _walletConnect({ silent = false } = {}) {
     if (!silent && _walletChainId !== WALLET_TARGET_CHAIN_ID) {
       await _walletEnsureChain();
     }
-    console.log('[wallet] connected', _walletAddress, 'chainId', _walletChainId);
+    console.log('[wallet] connected', _shortAddr(_walletAddress), 'chainId', _walletChainId);
     // Pass 2 — initiate the wallet session (claims pool tokens, writes /wallets/{addr})
     if (typeof _initWalletSession === 'function') {
       await _initWalletSession(_walletAddress);
@@ -8637,7 +8711,13 @@ async function _walletConnect({ silent = false } = {}) {
   }
 }
 
+let _walletDisconnecting = false;
 async function _walletDisconnect() {
+  // Re-entrancy guard: revokePermissions can synchronously fire accountsChanged
+  // (with empty array), which would call this function again. Without the
+  // guard, _endSession could run twice and we'd double-clear local state.
+  if (_walletDisconnecting) return;
+  _walletDisconnecting = true;
   // End wallet session FIRST while SESSION_USER still points to the wallet
   if (typeof _endSession === 'function' && _sessionBasePath(SESSION_USER) === 'wallets') {
     await _endSession();
@@ -8669,6 +8749,7 @@ async function _walletDisconnect() {
   console.log('[wallet] disconnected');
   // Restart guest fallback so the user keeps a (read-only soon) session
   if (typeof _initGuestSession === 'function') await _initGuestSession();
+  _walletDisconnecting = false;
 }
 
 async function _walletToggle() {
@@ -8679,7 +8760,7 @@ async function _walletToggle() {
       const switched = await _walletEnsureChain();
       if (switched) return;
     }
-    _walletDisconnect();
+    await _walletDisconnect();
   } else {
     await _walletConnect();
   }
@@ -8687,12 +8768,36 @@ async function _walletToggle() {
 
 function _walletAttachListeners() {
   if (!window.ethereum || !window.ethereum.on) return;
-  window.ethereum.on('accountsChanged', accounts => {
-    if (!accounts || !accounts.length) { _walletDisconnect(); return; }
-    _walletAddress = window.ethers ? window.ethers.getAddress(accounts[0]) : accounts[0];
+  window.ethereum.on('accountsChanged', async accounts => {
+    // Skip while a disconnect is in flight — wallet_revokePermissions can
+    // synchronously fire accountsChanged with []; the disconnect path already
+    // handles cleanup. (audits.md P2 #12)
+    if (_walletDisconnecting) return;
+    if (!accounts || !accounts.length) { await _walletDisconnect(); return; }
+    const newAddr = window.ethers ? window.ethers.getAddress(accounts[0]) : accounts[0];
+    if (newAddr === _walletAddress) return; // same account, no-op
+    // Defensive: if FB isn't ready or provider isn't initialized yet (event
+    // fired during bootstrap before _walletConnect ran), don't mutate state.
+    if (!window.FB || !_walletProvider) {
+      console.warn('[wallet] accountsChanged ignored — FB or provider not ready');
+      return;
+    }
+    // Swap the active session: end the old wallet session (release pool tokens
+    // + clear /wallets/{oldAddr}), then claim fresh tokens for the new address.
+    if (typeof _endSession === 'function' && _sessionBasePath(SESSION_USER) === 'wallets') {
+      await _endSession();
+    }
+    _walletAddress = newAddr;
+    try {
+      const net = await _walletProvider.getNetwork();
+      _walletChainId = Number(net.chainId);
+    } catch { /* keep last known chain */ }
     localStorage.setItem(WALLET_LS_KEY, _walletAddress);
     _renderWalletUI();
-    console.log('[wallet] account switched →', _walletAddress);
+    if (typeof _initWalletSession === 'function') {
+      await _initWalletSession(_walletAddress);
+    }
+    console.log('[wallet] account switched →', _shortAddr(_walletAddress));
   });
   window.ethereum.on('chainChanged', hex => {
     _walletChainId = parseInt(hex, 16);
@@ -9058,6 +9163,8 @@ const _ACTIVITY_PRUNE_MS  = 60 * 60 * 1000;            // run every 1h
 
 async function _pruneActivity() {
   if (!window.FB) return;
+  // Guest sessions don't write to /activity/ — skip housekeeping. (audits.md P0)
+  if (typeof _isGuest === 'function' && _isGuest()) return;
   const { db, ref, get, query, orderByChild, endAt, update } = window.FB;
   if (!query || !orderByChild || !endAt) return; // SDK missing helpers — skip
   const cutoff = Date.now() - _ACTIVITY_TTL_MS;
@@ -9158,7 +9265,9 @@ async function confirmLockModal() {
     const result = await lockToken(modId, tokenNum, LOCK_DURATIONS['30m']);
     if (!result.ok) {
       console.warn('[lock] failed:', result);
-      // Surface failures to the user later via a toast; for now just log.
+      if (result.reason === 'guest-readonly') {
+        alert('Connect a wallet to lock tokens. Guest sessions are read-only on shared modulos.');
+      }
     }
   } finally {
     if (confirmBtn) confirmBtn.disabled = false;
@@ -9247,21 +9356,20 @@ const _LOCK_BTN_SVG =
   };
   window.dispatchEvent(new CustomEvent('fb-ready'));
 
-  // Smoke test — write a timestamp and read it back. Confirms:
-  //  1. Config values are correct
-  //  2. DB rules allow .read / .write
-  //  3. Network path to Firebase works
-  // Result shows in DevTools console and as a 'connection-test' node in the DB.
-  (async () => {
-    try {
-      const testRef = ref(db, 'connection-test');
-      await set(testRef, { ts: Date.now(), msg: 'hello from tokencluster-v2' });
-      const snap = await get(testRef);
-      console.log('[FB] connection OK →', snap.val());
-    } catch (err) {
-      console.error('[FB] connection failed:', err);
-    }
-  })();
+  // Smoke test — gated behind ?fbtest=1 query param so production loads don't
+  // spam writes to /connection-test/ on every page hit. (audits.md P2 #15)
+  if (new URLSearchParams(location.search).has('fbtest')) {
+    (async () => {
+      try {
+        const testRef = ref(db, 'connection-test');
+        await set(testRef, { ts: Date.now(), msg: 'hello from tokencluster-v2' });
+        const snap = await get(testRef);
+        console.log('[FB] connection OK →', snap.val());
+      } catch (err) {
+        console.error('[FB] connection failed:', err);
+      }
+    })();
+  }
 </script>
 
 </body>
