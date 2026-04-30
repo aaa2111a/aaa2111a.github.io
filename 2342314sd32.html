@@ -8190,7 +8190,7 @@ function _cooldownRemaining(modId) {
 // On disconnect (tab close / network drop / inactivity / user-clicks-disconnect),
 // the session cleans up via onDisconnect + inactivity timer + manual REST.
 
-const POOL_GUEST_TOKENS     = 100;
+const POOL_GUEST_TOKENS     = 0;    // guest = read-only, no pool claim
 const POOL_WALLET_TOKENS    = 100;
 const INACTIVITY_TIMEOUT_MS = 30 * 60 * 1000; // 30 min (plan.md §1.4)
 
@@ -8419,9 +8419,14 @@ async function _sweepStaleGuests() {
 // ownership, refreshes UI. Returns true on success.
 async function _startSession({ sessionId, basePath, claimCount, label }) {
   if (!window.FB) return false;
-  // 1. Atomically claim tokens from the shared pool
-  const claimed = await _claimGuestPool(sessionId, claimCount);
-  if (!claimed) { _showPoolFull(); return false; }
+  // 1. Atomically claim tokens from the shared pool. claimCount=0 means
+  // "no tokens for this session" (guest read-only mode) — skip the
+  // transaction entirely so the pool isn't queried/locked unnecessarily.
+  let claimed = [];
+  if (claimCount > 0) {
+    claimed = await _claimGuestPool(sessionId, claimCount);
+    if (!claimed) { _showPoolFull(); return false; }
+  }
   // 2. Write presence record
   const { db, ref, set } = window.FB;
   const now = Date.now();
@@ -8665,6 +8670,11 @@ async function _walletConnect({ silent = false } = {}) {
     if (!silent) alert('No injected wallet found. Install MetaMask or Rabby.');
     return null;
   }
+  // Re-entrancy guard: accountsChanged can fire during eth_requestAccounts
+  // and trigger a duplicate session start. Without this, _initWalletSession
+  // runs twice claiming 200 tokens instead of 100. (audits 2026-04-30)
+  if (_walletConnecting) return null;
+  _walletConnecting = true;
   const btn = document.getElementById('wallet-toggle-btn');
   if (btn && !silent) btn.classList.add('busy');
   try {
@@ -8705,10 +8715,12 @@ async function _walletConnect({ silent = false } = {}) {
     return null;
   } finally {
     if (btn) btn.classList.remove('busy');
+    _walletConnecting = false;
   }
 }
 
 let _walletDisconnecting = false;
+let _walletConnecting = false;
 async function _walletDisconnect() {
   // Re-entrancy guard: revokePermissions can synchronously fire accountsChanged
   // (with empty array), which would call this function again. Without the
@@ -8766,10 +8778,12 @@ async function _walletToggle() {
 function _walletAttachListeners() {
   if (!window.ethereum || !window.ethereum.on) return;
   window.ethereum.on('accountsChanged', async accounts => {
-    // Skip while a disconnect is in flight — wallet_revokePermissions can
-    // synchronously fire accountsChanged with []; the disconnect path already
-    // handles cleanup. (audits.md P2 #12)
+    // Skip while a connect/disconnect is in flight — accountsChanged can fire
+    // synchronously during eth_requestAccounts (initial connect) or during
+    // wallet_revokePermissions (disconnect). Without these guards, the handler
+    // would double-start the session (200 tokens claimed) or double-cleanup.
     if (_walletDisconnecting) return;
+    if (_walletConnecting) return;
     if (!accounts || !accounts.length) { await _walletDisconnect(); return; }
     const newAddr = window.ethers ? window.ethers.getAddress(accounts[0]) : accounts[0];
     if (newAddr === _walletAddress) return; // same account, no-op
