@@ -18,11 +18,12 @@
   -->
 <meta http-equiv="Content-Security-Policy" content="
   default-src 'self';
-  script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://www.gstatic.com;
+  script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://www.gstatic.com https://www.google.com;
   style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
   font-src 'self' https://fonts.gstatic.com data:;
   img-src 'self' data: blob:;
-  connect-src 'self' https://*.firebaseio.com wss://*.firebaseio.com https://*.googleapis.com https://www.gstatic.com https://*.cloudfunctions.net;
+  connect-src 'self' https://*.firebaseio.com wss://*.firebaseio.com https://*.googleapis.com https://www.gstatic.com https://*.cloudfunctions.net https://www.google.com;
+  frame-src 'self' https://www.google.com;
   base-uri 'self';
   form-action 'self';
 ">
@@ -9365,6 +9366,7 @@ const _LOCK_BTN_SVG =
     push, query, limitToLast, onChildAdded, runTransaction, orderByChild, endAt, goOffline
   } from "https://www.gstatic.com/firebasejs/12.12.1/firebase-database.js";
   import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/12.12.1/firebase-functions.js";
+  import { initializeAppCheck, ReCaptchaV3Provider } from "https://www.gstatic.com/firebasejs/12.12.1/firebase-app-check.js";
 
   // ─────────────────────────────────────────────────────────────────────────
   // Firebase Web SDK config — these values are PUBLIC by design.
@@ -9388,6 +9390,16 @@ const _LOCK_BTN_SVG =
   };
 
   const app = initializeApp(firebaseConfig);
+
+  // App Check (reCAPTCHA v3) — binds Firebase requests to the registered
+  // origin (ubk.art / modulo.ubk.art). Without a valid token, Cloud Functions
+  // and DB reads/writes are rejected. Token auto-refreshes on TTL (1h default).
+  // Site key is public by design; the secret key lives in Firebase Console.
+  initializeAppCheck(app, {
+    provider: new ReCaptchaV3Provider('6LfLhNEsAAAAAG6aMsrG_d9UxuhjYWcWjpf4ZEG1'),
+    isTokenAutoRefreshEnabled: true,
+  });
+
   const db  = getDatabase(app);
   const functions = getFunctions(app, 'us-central1');
 
