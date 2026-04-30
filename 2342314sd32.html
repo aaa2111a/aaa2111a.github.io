@@ -27,6 +27,7 @@
   form-action 'self';
 ">
 <title>TokenCluster — v2</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%23d8d4c9'/%3E%3Crect x='4' y='4' width='8' height='8' fill='%23222'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Ultra&display=swap" rel="stylesheet">
@@ -7911,56 +7912,56 @@ async function lockToken(modId, tokenNum, durationMs) {
   const cd = cooldowns[modId];
   if (cd && cd > Date.now()) return { ok: false, reason: 'cooldown' };
 
-  const { db, ref, runTransaction } = window.FB;
-  const now = Date.now();
-  const entry = {
-    owner:       SESSION_USER,
-    traits:      userDraftTraits[tokenNum] ? { ...userDraftTraits[tokenNum] } : {},
-    lockedAt:    now,
-    lockedUntil: now + durationMs,
-  };
+  // Phase 2 path: sign a message with the wallet, call the Cloud Function
+  // which verifies the signature server-side, enforces the 8-slot cap
+  // atomically, and writes both the lock and the activity entry.
+  const { functions, httpsCallable } = window.FB;
+  if (!functions || !httpsCallable) return { ok: false, reason: 'no-functions' };
+  if (!_walletProvider) return { ok: false, reason: 'no-wallet-provider' };
 
-  // Atomic lock write. Replaces a non-transactional set() that allowed the
-  // 8-cap to be exceeded under concurrent lock attempts (plan.md §3.1):
-  // two tabs reading lockedCount=7 in their in-memory mirrors could both
-  // pass the local check and then both write, ending in 9 locked. The
-  // transaction reads the live `locked` map server-side, enforces the cap
-  // atomically, and Firebase auto-retries on collision until one wins or
-  // the cap is genuinely full.
-  let result;
+  const ts = Date.now();
+  const message = `modulo:lock|${modId}|${tokenNum}|${ts}`;
+  const traits = userDraftTraits[tokenNum] ? { ...userDraftTraits[tokenNum] } : {};
+  let signature;
   try {
-    result = await runTransaction(
-      ref(db, `session/modules/${modId}/locked`),
-      current => {
-        current = current || {};
-        // Cap applies only when adding a NEW slot — re-writing our own entry
-        // (e.g. listener-out-of-sync retry) doesn't grow the count.
-        if (Object.keys(current).length >= 8 && !current[tokenNum]) return; // abort
-        current[tokenNum] = entry;
-        return current;
-      }
-    );
+    const signer = await _walletProvider.getSigner();
+    signature = await signer.signMessage(message);
   } catch (err) {
-    console.error('[FB] lockToken transaction failed:', err);
+    if (err && err.code === 4001) return { ok: false, reason: 'user-rejected' };
+    console.error('[lock] sign failed:', err);
+    return { ok: false, reason: 'sign-error', err };
+  }
+
+  let cfResult;
+  try {
+    const lockFn = httpsCallable(functions, 'lockToken');
+    cfResult = await lockFn({
+      payload: { modId, tokenNum, owner: SESSION_USER, traits, durationMs },
+      message, signature, ts,
+    });
+  } catch (err) {
+    console.error('[lock] cloud function failed:', err);
+    const code = err && err.code;
+    if (code === 'functions/failed-precondition') {
+      const msg = err.details || err.message || '';
+      if (/full/.test(msg)) return { ok: false, reason: 'modulo-full' };
+    }
+    if (code === 'functions/already-exists') return { ok: false, reason: 'already-locked' };
+    if (code === 'functions/permission-denied') return { ok: false, reason: 'sig-mismatch' };
     return { ok: false, reason: 'fb-error', err };
   }
-  if (!result || !result.committed) return { ok: false, reason: 'modulo-full' };
 
-  // [Fix #5] Optimistic mirror update — write the lock into fbLocked locally
-  // BEFORE clearing the draft. Without this, _syncModuloState would briefly see
-  // the token in neither layer (draft just cleared, listener not yet fired) and
-  // render a 1-2 frame flicker where the slot looks empty. The Firebase listener
-  // will fire ~30ms later with identical data and overwrite our optimistic entry
-  // — no visible change.
+  const lockedUntil = cfResult.data && cfResult.data.lockedUntil ? cfResult.data.lockedUntil : (ts + durationMs);
+  const entry = { owner: SESSION_USER, traits, lockedAt: ts, lockedUntil };
+
+  // Optimistic mirror update — listener echo will confirm shortly.
   if (!fbLocked[modId]) fbLocked[modId] = {};
   fbLocked[modId][tokenNum] = entry;
-  // Optimistic local clear — listener echo will confirm
   if (userDrafts[modId]) userDrafts[modId].delete(tokenNum);
   delete userDraftTraits[tokenNum];
   _syncModuloState(mod);
 
-  // Broadcast to the activity feed (fire-and-forget)
-  if (typeof _emitActivity === 'function') _emitActivity('lock', modId, tokenNum, null, durationMs);
+  // Activity feed entry was already pushed by the cloud function — no client emit.
 
   // Schedule a precise expiry for OUR own lock so the UI feels instant — the
   // global sweeper still handles others' locks + orphans on its 30s cadence.
@@ -8010,28 +8011,34 @@ async function unlockToken(modId, tokenNum, options) {
   const entry = fbLocked[modId] && fbLocked[modId][tokenNum];
   if (!entry) return { ok: false, reason: 'not-locked' };
 
-  const { db, ref, remove } = window.FB;
+  // Phase 2 path: call the Cloud Function which verifies the lock is actually
+  // expired or orphan server-side before removing. No signature needed because
+  // the function is non-actionable for valid locks.
+  const { functions, httpsCallable } = window.FB;
+  if (!functions || !httpsCallable) return { ok: false, reason: 'no-functions' };
   try {
-    await remove(ref(db, `session/modules/${modId}/locked/${tokenNum}`));
+    const unlockFn = httpsCallable(functions, 'unlockToken');
+    const res = await unlockFn({ modId, tokenNum });
+    if (!res.data || !res.data.ok) {
+      // Function refused (lock still active) — bail without local state changes
+      return { ok: false, reason: (res.data && res.data.reason) || 'still-active' };
+    }
   } catch (err) {
-    console.error('[FB] unlockToken failed:', err);
+    if (err && err.code === 'functions/failed-precondition') {
+      return { ok: false, reason: 'still-active' };
+    }
+    console.error('[unlock] cloud function failed:', err);
     return { ok: false, reason: 'fb-error', err };
   }
 
   // Cooldown starts only when an expiration (not a settle) clears the lock.
-  // options.startCooldown=true for expiry, false/undefined for settle.
   if (options && options.startCooldown && entry.owner === SESSION_USER) {
     cooldowns[modId] = Date.now() + COOLDOWN_MS;
-    _persistCooldowns(); // [Fix #6] persist so new tab can't bypass
+    _persistCooldowns();
   }
 
-  // Emit to the activity feed only for expiry — 'settle' is emitted once per
-  // modulo by settleModulo() so it doesn't fire N times for N locked tokens.
-  // The original lock owner gets credit (not SESSION_USER) because expiry
-  // sweeps can be run by any client on anyone's expired locks.
-  if (typeof _emitActivity === 'function' && options && (options.emitExpire || options.startCooldown)) {
-    _emitActivity('expire', modId, tokenNum, entry.owner);
-  }
+  // Activity 'expire' is emitted by the cloud function when applicable. Settle
+  // emits its own 'settle' entry. No client-side emit needed.
 
   return { ok: true };
 }
@@ -8947,28 +8954,53 @@ async function settleModulo(modId) {
     sessionBurnedTokens.add(tokenNum);
   }
 
-  // One activity event per modulo settle (not per-token) — plan.md §6.5 format
-  if (typeof _emitActivity === 'function') _emitActivity('settle', modId, null);
-
   if (mod.personal) {
-    // Workshop: direct legacy removal, reverse so shifts don't break the loop
+    // Workshop: local-only path. Emit activity + remove tokens directly.
+    if (typeof _emitActivity === 'function') _emitActivity('settle', modId, null);
     for (let i = mod.tokens.length - 1; i >= 0; i--) {
       removeTokenFromModulo(modId, i);
     }
   } else {
-    // Shared: remove each of my locked entries from Firebase. Also cancel
-    // any pending precise-expiry setTimeouts so they don't sit in memory
-    // until their original deadline (where they'd no-op anyway).
+    // Shared: call the Cloud Function which verifies the wallet signature,
+    // burns all locks owned by the caller, and emits the 'settle' activity.
+    const { functions, httpsCallable } = window.FB || {};
+    if (!functions || !httpsCallable) return { ok: false, reason: 'no-functions' };
+    if (!_walletProvider)              return { ok: false, reason: 'no-wallet-provider' };
+
+    const ts = Date.now();
+    const message = `modulo:settle|${modId}|${ts}`;
+    let signature;
+    try {
+      const signer = await _walletProvider.getSigner();
+      signature = await signer.signMessage(message);
+    } catch (err) {
+      if (err && err.code === 4001) return { ok: false, reason: 'user-rejected' };
+      console.error('[settle] sign failed:', err);
+      return { ok: false, reason: 'sign-error', err };
+    }
+
+    try {
+      const settleFn = httpsCallable(functions, 'settleSharedModulo');
+      await settleFn({ modId, owner: SESSION_USER, message, signature, ts });
+    } catch (err) {
+      console.error('[settle] cloud function failed:', err);
+      if (err && err.code === 'functions/permission-denied') return { ok: false, reason: 'sig-mismatch' };
+      if (err && err.code === 'functions/failed-precondition') return { ok: false, reason: 'no-locked' };
+      return { ok: false, reason: 'fb-error', err };
+    }
+
+    // Cancel precise-expiry timers locally — the function already removed the
+    // locks server-side so the timers would no-op anyway.
     for (const tokenNum of tokensToBurn) {
       const timerKey = modId + ':' + tokenNum;
       if (_ownExpiryTimers[timerKey]) {
         clearTimeout(_ownExpiryTimers[timerKey]);
         delete _ownExpiryTimers[timerKey];
       }
-      await unlockToken(modId, tokenNum, { startCooldown: false });
+      // Optimistic local removal — listener echo will confirm.
+      if (fbLocked[modId]) delete fbLocked[modId][tokenNum];
     }
-    // Update onDisconnect now that these locks are gone, so socket drop
-    // doesn't try to null paths that no longer exist (no-op but cleaner).
+    _syncModuloState(mod);
     _refreshDisconnectCleanup();
   }
 
@@ -9324,6 +9356,7 @@ const _LOCK_BTN_SVG =
     getDatabase, ref, get, set, onValue, update, remove, serverTimestamp, onDisconnect,
     push, query, limitToLast, onChildAdded, runTransaction, orderByChild, endAt, goOffline
   } from "https://www.gstatic.com/firebasejs/12.12.1/firebase-database.js";
+  import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/12.12.1/firebase-functions.js";
 
   // ─────────────────────────────────────────────────────────────────────────
   // Firebase Web SDK config — these values are PUBLIC by design.
@@ -9348,10 +9381,12 @@ const _LOCK_BTN_SVG =
 
   const app = initializeApp(firebaseConfig);
   const db  = getDatabase(app);
+  const functions = getFunctions(app, 'us-central1');
 
   // Minimal API surface exposed to the non-module script above.
   window.FB = {
-    app, db, ref, get, set, onValue, update, remove, serverTimestamp, onDisconnect,
+    app, db, functions, httpsCallable,
+    ref, get, set, onValue, update, remove, serverTimestamp, onDisconnect,
     push, query, limitToLast, onChildAdded, runTransaction, orderByChild, endAt, goOffline
   };
   window.dispatchEvent(new CustomEvent('fb-ready'));
