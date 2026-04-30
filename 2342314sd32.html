@@ -2734,8 +2734,16 @@ function _syncModuloState(mod) {
   );
 
   const oldTokens = mod.tokens.slice();
+  // Also snapshot which tokens were locked BEFORE the new state is computed
+  // so we can detect draft→locked transitions (same token id, different state).
+  // Without this, locking a single token while no other slots change leaves
+  // the padlock UI stale (mod.tokens didn't change, so the rebuild was skipped).
+  const oldLockedSet = new Set(Object.keys(fbLocked[mod.id] || {}).map(Number));
+  const newLockedSet = new Set(lockedTokens);
   const tokensChanged = oldTokens.length !== allTokens.length ||
-                        oldTokens.some((t, i) => t !== allTokens[i]);
+                        oldTokens.some((t, i) => t !== allTokens[i]) ||
+                        oldLockedSet.size !== newLockedSet.size ||
+                        [...newLockedSet].some(t => !oldLockedSet.has(t));
 
   mod.tokens = allTokens;
 
@@ -7983,7 +7991,11 @@ const _ownExpiryTimers = {};
 function _scheduleOwnExpiry(modId, tokenNum, lockedUntil) {
   const key = modId + ':' + tokenNum;
   if (_ownExpiryTimers[key]) clearTimeout(_ownExpiryTimers[key]);
-  const delay = Math.max(0, lockedUntil - Date.now());
+  // 2s buffer past lockedUntil so the cloud function reliably sees the lock
+  // as expired (function's clock can be slightly behind the browser, causing
+  // a race where the function says "still active" → 400). With buffer the
+  // check always passes on first call.
+  const delay = Math.max(0, lockedUntil - Date.now()) + 2000;
   _ownExpiryTimers[key] = setTimeout(() => {
     delete _ownExpiryTimers[key];
     // Re-check: only sweep if it's still ours and still in fbLocked.
