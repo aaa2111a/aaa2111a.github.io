@@ -8467,7 +8467,11 @@ function _cooldownRemaining(modId) {
 // the session cleans up via onDisconnect + inactivity timer + manual REST.
 
 const POOL_GUEST_TOKENS     = 0;    // guest = read-only, no pool claim
-const POOL_WALLET_TOKENS    = 100;
+// Sepolia testing 2026-05-04: set to 0 so wallet sessions don't auto-claim
+// fake pool tokens. Real tokens come from on-chain via _sepoliaSync().
+// Pre-mainnet cleanup: remove the entire pool claim flow (project.md
+// "Phase 1 → Phase 2 deletion list").
+const POOL_WALLET_TOKENS    = 0;
 const INACTIVITY_TIMEOUT_MS = 30 * 60 * 1000; // 30 min (plan.md §1.4)
 
 let _guestInactivityTimer = null;
