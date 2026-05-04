@@ -10,7 +10,8 @@
    - gstatic (Firebase Web SDK ESM imports — SRI doesn't work for dynamic ESM,
      so the binding to the exact host is the protection)
    - googleapis + firebaseio (Firebase REST + websocket endpoints)
-   - Google Fonts (CSS + woff2)
+   - google.com (reCAPTCHA v3 for Firebase App Check)
+  Google Fonts removed 2026-05-03 — site uses only system fonts.
   'unsafe-inline' is currently REQUIRED because the app uses inline event
   handlers and inline `<style>` blocks. Phase 2 cleanup: remove unsafe-inline
   after refactoring innerHTML callsites and moving CSS to <link>. See
@@ -19,19 +20,42 @@
 <meta http-equiv="Content-Security-Policy" content="
   default-src 'self';
   script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://www.gstatic.com https://www.google.com;
-  style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
-  font-src 'self' https://fonts.gstatic.com data:;
+  style-src 'self' 'unsafe-inline';
+  font-src 'self' data:;
   img-src 'self' data: blob:;
   connect-src 'self' https://*.firebaseio.com wss://*.firebaseio.com https://*.googleapis.com https://www.gstatic.com https://*.cloudfunctions.net https://www.google.com;
   frame-src 'self' https://www.google.com;
+  frame-ancestors 'none';
   base-uri 'self';
   form-action 'self';
 ">
+<!-- frame-ancestors enforcement note: per CSP spec, the directive above is
+     IGNORED when delivered via <meta> (it requires a real HTTP header). The
+     declaration is kept for documentation + works if the host is later
+     migrated behind Cloudflare/etc. that injects it as a header. The runtime
+     frame-buster below is the actual defense on GitHub Pages. -->
+<script>
+  if (window !== window.top) {
+    // Page loaded in an iframe — clickjacking risk (malicious overlay
+    // tricking users into signing wallet txs). Attempt to break out;
+    // if blocked (sandboxed iframe), neutralize the page.
+    try { window.top.location = window.location.href; } catch (_) {}
+    document.documentElement.innerHTML =
+      '<body style="background:#000;color:#fff;font-family:monospace;' +
+      'padding:40px;text-align:center"><h2>modulo</h2>' +
+      '<p>This page cannot be embedded in a frame. Open ' +
+      '<a href="https://modulo.ubk.art" style="color:#fff" target="_top">' +
+      'modulo.ubk.art</a> directly.</p></body>';
+    throw new Error('embedded in iframe — execution halted');
+  }
+</script>
 <title>TokenCluster — v2</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%23d8d4c9'/%3E%3Crect x='4' y='4' width='8' height='8' fill='%23222'/%3E%3C/svg%3E">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Ultra&display=swap" rel="stylesheet">
+<!-- Google Fonts removed 2026-05-03: the previously-loaded `Ultra` font was
+     dead code (linked but never applied via font-family). Site uses only
+     system fonts (-apple-system, monospace, Times New Roman). No external
+     font/CSS load happens — no GDPR/telemetry concern from font hosting. -->
+
 <script
   src="https://cdn.jsdelivr.net/npm/mp4-muxer@5.1.3/build/mp4-muxer.js"
   integrity="sha384-SujebcgqCNlLMRSnVkLD+3eWOzsxobv30Bct+0lV+fc1EHHEuvcePwmDgMzpnptj"
@@ -1443,6 +1467,23 @@ button, a, [role="button"], .pill, .info-btn, .toggle-btn, .modal-close,
 .lock-modal .ms { font-size:12px; line-height:1.6; margin-bottom:22px; }
 .lock-modal .mbtn { font-size:12px; padding:8px 0; }
 .lock-modal .mbtn.p { border-color:var(--mbtn-border); }
+/* Duration selector — 4 small pill buttons in a row. Active state highlights
+   the currently selected duration. Visual language matches .mbtn. */
+.lock-dur-row { display:flex; gap:6px; margin-bottom:18px; }
+.lock-dur-btn {
+  flex:1; padding:7px 0;
+  border-radius:7px; border:0.5px solid var(--mbtn-border);
+  background:var(--mbtn-bg); color:var(--mbtn-color);
+  font-size:11px; font-family:monospace; letter-spacing:.04em;
+  cursor:pointer;
+  transition:background 0.15s, border-color 0.15s, color 0.15s;
+}
+.lock-dur-btn:hover { border-color:var(--dot-conn); }
+.lock-dur-btn.active {
+  background:var(--settle-hbg);
+  border-color:var(--dot-conn);
+  color:var(--settle-hcolor);
+}
 .mi { width:100%; background:var(--mi-bg); border:0.5px solid var(--mi-border); border-radius:8px; padding:8px 10px; color:var(--modal-title); font-size:12px; font-family:monospace; outline:none; margin-bottom:10px; }
 .mi:focus { border-color:var(--dot-conn); }
 .mbtns { display:flex; gap:8px; }
@@ -1973,7 +2014,9 @@ button, a, [role="button"], .pill, .info-btn, .toggle-btn, .modal-close,
     <div class="pf-sub">try again later</div>
   </div>
 
-  <!-- Lock confirmation modal (plan.md §6.3). Phase 1 beta version: fixed 30min duration, no selector. -->
+  <!-- Lock confirmation modal (plan.md §6.3). Duration selector: 1m for Sepolia
+       testing, 1h/6h/12h for production. The 1m option must be removed before
+       mainnet deploy — see LOCK_DURATIONS in the JS for details. -->
   <div class="overlay" id="lock-overlay">
     <div class="modal lock-modal">
       <div class="lock-modal-tbar">
@@ -1983,8 +2026,14 @@ button, a, [role="button"], .pill, .info-btn, .toggle-btn, .modal-close,
         <div class="mt" id="lock-modal-title">Lock token?</div>
         <div class="ms" id="lock-modal-body">
           Locking commits this token to <span id="lock-modal-modid">—</span>
-          for 1 minute. Its traits become visible to all users and cannot be
-          changed during the lock.
+          for <span id="lock-modal-duration-label">1 hour</span>. Its traits
+          become visible to all users and cannot be changed during the lock.
+        </div>
+        <div class="lock-dur-row">
+          <button class="lock-dur-btn" data-dur="1m">1m</button>
+          <button class="lock-dur-btn active" data-dur="1h">1h</button>
+          <button class="lock-dur-btn" data-dur="6h">6h</button>
+          <button class="lock-dur-btn" data-dur="12h">12h</button>
         </div>
         <div class="mbtns">
           <button class="mbtn" id="lock-modal-cancel">Cancel</button>
@@ -1997,6 +2046,51 @@ button, a, [role="button"], .pill, .info-btn, .toggle-btn, .modal-close,
 </div>
 <script>
 'use strict';
+
+// ═══════════════════════════════════════════════════════
+// DOM HELPERS
+// ═══════════════════════════════════════════════════════
+// _el — terse element builder used throughout the app to construct DOM nodes
+// without `innerHTML`. Refactor of 2026-05-03 replaced ~12 templated
+// innerHTML assignments with this pattern; resulting trees use textContent
+// for all interpolated values, eliminating XSS surface by construction.
+//
+// Usage:
+//   _el('span', { class: 'pd-dot', style: { background: col } })
+//   _el('div',  { class: 'row' }, child1, child2, 'plain text')
+//   _el('div',  { class: 'a', text: 'hello' })       // text-only leaf
+//   _el('div',  { data: { si: 3 } })                  // dataset attrs
+//   _el('input', { type: 'range', min: 1, max: 28 })  // setAttribute fallback
+//
+// Children: pass elements (Node), strings (auto wrapped in TextNode),
+// or arrays (flattened). null/undefined/false children skipped — useful
+// for conditional inserts: `_el('div', {}, condition && childNode)`.
+function _el(tag, attrs, ...children) {
+  const n = document.createElement(tag);
+  if (attrs) {
+    for (const k in attrs) {
+      const v = attrs[k];
+      if (v == null) continue;
+      if (k === 'class') n.className = v;
+      else if (k === 'text') n.textContent = v;
+      else if (k === 'style') Object.assign(n.style, v);
+      else if (k === 'data') for (const dk in v) n.dataset[dk] = v[dk];
+      else n.setAttribute(k, v);
+    }
+  }
+  for (const c of children) {
+    if (c == null || c === false) continue;
+    if (Array.isArray(c)) {
+      for (const cc of c) {
+        if (cc == null || cc === false) continue;
+        n.appendChild(typeof cc === 'string' ? document.createTextNode(cc) : cc);
+      }
+    } else {
+      n.appendChild(typeof c === 'string' ? document.createTextNode(c) : c);
+    }
+  }
+  return n;
+}
 
 // ═══════════════════════════════════════════════════════
 // DATA
@@ -2088,14 +2182,32 @@ const TOTAL_TOKENS = 600;
 // claimed tokens have their owner field rewritten to the guest's ID so
 // isOwnToken() returns true for them.
 
-// Rank assignment — unique permutation of [1..TOTAL_TOKENS], no duplicates.
-// The PRNG is seeded so ranks are deterministic but unpredictable from mint order.
-const _rankPool = Array.from({ length: TOTAL_TOKENS }, (_, i) => i + 1);
-for (let i = _rankPool.length - 1; i > 0; i--) {
-  const j = Math.floor(_rng() * (i + 1));
-  [_rankPool[i], _rankPool[j]] = [_rankPool[j], _rankPool[i]];
+// Rank assignment — Linear Congruential Permutation.
+//
+// ⚠️ MIRROR OF `TokenAgent.rankOf(tokenId)` in
+// `Code/contracts/src/TokenAgent.sol`. If you change MAX_SUPPLY / RANK_MULT
+// / RANK_OFFSET below, change them there TOO. Post-mint the contract is the
+// source of truth — this JS formula only powers the pre-mint preview pool
+// (the simulated 600 test tokens you see in dev). Real minted tokens read
+// rank from the contract via RPC.
+//
+// Formula: rank = ((tokenId - 1) * RANK_MULT + RANK_OFFSET) % MAX_SUPPLY + 1
+// Bijection (gcd(RANK_MULT, MAX_SUPPLY) = 1) → unique rank per tokenId in
+// [1, 6666], even if only 600 tokens get minted.
+const RANK_MAX_ONCHAIN = 6666;
+const RANK_MULT_ONCHAIN = 4111;
+const RANK_OFFSET_ONCHAIN = 333;
+function rankOf(tokenId) {
+  // tokenId is 1-indexed in the contract. Frontend uses 0-indexed slot
+  // numbers in many places — callers must ensure they pass the contract's
+  // 1-indexed value here (same convention as `td.rank`).
+  const i = tokenId - 1;
+  return ((i * RANK_MULT_ONCHAIN + RANK_OFFSET_ONCHAIN) % RANK_MAX_ONCHAIN) + 1;
 }
-// _rankPool[tokenId] = rank (1..TOTAL_TOKENS), unique
+// _rankPool kept as a lookup table indexed by 0..TOTAL_TOKENS-1 (same shape
+// as before for downstream code that does `_rankPool[i]`). For the on-chain
+// contract this maps to tokenId = i + 1.
+const _rankPool = Array.from({ length: TOTAL_TOKENS }, (_, i) => rankOf(i + 1));
 
 // Fisher-Yates shuffle to pick exactly 44% of TOTAL_TOKENS as DX-enabled
 const _dxSet  = new Set();
@@ -2859,7 +2971,13 @@ function updateTraitTags(modId, slotIdx) {
   const el = document.getElementById(`tr-tags-${modId}-${slotIdx}`);
   if (!el) return;
   const tags = getTraitTags(modId, slotIdx);
-  el.innerHTML = tags.map(t => `<span class="tr-tag">${t}</span>`).join('');
+  const spans = tags.map(t => {
+    const span = document.createElement('span');
+    span.className = 'tr-tag';
+    span.textContent = t;
+    return span;
+  });
+  el.replaceChildren(...spans);
 }
 
 // Default color for a bare token (used in inventory tiles before the token joins a modulo)
@@ -2965,15 +3083,30 @@ function buildPhaseDiagram(mod) {
 
   const nSlots = mod.tokens.length;
 
+  // Helper: build a standard pd-col skeleton. The variants below override
+  // body content / extra classes / fill bar.
+  const _pdCol = (extraClass, headerLabel, bodyChildren, withFill) =>
+    _el('div', { class: 'pd-col ' + extraClass },
+      _el('div', { class: 'pd-col-hdr' },
+        _el('span', { class: 'pd-col-hdr-label', text: headerLabel })
+      ),
+      _el('div', { class: 'pd-col-body' }, ...bodyChildren),
+      _el('div', { class: 'pd-bar' }, withFill ? _el('div', { class: 'pd-fill' }) : null)
+    );
+
   // Colours column — dot + % based purely on slot position (independent of speed)
   const _posOpsArr = mod.tokens.map((t, si) => positionDefaultOps(nSlots, si));
   const _totalPosOps = _posOpsArr.reduce((a, v) => a + v, 0);
   const _colorItems = mod.tokens
     .map((t, si) => ({ col: getSelectedColor(mod.id, si), pct: _totalPosOps > 0 ? Math.round(_posOpsArr[si] / _totalPosOps * 100) : 0 }))
     .sort((a, b) => b.pct - a.pct)
-    .map(({ col, pct }) => `<span class="pd-color-item"><span class="pd-dot" style="background:${col}"></span><span class="pd-color-pct">${pct}%</span></span>`);
-  const colorsBodyHTML = `<div class="pd-colors-wrap">${_colorItems.join('')}</div>`;
-  const colorsCol = `<div class="pd-col pd-col-colors"><div class="pd-col-hdr"><span class="pd-col-hdr-label">colors</span></div><div class="pd-col-body">${colorsBodyHTML}</div><div class="pd-bar"></div></div>`;
+    .map(({ col, pct }) => _el('span', { class: 'pd-color-item' },
+      _el('span', { class: 'pd-dot', style: { background: col } }),
+      _el('span', { class: 'pd-color-pct', text: pct + '%' })
+    ));
+  const colorsCol = _pdCol('pd-col-colors', 'colors', [
+    _el('div', { class: 'pd-colors-wrap' }, _colorItems)
+  ]);
 
   // Speed column — per-slot list + total
   const _spdVals = mod.tokens.map((t, si) =>
@@ -2982,31 +3115,65 @@ function buildPhaseDiagram(mod) {
       : positionDefaultOps(nSlots, si)
   );
   const _spdTotal = Math.round(_spdVals.reduce((a, v) => a + v, 0));
-  const _spdCols = [];
+  const _spdColEls = [];
   for (let i = 0; i < _spdVals.length; i += 2) {
-    const slice = _spdVals.slice(i, i + 2);
-    const pair = slice.map(v => `<span class="pd-spd-cell">${Math.round(v)}</span>`).join('');
-    _spdCols.push(`<div class="pd-spd-col">${pair}</div>`);
+    const cells = _spdVals.slice(i, i + 2).map(v =>
+      _el('span', { class: 'pd-spd-cell', text: String(Math.round(v)) })
+    );
+    _spdColEls.push(_el('div', { class: 'pd-spd-col' }, ...cells));
   }
-  const speedCol = `<div class="pd-col pd-col-speed"><div class="pd-col-hdr"><span class="pd-col-hdr-label">speed</span></div><div class="pd-col-body"><div class="pd-spd-list">${_spdCols.join('')}</div><div class="pd-spd-total-wrap"><span class="pd-spd-total">${_spdTotal}</span></div></div><div class="pd-bar"></div></div>`;
+  const speedCol = _pdCol('pd-col-speed', 'speed', [
+    _el('div', { class: 'pd-spd-list' }, _spdColEls),
+    _el('div', { class: 'pd-spd-total-wrap' },
+      _el('span', { class: 'pd-spd-total', text: String(_spdTotal) })
+    )
+  ]);
 
-  // Mode columns — one per distinct mode
-  const modeCols = modes.map((mode, mi) => {
-    const sz = getSizeForMode(mod, mode);
-    const szLabel = sz !== null ? ({ sm:'small', md:'medium', lg:'large' }[sz] || sz) + ' Size' : null;
-    const hdrDots = mod.tokens.map((t, si) => {
-      if (getTokenMode(mod.id, si) !== mode) return '';
-      const col = getSelectedColor(mod.id, si);
-      return `<span class="pd-dot" style="background:${col}"></span>`;
-    }).join('');
-    return `<div class="pd-col pd-col-mode" data-mi="${mi}"><div class="pd-col-hdr"><span class="pd-col-hdr-label">Mode ${mi + 1}</span><span class="pd-hdr-dots">${hdrDots}</span></div><div class="pd-col-body"><div class="pd-mode-info"><span class="pd-mode-name">${mode}</span>${sz !== null ? `<span class="pd-mode-sz">${szLabel}</span>` : ''}</div></div><div class="pd-bar"><div class="pd-fill"></div></div></div>`;
-  }).join('') || `<div class="pd-col pd-col-mode pd-col-active" data-mi="0"><div class="pd-col-hdr"><span class="pd-col-hdr-label">Mode 1</span></div><div class="pd-col-body"><div class="pd-mode-info"><span class="pd-mode-name">feedback</span><span class="pd-mode-sz">(default)</span></div></div><div class="pd-bar"><div class="pd-fill"></div></div></div>`;
+  // Mode columns — one per distinct mode (or default placeholder if none set)
+  const modeCols = modes.length === 0
+    ? [_el('div', { class: 'pd-col pd-col-mode pd-col-active', data: { mi: '0' } },
+        _el('div', { class: 'pd-col-hdr' },
+          _el('span', { class: 'pd-col-hdr-label', text: 'Mode 1' })
+        ),
+        _el('div', { class: 'pd-col-body' },
+          _el('div', { class: 'pd-mode-info' },
+            _el('span', { class: 'pd-mode-name', text: 'feedback' }),
+            _el('span', { class: 'pd-mode-sz', text: '(default)' })
+          )
+        ),
+        _el('div', { class: 'pd-bar' }, _el('div', { class: 'pd-fill' }))
+      )]
+    : modes.map((mode, mi) => {
+        const sz = getSizeForMode(mod, mode);
+        const szLabel = sz !== null ? ({ sm:'small', md:'medium', lg:'large' }[sz] || sz) + ' Size' : null;
+        const hdrDots = mod.tokens
+          .map((t, si) => {
+            if (getTokenMode(mod.id, si) !== mode) return null;
+            const col = getSelectedColor(mod.id, si);
+            return _el('span', { class: 'pd-dot', style: { background: col } });
+          })
+          .filter(Boolean);
+        return _el('div', { class: 'pd-col pd-col-mode', data: { mi: String(mi) } },
+          _el('div', { class: 'pd-col-hdr' },
+            _el('span', { class: 'pd-col-hdr-label', text: 'Mode ' + (mi + 1) }),
+            _el('span', { class: 'pd-hdr-dots' }, hdrDots)
+          ),
+          _el('div', { class: 'pd-col-body' },
+            _el('div', { class: 'pd-mode-info' },
+              _el('span', { class: 'pd-mode-name', text: mode }),
+              sz !== null ? _el('span', { class: 'pd-mode-sz', text: szLabel }) : null
+            )
+          ),
+          _el('div', { class: 'pd-bar' }, _el('div', { class: 'pd-fill' }))
+        );
+      });
 
   // Rect-shift column — variant on top (full-width), size + density split
   // side-by-side below. Uses short nicknames (sm/md/lg/xl, lo/md/hi/mx) so
   // many selections fit. Defaults surface when rect-shift is active but a
   // specific sub-trait is empty (engine silently uses 'md'/'md'/'core').
-  {
+  let rectCol = null;
+  if (hasRect) {
     const _rsShort = { sm:'sm', md:'md', lg:'lg', xl:'xl' };
     const _rdShort = { lo:'lo', md:'md', hi:'hi', mx:'mx' };
     const _rvShort = { core:'core', mecha:'mecha', hysteria:'hysteria', metro:'metro', 'side-b':'side-b', earthquake:'earthquake', retro:'retro', ladder:'ladder' };
@@ -3015,61 +3182,76 @@ function buildPhaseDiagram(mod) {
     const hasAnyRV = mod.tokens.some((t, si) => getTokenRectVariant(mod.id, si) !== null);
     const rectActive = hasAnyRS || hasAnyRD || hasAnyRV;
 
+    const _mkRectRow = (rowCls, dataKey, dataVal, label, dotCls) =>
+      _el('div', { class: 'pd-row ' + rowCls, data: { [dataKey]: dataVal } },
+        _el('span', { class: 'pd-rect-cell' + (rowCls.includes('-default') ? ' pd-rect-cell-default' : ''), text: label }),
+        _el('span', { class: 'pd-rect-dot ' + dotCls })
+      );
+
     const rsRows = mod.tokens.map((t, si) => {
       const rs = getTokenRectSize(mod.id, si);
-      if (rs === null) return '';
-      return `<div class="pd-row pd-rs-row" data-rs="${rs}"><span class="pd-rect-cell">${_rsShort[rs] || rs}</span><span class="pd-rect-dot pd-rect-dot-rs"></span></div>`;
-    }).join('');
+      return rs === null ? null : _mkRectRow('pd-rs-row', 'rs', rs, _rsShort[rs] || rs, 'pd-rect-dot-rs');
+    }).filter(Boolean);
     const rdRows = mod.tokens.map((t, si) => {
       const rd = getTokenRectDensity(mod.id, si);
-      if (rd === null) return '';
-      return `<div class="pd-row pd-rd-row" data-rd="${rd}"><span class="pd-rect-cell">${_rdShort[rd] || rd}</span><span class="pd-rect-dot pd-rect-dot-rd"></span></div>`;
-    }).join('');
+      return rd === null ? null : _mkRectRow('pd-rd-row', 'rd', rd, _rdShort[rd] || rd, 'pd-rect-dot-rd');
+    }).filter(Boolean);
     const rvRows = mod.tokens.map((t, si) => {
       const rv = getTokenRectVariant(mod.id, si);
-      if (rv === null) return '';
-      return `<div class="pd-row pd-rv-row" data-rv="${rv}"><span class="pd-rect-cell">${_rvShort[rv] || rv}</span><span class="pd-rect-dot pd-rect-dot-rv"></span></div>`;
-    }).join('');
+      return rv === null ? null : _mkRectRow('pd-rv-row', 'rv', rv, _rvShort[rv] || rv, 'pd-rect-dot-rv');
+    }).filter(Boolean);
 
-    // Defaults — short label + .pd-rect-cell-default class for muted (low-opacity) styling
+    // Defaults — muted styling when rect-shift is active but a specific sub is empty
     const rsContent = hasAnyRS ? rsRows
-      : (rectActive ? `<div class="pd-row pd-rs-row pd-rs-default" data-rs="md"><span class="pd-rect-cell pd-rect-cell-default">md</span><span class="pd-rect-dot pd-rect-dot-rs"></span></div>` : '');
+      : (rectActive ? [_mkRectRow('pd-rs-row pd-rs-default', 'rs', 'md', 'md', 'pd-rect-dot-rs')] : []);
     const rdContent = hasAnyRD ? rdRows
-      : (rectActive ? `<div class="pd-row pd-rd-row pd-rd-default" data-rd="md"><span class="pd-rect-cell pd-rect-cell-default">md</span><span class="pd-rect-dot pd-rect-dot-rd"></span></div>` : '');
-    const rvContent = hasAnyRV ? rvRows : '';
+      : (rectActive ? [_mkRectRow('pd-rd-row pd-rd-default', 'rd', 'md', 'md', 'pd-rect-dot-rd')] : []);
+    const rvContent = hasAnyRV ? rvRows : [];
 
     // Layout: variant on top (full width), size+density split below
-    const rvSection = rvContent ? `<div class="pd-rect-section">${rvContent}</div>` : '';
-    const splitParts = [];
-    if (rsContent) splitParts.push(`<div class="pd-rect-section pd-rect-section-half">${rsContent}</div>`);
-    if (rsContent && rdContent) splitParts.push(`<div class="pd-rect-vdivider"></div>`);
-    if (rdContent) splitParts.push(`<div class="pd-rect-section pd-rect-section-half">${rdContent}</div>`);
-    const splitRow = splitParts.length ? `<div class="pd-rect-row-split">${splitParts.join('')}</div>` : '';
-    const sepBetween = (rvSection && splitRow) ? `<div class="pd-rect-divider"></div>` : '';
-    const sectionsHtml = rvSection + sepBetween + splitRow;
-    var rectCol = `<div class="pd-col pd-col-rect"><div class="pd-col-hdr"><span class="pd-col-hdr-label">rect shift</span></div><div class="pd-col-body">${sectionsHtml}</div><div class="pd-bar"></div></div>`;
+    const rvSection = rvContent.length ? _el('div', { class: 'pd-rect-section' }, rvContent) : null;
+    const splitChildren = [];
+    if (rsContent.length) splitChildren.push(_el('div', { class: 'pd-rect-section pd-rect-section-half' }, rsContent));
+    if (rsContent.length && rdContent.length) splitChildren.push(_el('div', { class: 'pd-rect-vdivider' }));
+    if (rdContent.length) splitChildren.push(_el('div', { class: 'pd-rect-section pd-rect-section-half' }, rdContent));
+    const splitRow = splitChildren.length ? _el('div', { class: 'pd-rect-row-split' }, splitChildren) : null;
+    const sepBetween = (rvSection && splitRow) ? _el('div', { class: 'pd-rect-divider' }) : null;
+
+    const sectionChildren = [rvSection, sepBetween, splitRow].filter(Boolean);
+    rectCol = _pdCol('pd-col-rect', 'rect shift', sectionChildren);
   }
 
   // Last column — BIOS if any token has bios set, else DX if any token has DX, else hidden
   const _dxLabels = { x:'×', plus:'+', h:'—', sq:'sq', num:'#', numi:'#⁻' };
   const _dxVal    = getModuloDxPattern(mod);
-  let lastCol = '';
+  const _mkDxFoot = () => _el('div', { class: 'pd-dx-foot' },
+    _el('span', { class: 'pd-dx-foot-label', text: 'DITHER' }),
+    _el('span', { class: 'pd-dx-foot-sep' }),
+    _el('span', { class: 'pd-dx-foot-val', text: _dxLabels[_dxVal] || _dxVal })
+  );
+  let lastCol = null;
   if (hasBios) {
-    const biosBody = mod.tokens.map((t, si) => {
+    const biosRows = mod.tokens.map((t, si) => {
       const bs = getBiosState(mod.id, si);
-      if (bs === undefined) return '';
-      const cls  = bs ? 'pd-bios-on' : '';
-      const text = bs ? 'on' : 'off';
-      return `<div class="pd-row"><span class="pd-bios-cell ${cls}">${text}</span></div>`;
-    }).join('');
-    const dxFoot = _dxVal ? `<div class="pd-dx-foot"><span class="pd-dx-foot-label">DITHER</span><span class="pd-dx-foot-sep"></span><span class="pd-dx-foot-val">${_dxLabels[_dxVal] || _dxVal}</span></div>` : '';
-    lastCol = `<div class="pd-col pd-col-bios"><div class="pd-col-hdr"><span class="pd-col-hdr-label">bios</span></div><div class="pd-col-body">${biosBody}${dxFoot}</div><div class="pd-bar"></div></div>`;
+      if (bs === undefined) return null;
+      return _el('div', { class: 'pd-row' },
+        _el('span', { class: 'pd-bios-cell' + (bs ? ' pd-bios-on' : ''), text: bs ? 'on' : 'off' })
+      );
+    }).filter(Boolean);
+    const bodyChildren = [...biosRows];
+    if (_dxVal) bodyChildren.push(_mkDxFoot());
+    lastCol = _pdCol('pd-col-bios', 'bios', bodyChildren);
   } else if (hasDX) {
-    const dxBody = `<div class="pd-dx-foot"><span class="pd-dx-foot-label">DITHER</span><span class="pd-dx-foot-sep"></span><span class="pd-dx-foot-val">${_dxLabels[_dxVal] || _dxVal}</span></div>`;
-    lastCol = `<div class="pd-col pd-col-bios"><div class="pd-col-hdr"><span class="pd-col-hdr-label">dx</span></div><div class="pd-col-body" style="justify-content:center">${dxBody}</div><div class="pd-bar"></div></div>`;
+    lastCol = _el('div', { class: 'pd-col pd-col-bios' },
+      _el('div', { class: 'pd-col-hdr' },
+        _el('span', { class: 'pd-col-hdr-label', text: 'dx' })
+      ),
+      _el('div', { class: 'pd-col-body', style: { justifyContent: 'center' } }, _mkDxFoot()),
+      _el('div', { class: 'pd-bar' })
+    );
   }
 
-  el.innerHTML = colorsCol + speedCol + modeCols + (hasRect ? rectCol : '') + lastCol;
+  el.replaceChildren(colorsCol, speedCol, ...modeCols, ...(rectCol ? [rectCol] : []), ...(lastCol ? [lastCol] : []));
 }
 
 function updatePhaseDiagram(mod) {
@@ -3128,18 +3310,22 @@ function buildModulo(mod) {
     });
   });
 
-  card.innerHTML = `
-    <div class="card-tbar">
-      <div class="dot g"></div>
-      <span class="card-tbar-title"></span>
-    </div>
-    <div class="card-body">
-      <div class="card-left" id="left-${mod.id}"></div>
-      <div class="card-right">
-        <canvas id="${animId}"></canvas>
-        <button class="card-settle-btn"><span class="settle-txt">SETTLE</span><span class="settle-sq"></span></button>
-      </div>
-    </div>`;
+  card.replaceChildren(
+    _el('div', { class: 'card-tbar' },
+      _el('div', { class: 'dot g' }),
+      _el('span', { class: 'card-tbar-title' })
+    ),
+    _el('div', { class: 'card-body' },
+      _el('div', { class: 'card-left', id: `left-${mod.id}` }),
+      _el('div', { class: 'card-right' },
+        _el('canvas', { id: animId }),
+        _el('button', { class: 'card-settle-btn' },
+          _el('span', { class: 'settle-txt', text: 'SETTLE' }),
+          _el('span', { class: 'settle-sq' })
+        )
+      )
+    )
+  );
 
   world.appendChild(card);
 
@@ -3264,26 +3450,47 @@ function buildLeft(mod) {
     : 0;
   const dlangs = moduloBiosOn(mod) ? 'ON' : 'OFF';
 
-  leftEl.innerHTML = `
-    <div class="modulo-header">
-      <div class="modulo-name">${mod.id.replace('modulo_','')}:STATS</div>
-      <div class="modulo-stats-row">
-        <div class="cs-item"><div class="cs-label">Tokens</div><div class="cs-value">${mod.tokens.length}/8</div></div>
-        <div class="cs-item"><div class="cs-label">Colors</div><div class="cs-value">${mod.tokens.length}</div></div>
-        <div class="cs-item"><div class="cs-label">dt.speed</div><div class="cs-value" id="spd-${mod.id}">${spd}</div></div>
-        <div class="cs-item"><div class="cs-label">dt.size</div><div class="cs-value" id="sz-${mod.id}">-</div></div>
-        <div class="cs-item"><div class="cs-label">dt.mode</div><div class="cs-value" id="mstat-${mod.id}">${moduloDistinctModes(mod).map(m=>MODE_ABBR[m]||m).join('/')}</div></div>
-        <div class="cs-item"><div class="cs-label">r.size</div><div class="cs-value" id="rs-${mod.id}">${moduloDistinctRectSizes(mod).join('/')}</div></div>
-        <div class="cs-item"><div class="cs-label">r.var</div><div class="cs-value" id="rv-${mod.id}">${moduloDistinctRectVariants(mod).join('/') || '-'}</div></div>
-        <div class="cs-item"><div class="cs-label">r.density</div><div class="cs-value" id="rd-${mod.id}">${moduloDistinctRectDensities(mod).join('/')}</div></div>
-        <div class="cs-item"><div class="cs-label">BIOS</div><div class="cs-value" id="dstat-${mod.id}">${dlangs}</div></div>
-        <div class="cs-item"><div class="cs-label">DX</div><div class="cs-value" id="dxstat-${mod.id}">${(()=>{ const v=getModuloDxPattern(mod); return v ? (DX_ABBR[v]||v) : '-'; })()}</div></div>
-      </div>
-      <button class="stats-randomize-btn" id="rand-${mod.id}" title="Randomize my tokens in this modulo" aria-label="Randomize"></button>
-    </div>
-    <div class="token-list" id="tlist-${mod.id}"></div>
-    <div class="inv-panel" id="inv-panel-${mod.id}"></div>
-    <div class="add-row${mod.tokens.length >= 8 ? ' disabled' : ''}" id="add-${mod.id}">+</div>`;
+  // Helper: a single stat cell with label + value (optional id for live updates).
+  const _csItem = (label, value, valueId) => _el('div', { class: 'cs-item' },
+    _el('div', { class: 'cs-label', text: label }),
+    _el('div', { class: 'cs-value', id: valueId, text: String(value) })
+  );
+  const _dxAbbrev = (() => {
+    const v = getModuloDxPattern(mod);
+    return v ? (DX_ABBR[v] || v) : '-';
+  })();
+  const _modeAbbrev = moduloDistinctModes(mod).map(m => MODE_ABBR[m] || m).join('/');
+
+  leftEl.replaceChildren(
+    _el('div', { class: 'modulo-header' },
+      _el('div', { class: 'modulo-name', text: mod.id.replace('modulo_', '') + ':STATS' }),
+      _el('div', { class: 'modulo-stats-row' },
+        _csItem('Tokens',   mod.tokens.length + '/8'),
+        _csItem('Colors',   mod.tokens.length),
+        _csItem('dt.speed', spd,                                                     `spd-${mod.id}`),
+        _csItem('dt.size',  '-',                                                     `sz-${mod.id}`),
+        _csItem('dt.mode',  _modeAbbrev,                                             `mstat-${mod.id}`),
+        _csItem('r.size',   moduloDistinctRectSizes(mod).join('/'),                  `rs-${mod.id}`),
+        _csItem('r.var',    moduloDistinctRectVariants(mod).join('/') || '-',        `rv-${mod.id}`),
+        _csItem('r.density', moduloDistinctRectDensities(mod).join('/'),             `rd-${mod.id}`),
+        _csItem('BIOS',     dlangs,                                                  `dstat-${mod.id}`),
+        _csItem('DX',       _dxAbbrev,                                               `dxstat-${mod.id}`)
+      ),
+      _el('button', {
+        class: 'stats-randomize-btn',
+        id: `rand-${mod.id}`,
+        title: 'Randomize my tokens in this modulo',
+        'aria-label': 'Randomize'
+      })
+    ),
+    _el('div', { class: 'token-list', id: `tlist-${mod.id}` }),
+    _el('div', { class: 'inv-panel', id: `inv-panel-${mod.id}` }),
+    _el('div', {
+      class: 'add-row' + (mod.tokens.length >= 8 ? ' disabled' : ''),
+      id: `add-${mod.id}`,
+      text: '+'
+    })
+  );
 
   buildTokenList(mod);
 
@@ -3374,7 +3581,7 @@ function buildRowColors(mod, slotIdx, container) {
   const stored = nodeColors[mod.id] && nodeColors[mod.id][slotIdx];
   const sel = (stored === -1) ? -1 : getSelIdx(mod.id, slotIdx);
   const pal = COLS_DATA[TOKEN_DATA[t] ? TOKEN_DATA[t].palette : 0];
-  container.innerHTML = '';
+  container.replaceChildren();
 
   const makeRow = (slice, offset) => {
     const row = document.createElement('div');
@@ -3524,7 +3731,7 @@ function _ensureLockTip() {
 function buildTokenList(mod) {
   const list = document.getElementById(`tlist-${mod.id}`);
   if (!list) return;
-  list.innerHTML = '';
+  list.replaceChildren();
 
   mod.tokens.forEach((t, i) => {
     const td    = TOKEN_DATA[t] || {};
@@ -3556,18 +3763,35 @@ function buildTokenList(mod) {
                   : (own && _isLocked) ? 'own · locked'
                   : own ? 'own · draft'
                   : 'locked by other';
-    header.innerHTML = `
-      <div class="sdot ${sdotCls}" title="${sdotTitle}"></div>
-      <span class="tr-idx">R#${String(rank).padStart(3,'0')}</span>
-      <div class="tr-swatch"></div>
-      <span class="tr-addr"></span>
-      <span class="tr-tags" id="tr-tags-${mod.id}-${i}">${getTraitTags(mod.id,i).map(t=>`<span class="tr-tag">${t}</span>`).join('')}</span>
-      ${mod.personal ? '' : (_isSlotLocked(mod.id,i)
-        ? `<span class="tr-lock-icon locked" data-tooltip="locked">${_LOCK_ICON_SVG_LOCKED}</span>`
-        : `<span class="tr-lock-icon draft" title="draft (unlocked)">${_LOCK_ICON_SVG_DRAFT}</span>`)}
-      ${own ? '<button class="tr-rand" title="randomize">↺</button>' : ''}
-      <span class="tr-arrow">▸</span>`;
-    header.querySelector('.tr-addr').textContent = shortAddr(full);
+    // Trait tag spans (matches updateTraitTags shape; using textContent for the
+    // tag label, which is sourced from a fixed whitelist in getTraitTags()).
+    const _trTagSpans = getTraitTags(mod.id, i).map(tagText => {
+      const span = _el('span', { class: 'tr-tag', text: tagText });
+      return span;
+    });
+    // Lock icon (shared modulos only). SVG strings are hardcoded constants
+    // (_LOCK_ICON_SVG_LOCKED / _DRAFT) — assigning them via innerHTML is safe
+    // because they don't interpolate any data.
+    let _lockIconEl = null;
+    if (!mod.personal) {
+      const isLocked = _isSlotLocked(mod.id, i);
+      _lockIconEl = _el('span', isLocked
+        ? { class: 'tr-lock-icon locked', 'data-tooltip': 'locked' }
+        : { class: 'tr-lock-icon draft', title: 'draft (unlocked)' }
+      );
+      // SAFE: hardcoded constant SVG, no interpolation.
+      _lockIconEl.innerHTML = isLocked ? _LOCK_ICON_SVG_LOCKED : _LOCK_ICON_SVG_DRAFT;
+    }
+    header.replaceChildren(
+      _el('div', { class: 'sdot ' + sdotCls, title: sdotTitle }),
+      _el('span', { class: 'tr-idx', text: 'R#' + String(rank).padStart(3, '0') }),
+      _el('div', { class: 'tr-swatch' }),
+      _el('span', { class: 'tr-addr', text: shortAddr(full) }),
+      _el('span', { class: 'tr-tags', id: `tr-tags-${mod.id}-${i}` }, _trTagSpans),
+      _lockIconEl,
+      own ? _el('button', { class: 'tr-rand', title: 'randomize', text: '↺' }) : null,
+      _el('span', { class: 'tr-arrow', text: '▸' })
+    );
     applySwatch(header.querySelector('.tr-swatch'), mod.id, i);
     const randBtn = header.querySelector('.tr-rand');
     if (randBtn) randBtn.addEventListener('click', e => { e.stopPropagation(); randomizeToken(mod, i); });
@@ -3661,28 +3885,31 @@ function buildTokenList(mod) {
     traits.className = 'tr-traits';
 
     // Identity info — read-only ID + RANK at the top of the expanded panel
-    const idInfo = document.createElement('div');
-    idInfo.className = 'tr-ident';
-    idInfo.innerHTML = `
-      <span class="tr-ident-label">ID</span><span class="tr-ident-val">#${String(t).padStart(3,'0')}</span>
-      <span class="tr-ident-sep">·</span>
-      <span class="tr-ident-label">RANK</span><span class="tr-ident-val">R#${String(rank).padStart(3,'0')}</span>`;
+    const idInfo = _el('div', { class: 'tr-ident' },
+      _el('span', { class: 'tr-ident-label', text: 'ID' }),
+      _el('span', { class: 'tr-ident-val',   text: '#' + String(t).padStart(3, '0') }),
+      _el('span', { class: 'tr-ident-sep',   text: '·' }),
+      _el('span', { class: 'tr-ident-label', text: 'RANK' }),
+      _el('span', { class: 'tr-ident-val',   text: 'R#' + String(rank).padStart(3, '0') })
+    );
     traits.appendChild(idInfo);
 
     function makeGroup(name) {
-      const g = document.createElement('div');
-      g.className = 'tg';
-      const hdr = document.createElement('div');
-      hdr.className = 'tg-hdr';
       const startOpen = !own;
-      hdr.innerHTML = `<span class="tg-name">${name}</span><span class="tg-arrow${startOpen ? ' open' : ''}">▸</span>`;
-      const body = document.createElement('div');
-      body.className = 'tg-body' + (startOpen ? ' open' : '');
+      const arrow = _el('span', {
+        class: 'tg-arrow' + (startOpen ? ' open' : ''),
+        text: '▸'
+      });
+      const hdr = _el('div', { class: 'tg-hdr' },
+        _el('span', { class: 'tg-name', text: name }),
+        arrow
+      );
+      const body = _el('div', { class: 'tg-body' + (startOpen ? ' open' : '') });
       hdr.addEventListener('click', () => {
         const open = body.classList.toggle('open');
-        hdr.querySelector('.tg-arrow').classList.toggle('open', open);
+        arrow.classList.toggle('open', open);
       });
-      g.appendChild(hdr); g.appendChild(body);
+      const g = _el('div', { class: 'tg' }, hdr, body);
       traits.appendChild(g);
       return body;
     }
@@ -3739,11 +3966,19 @@ function buildTokenList(mod) {
     if (!moduloTokenOps[mod.id]) moduloTokenOps[mod.id] = [];
     if (moduloTokenOps[mod.id][i] == null) moduloTokenOps[mod.id][i] = positionDefaultOps(mod.tokens.length, i);
     const initOps = moduloTokenOps[mod.id][i];
-    const speedRow = document.createElement('div');
-    speedRow.className = 'tr-trait-line speed-row';
-    speedRow.innerHTML = `<span class="tr-trait-label">SPEED</span><input type="range" class="speed-slider" min="1" max="28" value="${initOps}"><span class="speed-val">${initOps}</span>`;
-    const slider = speedRow.querySelector('.speed-slider');
-    const speedVal = speedRow.querySelector('.speed-val');
+    const slider = _el('input', {
+      type: 'range',
+      class: 'speed-slider',
+      min: '1',
+      max: '28',
+      value: String(initOps)
+    });
+    const speedVal = _el('span', { class: 'speed-val', text: String(initOps) });
+    const speedRow = _el('div', { class: 'tr-trait-line speed-row' },
+      _el('span', { class: 'tr-trait-label', text: 'SPEED' }),
+      slider,
+      speedVal
+    );
     slider.addEventListener('input', e => {
       e.stopPropagation();
       const ops = parseInt(slider.value);
@@ -3904,7 +4139,17 @@ function buildTokenList(mod) {
       desireLine.className = 'tr-trait-line';
       desireLine.id = `dline-${mod.id}-${i}`;
       const curState = getBiosState(mod.id, i);
-      desireLine.innerHTML = `<div class="dlang-btns"><button class="dlang-btn${curState===true?' active':''}" data-val="on">ON</button><button class="dlang-btn${curState===false?' active':''}" data-val="off">OFF</button></div>`;
+      const onBtn  = _el('button', {
+        class: 'dlang-btn' + (curState === true ? ' active' : ''),
+        'data-val': 'on',
+        text: 'ON'
+      });
+      const offBtn = _el('button', {
+        class: 'dlang-btn' + (curState === false ? ' active' : ''),
+        'data-val': 'off',
+        text: 'OFF'
+      });
+      desireLine.appendChild(_el('div', { class: 'dlang-btns' }, onBtn, offBtn));
       desireLine.querySelectorAll('.dlang-btn').forEach(btn => {
         btn.addEventListener('click', e => {
           e.stopPropagation();
@@ -3957,6 +4202,7 @@ function buildTokenList(mod) {
       const trash = document.createElement('button');
       trash.className = 'tr-trash';
       trash.title = 'remove token';
+      // SAFE: hardcoded constant SVG, zero interpolation → no XSS vector.
       trash.innerHTML = '<svg viewBox="0 0 12 14" width="10" height="12">'
         + '<path d="M1 3h10M4 3V1.5h4V3M2.5 3l0.5 9.5h6l0.5-9.5M5 5v5M7 5v5" '
         + 'stroke="currentColor" fill="none" stroke-width="0.9" '
@@ -3973,6 +4219,7 @@ function buildTokenList(mod) {
       if (!mod.personal) {
         const lockBtn = document.createElement('button');
         lockBtn.className = 'tr-lock-btn';
+        // SAFE: _LOCK_BTN_SVG is a hardcoded constant SVG (line ~9453), no interpolation.
         lockBtn.innerHTML = _LOCK_BTN_SVG;
         const guestMode = (typeof _isGuest === 'function') && _isGuest();
         if (guestMode) {
@@ -6573,10 +6820,10 @@ inventoryGrid.addEventListener('click', ev => {
   if (!isNaN(tn)) addTokenToModulo(inventoryModuloId, tn);
 });
 
-// Returns trait tag HTML for an unplaced inventory token based on TOKEN_DATA flags.
-function inventoryTraitTags(tokenNum) {
+// Returns an array of .tr-tag span nodes for an unplaced inventory token.
+function inventoryTraitTagNodes(tokenNum) {
   const td = TOKEN_DATA[tokenNum];
-  if (!td) return '';
+  if (!td) return [];
   const tags = [];
   if (td.speed != null) tags.push('S');
   if (td.hasSz)   tags.push('SZ');
@@ -6586,21 +6833,19 @@ function inventoryTraitTags(tokenNum) {
   if (td.hasRD)   tags.push('RD');
   if (td.hasBios) tags.push('BIOS');
   if (td.hasDX)   tags.push('DX');
-  return tags.map(t => `<span class="tr-tag">${t}</span>`).join('');
+  return tags.map(t => _el('span', { class: 'tr-tag', text: t }));
 }
 
 // Small helper — builds a single .inv-tile element (no per-tile click listener).
 function _buildInventoryTile(tokenNum, onClick) {
-  const tile = document.createElement('div');
-  tile.className = 'inv-tile';
-  tile.dataset.tokenNum = tokenNum;
   const rawColor = tokenDefaultColor(tokenNum);
   const color = /^#[0-9a-fA-F]{6}$/.test(rawColor) ? rawColor : '#807c74';
   const rank  = (TOKEN_DATA[tokenNum] && TOKEN_DATA[tokenNum].rank) || 0;
-  tile.innerHTML = `
-    <span class="inv-tile-id">R#${String(rank).padStart(3,'0')}</span>
-    <div class="inv-tile-swatch" style="background:${color}"></div>
-    <span class="inv-tile-tags">${inventoryTraitTags(tokenNum)}</span>`;
+  const tile = _el('div', { class: 'inv-tile', data: { tokenNum: String(tokenNum) } },
+    _el('span', { class: 'inv-tile-id', text: 'R#' + String(rank).padStart(3, '0') }),
+    _el('div', { class: 'inv-tile-swatch', style: { background: color } }),
+    _el('span', { class: 'inv-tile-tags' }, inventoryTraitTagNodes(tokenNum))
+  );
   // Inline inventory panels are rebuilt on each open, so they keep their own listener
   if (onClick) tile.addEventListener('click', ev => { ev.stopPropagation(); onClick(tokenNum); });
   return tile;
@@ -6611,7 +6856,7 @@ function renderInlineInventory(modId) {
   const mod = MODULOS.find(c => c.id === modId);
   const panel = document.getElementById(`inv-panel-${modId}`);
   if (!mod || !panel) return;
-  panel.innerHTML = '';
+  panel.replaceChildren();
 
   // Inner wrapper — required for grid-template-rows clip animation.
   // The grid collapses the outer panel; min-height:0 on this div allows
@@ -6669,13 +6914,13 @@ function closeInlineInventory(modId, snap) {
       panel.classList.remove('open');
       void panel.offsetHeight; // force reflow
       panel.style.transition = '';
-      panel.innerHTML = '';
+      panel.replaceChildren();
     } else {
       panel.classList.remove('open');
       // Clear tiles after the transition finishes so a future open starts clean.
       // Store the timer so buildLeft can cancel it if the panel node is replaced.
       const _t = setTimeout(() => {
-        if (panel.isConnected && !panel.classList.contains('open')) panel.innerHTML = '';
+        if (panel.isConnected && !panel.classList.contains('open')) panel.replaceChildren();
       }, 350);
       panel._clearTimer = _t;
     }
@@ -6688,7 +6933,7 @@ function renderInventoryGrid() {
   const mod = MODULOS.find(c => c.id === inventoryModuloId);
   if (!mod) return;
   const full = mod.tokens.length >= 8;
-  inventoryGrid.innerHTML = '';
+  inventoryGrid.replaceChildren();
   inventoryTitle.textContent = '';
   inventoryCount.textContent =
     `${tokenInventory.length} available · slots ${mod.tokens.length}/8`;
@@ -7157,19 +7402,20 @@ function batteryLevel(tokenCount) {
 function buildNavigator() {
   const nav=document.getElementById('modulo-nav');
   MODULOS.forEach(mod => {
-    const item=document.createElement('div');
-    item.className='modulo-nav-item';
-    item.dataset.modid = mod.id;
     const lvl = batteryLevel(mod.tokens.length);
-    const num = mod.id.replace('modulo_','');
-    item.innerHTML=`
-      <div class="nav-battery" data-level="${lvl}">
-        <div class="nav-bar"></div>
-        <div class="nav-bar"></div>
-        <div class="nav-bar"></div>
-        <div class="nav-bar"></div>
-      </div>
-      <span class="modulo-nav-label">${num}</span>`;
+    const num = mod.id.replace('modulo_', '');
+    const item = _el('div', {
+      class: 'modulo-nav-item',
+      data: { modid: mod.id }
+    },
+      _el('div', { class: 'nav-battery', data: { level: String(lvl) } },
+        _el('div', { class: 'nav-bar' }),
+        _el('div', { class: 'nav-bar' }),
+        _el('div', { class: 'nav-bar' }),
+        _el('div', { class: 'nav-bar' })
+      ),
+      _el('span', { class: 'modulo-nav-label', text: num })
+    );
     item.addEventListener('click', () => flyToModulo(mod));
     const sep = document.getElementById('nav-overview-sep');
     nav.insertBefore(item, sep);
@@ -7532,6 +7778,10 @@ document.getElementById('export-btn').addEventListener('click', () => {
 
   const win = document.createElement('div');
   win.id = 'info-window';
+  // SAFE: 100% static template — no `${...}` interpolation anywhere in the
+  // ~150 lines below. Verified clean by grep before each release. Refactor
+  // to createElement-based DOM here would 5x the line count without any
+  // security gain (no interpolation = no XSS vector).
   win.innerHTML = `
     <div id="info-tbar">
       <button id="info-close"></button>
@@ -7891,14 +8141,23 @@ function _persistCooldowns() {
   try { localStorage.setItem(_COOLDOWN_LS_KEY, JSON.stringify(cooldowns)); } catch (_) {}
 }
 
-// Duration constants. Production has 1h/6h/12h variants; Phase 1 beta uses a
-// fixed 30 min. See plan.md §1.4 + §4.2.
+// Duration constants. See plan.md §1.4 + §4.2.
+//
+// ⚠️ Sepolia config (current): 1m / 1h / 6h / 12h.
+//    The '1m' option exists for testnet ergonomics — testers can lock-and-settle
+//    in 1 minute instead of waiting hours.
+//
+// ⚠️ MAINNET config: REMOVE the '1m' entry below + remove the '1m' button in
+//    the lock modal (search for `data-dur="1m"`). Final mainnet options are
+//    '1h' / '6h' / '12h' only.
 const LOCK_DURATIONS = {
-  '30m': 1 * 60 * 1000,  // TEMP: 1 min for testing (was 30 min)
+  '1m':  1  * 60 * 1000,         // ⚠️ REMOVE before mainnet deploy
   '1h':  1  * 60 * 60 * 1000,
   '6h':  6  * 60 * 60 * 1000,
   '12h': 12 * 60 * 60 * 1000,
 };
+/** Default duration selected when the lock modal opens. */
+const LOCK_DURATION_DEFAULT = '1h';
 const COOLDOWN_MS = 10 * 60 * 1000; // 10 min — plan.md §4.2
 
 // Attempt to promote a draft to a locked entry in Firebase.
@@ -7929,7 +8188,11 @@ async function lockToken(modId, tokenNum, durationMs) {
   if (!_walletProvider) return { ok: false, reason: 'no-wallet-provider' };
 
   const ts = Date.now();
-  const message = `modulo:lock|${modId}|${tokenNum}|${ts}`;
+  // Message format includes <owner> as of 2026-05-03 (P1 from security
+  // checklist). Wallet prompt now shows the user's own address — clarity
+  // of intent + smoother transition path to EIP-712 typed data later.
+  // CF rejects the old format `modulo:lock|<modId>|...` (no owner).
+  const message = `modulo:lock|${SESSION_USER}|${modId}|${tokenNum}|${ts}`;
   const traits = userDraftTraits[tokenNum] ? { ...userDraftTraits[tokenNum] } : {};
   let signature;
   try {
@@ -8606,6 +8869,128 @@ const WALLET_TARGET_CHAIN_INFO = {
 };
 const WALLET_LS_KEY = 'tc-wallet-address';
 
+// ─────────────────────────────────────────────────────────────────────────────
+// On-chain contracts (Sepolia POC — addresses replaced for mainnet)
+// Deployed 2026-05-04 from `Code/contracts/script/Deploy.s.sol`
+// EthFS placeholders uploaded via `Code/contracts/script/UploadFiles.s.sol`
+// ─────────────────────────────────────────────────────────────────────────────
+const TOKEN_AGENT_ADDRESS_SEPOLIA     = '0xdE4AC7c11c0B3dbDcE4d60F2B14F659a553f8b8a';
+const SETTLE_ARTIFACT_ADDRESS_SEPOLIA = '0xa33C38cBCFF9C3BDB9818e80B49e74890A92d699';
+
+// Active addresses (toggle by network — Sepolia only for now)
+const TOKEN_AGENT_ADDRESS     = TOKEN_AGENT_ADDRESS_SEPOLIA;
+const SETTLE_ARTIFACT_ADDRESS = SETTLE_ARTIFACT_ADDRESS_SEPOLIA;
+
+// Minimal ABIs — only the methods we actually call from the frontend.
+const TOKEN_AGENT_ABI = [
+  'function MAX_SUPPLY() view returns (uint256)',
+  'function MINT_PRICE() view returns (uint256)',
+  'function totalMinted() view returns (uint256)',
+  'function ownerOf(uint256) view returns (address)',
+  'function rankOf(uint256) pure returns (uint256)',
+  'function tokenURI(uint256) view returns (string)',
+  'function mint(uint256 quantity) payable',
+  'event Transfer(address indexed from, address indexed to, uint256 indexed tokenId)',
+];
+
+const SETTLE_ARTIFACT_ABI = [
+  'function nonces(address) view returns (uint256)',
+  'function settle(' +
+    '(uint256 moduloId, uint256[] composition, uint256[] toBurn, address settler, uint256 nonce, uint256 deadline) p,' +
+    'bytes signerSig,' +
+    'bytes settlerSig' +
+  ') external',
+  'function totalArtifacts() view returns (uint256)',
+  'function tokenURI(uint256) view returns (string)',
+  'event Settled(uint256 indexed artifactId, uint256 indexed moduloId, address indexed settler)',
+];
+
+// EIP-712 domain MUST match SettleArtifact.DOMAIN_SEPARATOR exactly. Any drift
+// here produces an unverifiable signature on-chain.
+const EIP712_DOMAIN_SETTLE = {
+  name:    'Modulo Artifact',
+  version: '1',
+  chainId: WALLET_TARGET_CHAIN_ID,
+  verifyingContract: SETTLE_ARTIFACT_ADDRESS,
+};
+
+const EIP712_TYPES_SETTLE = {
+  SettleParams: [
+    { name: 'moduloId',    type: 'uint256'   },
+    { name: 'composition', type: 'uint256[]' },
+    { name: 'toBurn',      type: 'uint256[]' },
+    { name: 'settler',     type: 'address'   },
+    { name: 'nonce',       type: 'uint256'   },
+    { name: 'deadline',    type: 'uint256'   },
+  ],
+};
+
+// Helpers — return ethers.Contract instances bound to either provider (read)
+// or signer (write). Signer-bound contracts can submit txs.
+function _getTokenAgent(runner) {
+  if (!window.ethers || !runner) return null;
+  return new window.ethers.Contract(TOKEN_AGENT_ADDRESS, TOKEN_AGENT_ABI, runner);
+}
+function _getSettleArtifact(runner) {
+  if (!window.ethers || !runner) return null;
+  return new window.ethers.Contract(SETTLE_ARTIFACT_ADDRESS, SETTLE_ARTIFACT_ABI, runner);
+}
+
+// Sepolia test mode: scans on-chain ownership for the connected wallet and
+// pushes those token IDs into the local TOKEN_DATA inventory so the user can
+// interact with them via the existing lock/settle UI.
+//
+// Why a manual function (not auto on connect): the full ownership pipeline
+// (auto-sync, balanceOf indexing, Transfer event subscriptions) is post-Sepolia
+// work. For E2E settle validation, Le calls `_sepoliaSync()` from the devtools
+// console after connecting his wallet. Tokens 1..totalMinted are scanned via
+// `ownerOf(i)` calls — fine for ≤100 tokens. Mainnet scaling will need a
+// proper indexer or `tokensOfOwner` view-only batch helper.
+async function _sepoliaSync() {
+  if (!_walletProvider || !_walletAddress) {
+    console.warn('[sepolia] connect wallet first');
+    return { ok: false, reason: 'no-wallet' };
+  }
+  const agent = _getTokenAgent(_walletProvider);
+  if (!agent) return { ok: false, reason: 'no-ethers' };
+
+  let total;
+  try { total = Number(await agent.totalMinted()); }
+  catch (err) { console.error('[sepolia] totalMinted failed:', err); return { ok: false, reason: 'rpc-error', err }; }
+  console.log('[sepolia] totalMinted on-chain:', total);
+  if (total === 0) { console.log('[sepolia] no tokens minted yet'); return { ok: true, count: 0 }; }
+
+  const owned = [];
+  for (let id = 1; id <= total; id++) {
+    try {
+      const o = await agent.ownerOf(id);
+      if (o.toLowerCase() === _walletAddress.toLowerCase()) owned.push(id);
+    } catch (_) { /* burned / nonexistent — skip */ }
+  }
+  console.log('[sepolia] tokens owned by', _shortAddr(_walletAddress), ':', owned);
+
+  // Populate TOKEN_DATA so isOwnToken returns true. We extend the array if
+  // needed (1-indexed → array index = id) and stamp owner = SESSION_USER.
+  for (const id of owned) {
+    while (TOKEN_DATA.length <= id) TOKEN_DATA.push(null);
+    if (!TOKEN_DATA[id]) {
+      // Synthesize a minimal entry — real traits come from the contract via
+      // tokenURI. The frontend's local trait derivation (TraitsLib.js mirror)
+      // also runs against the seed if needed.
+      TOKEN_DATA[id] = {
+        id,
+        owner: SESSION_USER,
+        seed: null, // unknown until we read it on-chain
+      };
+    } else {
+      TOKEN_DATA[id].owner = SESSION_USER;
+    }
+  }
+  if (typeof _rebuildInventory === 'function') _rebuildInventory();
+  return { ok: true, count: owned.length, tokens: owned };
+}
+window._sepoliaSync = _sepoliaSync;
+
 let _walletAddress = null;     // 0x... when connected, null otherwise
 let _walletProvider = null;    // ethers.BrowserProvider instance
 let _walletChainId = null;     // chain currently exposed by the wallet
@@ -8964,49 +9349,133 @@ async function settleModulo(modId) {
   }
 
   if (mod.personal) {
-    // Workshop: local-only path. Emit activity + remove tokens directly.
-    if (typeof _emitActivity === 'function') _emitActivity('settle', modId, null);
+    // Workshop is conceptually personal/local (plan.md §3.1) — no activity
+    // feed broadcast on settle. The previous `_emitActivity('settle', ...)`
+    // call here was a Phase 1 carry-over that started failing silently after
+    // strict Firebase rules made `/activity/` CF-only-writable (2026-04-30).
+    // Removed 2026-05-03 — workshop settles stay private by design.
     for (let i = mod.tokens.length - 1; i >= 0; i--) {
       removeTokenFromModulo(modId, i);
     }
   } else {
-    // Shared: call the Cloud Function which verifies the wallet signature,
-    // burns all locks owned by the caller, and emits the 'settle' activity.
+    // Shared modulo settle — on-chain dual-sig flow (replaces 2026-05-04).
+    //
+    //   1. Read settler nonce from SettleArtifact.nonces(addr) on-chain
+    //   2. Build deadline = now + 5 min (unix seconds)
+    //   3. Call attestSettle CF → CF reads Firebase locks, builds composition
+    //      and toBurn arrays, signs EIP-712 typed data with SETTLE_SIGNER_PK,
+    //      returns { signerSig, moduloId, composition, toBurn }
+    //   4. User signs the SAME EIP-712 typed data via signer.signTypedData
+    //   5. Submit SettleArtifact.settle(params, signerSig, settlerSig) on-chain
+    //   6. On tx success, locks for burned tokens go to sessionBurnedTokens
+    //      (Firebase locks stay until expiry — pre-mainnet TODO: Cloud Run
+    //      listener for Settled events to clean Firebase).
+    //
+    // The legacy `settleSharedModulo` CF is no longer used here. It still
+    // exists in the CF codebase as a fallback for migration but the active
+    // path is `attestSettle` + on-chain settle.
     const { functions, httpsCallable } = window.FB || {};
     if (!functions || !httpsCallable) return { ok: false, reason: 'no-functions' };
     if (!_walletProvider)              return { ok: false, reason: 'no-wallet-provider' };
+    if (!window.ethers)                return { ok: false, reason: 'no-ethers' };
 
-    const ts = Date.now();
-    const message = `modulo:settle|${modId}|${ts}`;
-    let signature;
+    let signer, settlerAddr;
     try {
-      const signer = await _walletProvider.getSigner();
-      signature = await signer.signMessage(message);
+      signer = await _walletProvider.getSigner();
+      settlerAddr = await signer.getAddress();
     } catch (err) {
-      if (err && err.code === 4001) return { ok: false, reason: 'user-rejected' };
-      console.error('[settle] sign failed:', err);
+      console.error('[settle] getSigner failed:', err);
+      return { ok: false, reason: 'no-signer', err };
+    }
+
+    // Step 1: read on-chain nonce
+    const artifact = _getSettleArtifact(_walletProvider);
+    let nonce, deadline;
+    try {
+      nonce = Number(await artifact.nonces(settlerAddr));
+      deadline = Math.floor(Date.now() / 1000) + 300; // 5 min window
+      console.log('[settle] settler:', settlerAddr, 'nonce:', nonce, 'deadline:', deadline);
+    } catch (err) {
+      console.error('[settle] read nonce failed:', err);
+      return { ok: false, reason: 'rpc-error', err };
+    }
+
+    // Step 2: get signer attestation (EIP-712 sig from CF)
+    let attestation;
+    try {
+      const attestFn = httpsCallable(functions, 'attestSettle');
+      const res = await attestFn({ modId, settler: settlerAddr, nonce, deadline });
+      attestation = res && res.data;
+    } catch (err) {
+      console.error('[settle] attestSettle CF failed:', err);
+      if (err && err.code === 'functions/failed-precondition') return { ok: false, reason: 'no-locked' };
+      if (err && err.code === 'functions/permission-denied')   return { ok: false, reason: 'sig-mismatch' };
+      if (err && err.code === 'functions/resource-exhausted')  return { ok: false, reason: 'rate-limited' };
+      return { ok: false, reason: 'attest-error', err };
+    }
+    if (!attestation || !attestation.ok) return { ok: false, reason: 'attest-error' };
+
+    const moduloId    = attestation.moduloId;
+    const composition = attestation.composition.map(s => BigInt(s));
+    const toBurn      = attestation.toBurn.map(s => BigInt(s));
+    const signerSig   = attestation.signerSig;
+    console.log('[settle] attestation received, composition:', composition.length, 'toBurn:', toBurn.length);
+
+    // Step 3: settler signs the same typed data
+    const value = {
+      moduloId:    BigInt(moduloId),
+      composition,
+      toBurn,
+      settler:     settlerAddr,
+      nonce:       BigInt(nonce),
+      deadline:    BigInt(deadline),
+    };
+    let settlerSig;
+    try {
+      settlerSig = await signer.signTypedData(EIP712_DOMAIN_SETTLE, EIP712_TYPES_SETTLE, value);
+    } catch (err) {
+      if (err && (err.code === 4001 || err.code === 'ACTION_REJECTED')) return { ok: false, reason: 'user-rejected' };
+      console.error('[settle] signTypedData failed:', err);
       return { ok: false, reason: 'sign-error', err };
     }
 
+    // Step 4: submit settle() on-chain
+    let tx;
     try {
-      const settleFn = httpsCallable(functions, 'settleSharedModulo');
-      await settleFn({ modId, owner: SESSION_USER, message, signature, ts });
+      const settleArtifactSigner = artifact.connect(signer);
+      tx = await settleArtifactSigner.settle({
+        moduloId,
+        composition,
+        toBurn,
+        settler: settlerAddr,
+        nonce,
+        deadline,
+      }, signerSig, settlerSig);
+      console.log('[settle] tx submitted:', tx.hash);
     } catch (err) {
-      console.error('[settle] cloud function failed:', err);
-      if (err && err.code === 'functions/permission-denied') return { ok: false, reason: 'sig-mismatch' };
-      if (err && err.code === 'functions/failed-precondition') return { ok: false, reason: 'no-locked' };
-      return { ok: false, reason: 'fb-error', err };
+      if (err && (err.code === 4001 || err.code === 'ACTION_REJECTED')) return { ok: false, reason: 'user-rejected-tx' };
+      console.error('[settle] tx submit failed:', err);
+      return { ok: false, reason: 'tx-submit-error', err };
     }
 
-    // Cancel precise-expiry timers locally — the function already removed the
-    // locks server-side so the timers would no-op anyway.
+    // Step 5: wait for confirmation
+    let receipt;
+    try {
+      receipt = await tx.wait();
+    } catch (err) {
+      console.error('[settle] tx revert:', err);
+      return { ok: false, reason: 'tx-reverted', err };
+    }
+    console.log('[settle] confirmed in block', receipt.blockNumber, 'gas used:', receipt.gasUsed.toString());
+
+    // Step 6: clean up local timers + state. Firebase locks stay stale until
+    // expiry; the contract is the source of truth (burns happened on-chain).
     for (const tokenNum of tokensToBurn) {
       const timerKey = modId + ':' + tokenNum;
       if (_ownExpiryTimers[timerKey]) {
         clearTimeout(_ownExpiryTimers[timerKey]);
         delete _ownExpiryTimers[timerKey];
       }
-      // Optimistic local removal — listener echo will confirm.
       if (fbLocked[modId]) delete fbLocked[modId][tokenNum];
     }
     _syncModuloState(mod);
@@ -9028,20 +9497,13 @@ window.settleModulo = settleModulo;
 // initial load (DB pruning TBD post-beta).
 const _ACTIVITY_FEED_LIMIT = 10;
 
-// Push a new event to Firebase. type ∈ { 'lock', 'settle', 'expire' }.
-function _emitActivity(type, modId, tokenNum, ownerOverride, durationMs) {
-  if (!window.FB || !window.FB.push) return;
-  const { db, ref, push } = window.FB;
-  const payload = {
-    type,
-    modId,
-    tokenNum,
-    owner: ownerOverride || SESSION_USER,
-    ts: Date.now()
-  };
-  if (durationMs != null) payload.durationMs = durationMs;
-  push(ref(db, 'activity'), payload).catch(err => console.error('[activity] emit failed:', err));
-}
+// Activity emission moved to Cloud Functions 2026-04-30. The previous
+// `_emitActivity()` helper that pushed directly from the frontend was
+// removed 2026-05-03 — its only remaining caller (workshop settle) was
+// also removed because workshop is conceptually personal/local and
+// shouldn't broadcast to the global feed. All current emits originate
+// inside the lockToken / settleSharedModulo Cloud Functions via admin
+// SDK, which bypasses the strict /activity/ rules.
 
 // Format a duration in ms to a compact label, e.g. "30m", "1h", "1h 30m".
 function _formatDurationShort(ms) {
@@ -9195,46 +9657,29 @@ else window.addEventListener('fb-ready', _initActivityFeed, { once: true });
   });
 })();
 
-// [Fix #8] Activity TTL: prune entries older than ACTIVITY_TTL_MS so the
-// `activity/` path doesn't grow unbounded forever. Each client runs the
-// prune occasionally (cooperative — first to wake gets it). Idempotent: if
-// two clients prune the same entry simultaneously, both removes succeed.
-const _ACTIVITY_TTL_MS    = 7 * 24 * 60 * 60 * 1000;  // 7 days
-const _ACTIVITY_PRUNE_MS  = 60 * 60 * 1000;            // run every 1h
-
-async function _pruneActivity() {
-  if (!window.FB) return;
-  // Guest sessions don't write to /activity/ — skip housekeeping. (audits.md P0)
-  if (typeof _isGuest === 'function' && _isGuest()) return;
-  const { db, ref, get, query, orderByChild, endAt, update } = window.FB;
-  if (!query || !orderByChild || !endAt) return; // SDK missing helpers — skip
-  const cutoff = Date.now() - _ACTIVITY_TTL_MS;
-  try {
-    // Pull entries with ts <= cutoff
-    const stale = await get(query(ref(db, 'activity'), orderByChild('ts'), endAt(cutoff)));
-    if (!stale.exists()) return;
-    const payload = {};
-    stale.forEach(child => { payload[`activity/${child.key}`] = null; });
-    const count = Object.keys(payload).length;
-    if (count === 0) return;
-    await update(ref(db, '/'), payload);
-    console.log('[activity] pruned', count, 'entries older than 7 days');
-  } catch (err) {
-    // orderByChild requires Firebase indexes (.indexOn rule on `activity/ts`).
-    // Without the rule, Firebase logs a warning but the query still works on
-    // small datasets. At our scale this is fine; if logs get noisy we add the
-    // index later.
-    console.warn('[activity] prune skipped:', err.message || err);
-  }
-}
-
-function _startActivityPruner() {
-  // First pass after 5min so we don't fight init traffic
-  setTimeout(_pruneActivity, 5 * 60 * 1000);
-  setInterval(_pruneActivity, _ACTIVITY_PRUNE_MS);
-}
-if (window.FB) _startActivityPruner();
-else window.addEventListener('fb-ready', _startActivityPruner, { once: true });
+// Activity TTL housekeeping — DISABLED 2026-05-03.
+//
+// Originally a client-side cooperative pruner (Phase 1 with permissive rules).
+// After strict rules were deployed (2026-04-30), `/activity/` became
+// CF-only-writable: client `update(ref(db,'/'), {'activity/...': null})`
+// fails silently with PERMISSION_DENIED. Rather than ship code that fails
+// every hour on every client, the pruner is removed entirely.
+//
+// Storage growth is acceptable: the activity feed UI subscribes only to
+// the last 10 entries (`limitToLast(_ACTIVITY_FEED_LIMIT)`), so older
+// entries don't load on the client. Realtime DB free tier is generous
+// enough for years of entries at expected mint volume.
+//
+// If pruning becomes necessary post-launch:
+//   1. Add a Cloud Function `pruneActivity` (callable, owner-only OR
+//      scheduled via Cloud Scheduler / Eventarc) that runs the same
+//      orderByChild('ts') + endAt(cutoff) + null-payload update from
+//      admin SDK (which bypasses rules).
+//   2. Schedule it daily / weekly. Idempotent so multiple runs are safe.
+//
+// Constants kept as documentation of the original intent.
+const _ACTIVITY_TTL_MS_PLANNED = 7 * 24 * 60 * 60 * 1000;  // 7 days, planned
+// (No more setInterval / no _pruneActivity function in the runtime.)
 
 // ═══ Toast notifications ═══
 // Small floating top-center notification. Auto-dismisses after `ttlMs`.
@@ -9245,9 +9690,13 @@ function _showToast(text, opts) {
   const el = document.createElement('div');
   el.className = 'toast' + (o.variant ? ' ' + o.variant : '');
   if (o.sub) {
-    el.innerHTML = '<span class="toast-main"></span><span class="toast-sub"></span>';
-    el.querySelector('.toast-main').textContent = text;
-    el.querySelector('.toast-sub').textContent = o.sub;
+    const main = document.createElement('span');
+    main.className = 'toast-main';
+    main.textContent = text;
+    const sub = document.createElement('span');
+    sub.className = 'toast-sub';
+    sub.textContent = o.sub;
+    el.append(main, sub);
   } else {
     el.textContent = text;
   }
@@ -9260,10 +9709,22 @@ function _showToast(text, opts) {
 }
 
 // ═══ Lock UI — confirmation modal + button wiring (plan.md §6.3) ═══
-// Beta version: single fixed 30min duration, no selector in modal.
+// Duration selector exposes 4 options on Sepolia (1m/1h/6h/12h). The 1m is a
+// testnet-only ergonomic; remove before mainnet (see LOCK_DURATIONS comment).
 
 // Pending lock request — set when user clicks the checkmark, cleared on confirm/cancel.
 let _pendingLock = null;
+/** Currently selected duration key in the modal. Resets to LOCK_DURATION_DEFAULT
+ *  on each modal open. Updated by clicks on .lock-dur-btn. */
+let _pendingLockDuration = LOCK_DURATION_DEFAULT;
+
+/** Human-readable label per duration key. Shown in the modal body sentence. */
+const _LOCK_DURATION_LABELS = {
+  '1m':  '1 minute',
+  '1h':  '1 hour',
+  '6h':  '6 hours',
+  '12h': '12 hours',
+};
 
 function openLockModal(modId, tokenNum) {
   // Cooldown pre-check — when the user's previous lock in this modulo recently
@@ -9283,12 +9744,26 @@ function openLockModal(modId, tokenNum) {
     return;
   }
   _pendingLock = { modId, tokenNum };
+  // Reset duration selector to default on every open. Persisting the previous
+  // selection across opens would surprise users who locked once for 12h and
+  // then forgot to change it back — safer to default-anchor.
+  _pendingLockDuration = LOCK_DURATION_DEFAULT;
+  _renderLockDurationSelector();
   const titleEl = document.getElementById('lock-modal-title');
   const modIdEl = document.getElementById('lock-modal-modid');
   const overlay = document.getElementById('lock-overlay');
   if (titleEl) titleEl.textContent = `Lock token #${String(tokenNum).padStart(3, '0')}?`;
   if (modIdEl) modIdEl.textContent = modId;
   if (overlay) overlay.classList.add('open');
+}
+
+/** Sync the modal's duration row buttons + body label to _pendingLockDuration. */
+function _renderLockDurationSelector() {
+  document.querySelectorAll('.lock-dur-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.dur === _pendingLockDuration);
+  });
+  const labelEl = document.getElementById('lock-modal-duration-label');
+  if (labelEl) labelEl.textContent = _LOCK_DURATION_LABELS[_pendingLockDuration] || _pendingLockDuration;
 }
 
 function closeLockModal() {
@@ -9303,7 +9778,12 @@ async function confirmLockModal() {
   const confirmBtn = document.getElementById('lock-modal-confirm');
   if (confirmBtn) confirmBtn.disabled = true;
   try {
-    const result = await lockToken(modId, tokenNum, LOCK_DURATIONS['30m']);
+    const ms = LOCK_DURATIONS[_pendingLockDuration];
+    if (ms == null) {
+      console.warn('[lock] unknown duration:', _pendingLockDuration);
+      return;
+    }
+    const result = await lockToken(modId, tokenNum, ms);
     if (!result.ok) {
       console.warn('[lock] failed:', result);
       if (result.reason === 'guest-readonly') {
@@ -9326,6 +9806,18 @@ async function confirmLockModal() {
   if (overlay) overlay.addEventListener('click', e => {
     // Click on the backdrop (outside the modal body) dismisses
     if (e.target === overlay) closeLockModal();
+  });
+  // Wire duration selector buttons. The 1m/1h/6h/12h buttons all have
+  // class .lock-dur-btn with data-dur="<key>". On click, update the pending
+  // duration + re-render the visual selection.
+  document.querySelectorAll('.lock-dur-btn').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const dur = btn.dataset.dur;
+      if (!dur || LOCK_DURATIONS[dur] == null) return;
+      _pendingLockDuration = dur;
+      _renderLockDurationSelector();
+    });
   });
   // ESC key also dismisses
   document.addEventListener('keydown', e => {
