@@ -1490,20 +1490,6 @@ button, a, [role="button"], .pill, .info-btn, .toggle-btn, .modal-close,
 .mbtn { flex:1; padding:6px 0; border-radius:8px; border:0.5px solid var(--mbtn-border); background:var(--mbtn-bg); color:var(--mbtn-color); font-size:11px; cursor:pointer; }
 .mbtn.p { background:var(--settle-hbg); border-color:var(--dot-conn); color:var(--settle-hcolor); }
 
-/* ── Pool-full overlay (plan.md §1.4) — shown when < 10 tokens free in the
-   guest pool. Fully blocks the app. Only way out: wait + reload. ── */
-#pool-full-overlay {
-  display:none;
-  position:fixed; inset:0; z-index:10000;
-  background:var(--bg);
-  align-items:center; justify-content:center; flex-direction:column; gap:12px;
-  font-family:'Times New Roman', Times, serif;
-  color:var(--card-name);
-}
-#pool-full-overlay.visible { display:flex; }
-#pool-full-overlay .pf-title { font-size:36px; letter-spacing:-.02em; }
-#pool-full-overlay .pf-sub   { font-size:11px; font-family:monospace; letter-spacing:.06em; color:var(--topbar-text); opacity:0.75; }
-
 /* ── Activity feed (plan.md §6.5) — top-left floating text, no chrome ── */
 /* Activity is wrapped in a collapsible side panel that mirrors the
    expand-sidebar pattern (slide-in from left + tab on right edge).
@@ -2006,14 +1992,6 @@ button, a, [role="button"], .pill, .info-btn, .toggle-btn, .modal-close,
   <!-- Toast stack — small ephemeral notifications (cooldown alerts, etc.) -->
   <div id="toast-stack"></div>
 
-  <!-- Pool-full overlay (plan.md §1.4). Displayed only if the guest-session
-       claim transaction finds < 10 free tokens. Blocks the app; user has to
-       wait + reload. -->
-  <div id="pool-full-overlay">
-    <div class="pf-title">beta full</div>
-    <div class="pf-sub">try again later</div>
-  </div>
-
   <!-- Lock confirmation modal (plan.md §6.3). Duration selector: 1m for Sepolia
        testing, 1h/6h/12h for production. The 1m option must be removed before
        mainnet deploy — see LOCK_DURATIONS in the JS for details. -->
@@ -2148,11 +2126,6 @@ function _weightedPick(options, weights) {
 // the identity resolves. The hardcoded hex string below is a placeholder used
 // only until the identity layer is wired up.
 let SESSION_USER = '0xd3adb33f1234567890abcdef1234567890abcdef';
-const OTHER_USERS  = [
-  '0xaa11bb22cc33dd44ee55ff6677889900aabbccdd',
-  '0xbb22cc33dd44ee55ff6677889900aabbccddee11',
-  '0xcc33dd44ee55ff6677889900aabbccddeeff2233',
-];
 
 // ═══ TOKEN_DATA — generative tokens ═══
 // ─── Supply config ──────────────────────────────────────────────────────────
@@ -2173,14 +2146,11 @@ const OTHER_USERS  = [
 // To change for testing: edit the literal here, reload. Single source of truth.
 const TOTAL_TOKENS = 600;
 
-// Ownership NOTE (refactor step 7, 2026-04-24):
-// Before the guest session model, _userSet pre-assigned ~50% of tokens as
-// SESSION_USER-owned via Fisher-Yates. That's gone now — every visitor is an
-// anonymous guest that atomically claims 10 random free tokens from the pool
-// on page load (see _initGuestSession). TOKEN_DATA[i].owner starts as a fake
-// OTHER_USERS address as a placeholder; after the claim succeeds, the 10
-// claimed tokens have their owner field rewritten to the guest's ID so
-// isOwnToken() returns true for them.
+// Ownership NOTE (Phase 2, 2026-05-04):
+// TOKEN_DATA[i].owner is initialised to the zero address as a placeholder.
+// Real ownership is fetched from the TokenAgent contract via _sepoliaSync()
+// post wallet-connect; isOwnToken() compares against SESSION_USER once owner
+// fields have been rewritten to the on-chain truth.
 
 // Rank assignment — Linear Congruential Permutation.
 //
@@ -2439,7 +2409,7 @@ for (let i = 0; i < TOTAL_TOKENS; i++) {
     sel:     Math.floor(_rng() * COLS_DATA[pal].length),
     speed:   20 + Math.floor(_rng() * 71),
     status:  _weightedPick(['connected','locked','unconnected'], [0.60, 0.20, 0.20]),
-    owner:   OTHER_USERS[Math.floor(_rng() * OTHER_USERS.length)],
+    owner:   '0x' + '0'.repeat(40),
     rank,
     hasSz, hasMode, hasRS, hasRD, hasBios, hasDX,
     sz:    hasSz   ? _weightedPick(['sm','md','lg'], [0.15,0.55,0.30]) : null,
@@ -2796,8 +2766,8 @@ function _rebuildInventory() {
   });
   tokenInventory.length = 0;
   for (let i = 0; i < TOTAL_TOKENS; i++) {
-    // Exclude tokens burned via settle during this session — they return to
-    // the guest pool only on disconnect, not back to this user's inventory.
+    // Exclude tokens burned via settle during this session — they should not
+    // reappear in the user's inventory once committed on-chain.
     // sessionBurnedTokens is declared later in the script (Set); typeof guard
     // avoids TDZ issues during early init before it's been seen.
     const burned = (typeof sessionBurnedTokens !== 'undefined' && sessionBurnedTokens.has(i));
@@ -8118,28 +8088,9 @@ else window.addEventListener('fb-ready', _fbInitSync, { once: true });
 // inconsistency accepted for beta (plan.md §1.4 / §4.2).
 
 // cooldowns[modId] = timestamp until which SESSION_USER cannot lock in modId.
-// [Fix #6] Persist to localStorage so a fresh tab in the same browser (which
-// gets a new SESSION_USER guest ID) can't trivially bypass the cooldown.
-// Key is browser-stable (`tc_cd_global`) rather than per-guest, so the cooldown
-// follows the BROWSER instead of the session. Caveat: incognito mode + cleared
-// localStorage still bypass — accepted for beta. Phase 2 moves cooldowns
-// on-chain via wallet-keyed mapping, eliminating the bypass entirely.
-const _COOLDOWN_LS_KEY = 'tc_cd_global_v1';
-const cooldowns = (() => {
-  try {
-    const raw = localStorage.getItem(_COOLDOWN_LS_KEY);
-    if (!raw) return {};
-    const parsed = JSON.parse(raw);
-    // Drop already-expired entries
-    const now = Date.now();
-    const live = {};
-    for (const [k, ts] of Object.entries(parsed)) if (ts > now) live[k] = ts;
-    return live;
-  } catch (_) { return {}; }
-})();
-function _persistCooldowns() {
-  try { localStorage.setItem(_COOLDOWN_LS_KEY, JSON.stringify(cooldowns)); } catch (_) {}
-}
+// Phase 2: cooldowns are session-scoped only (in-memory). On-chain
+// wallet-keyed cooldown will be enforced via TokenAgent in a later pass.
+const cooldowns = {};
 
 // Duration constants. See plan.md §1.4 + §4.2.
 //
@@ -8241,11 +8192,6 @@ async function lockToken(modId, tokenNum, durationMs) {
   // net (Firebase removal is idempotent).
   _scheduleOwnExpiry(modId, tokenNum, entry.lockedUntil);
 
-  // [Fix 2] Re-register onDisconnect to include this lock path so the lock
-  // is cleared instantly on socket drop (rather than waiting for the orphan
-  // sweeper's 30s cadence).
-  _refreshDisconnectCleanup();
-
   return { ok: true };
 }
 
@@ -8310,7 +8256,6 @@ async function unlockToken(modId, tokenNum, options) {
   // Cooldown starts only when an expiration (not a settle) clears the lock.
   if (options && options.startCooldown && entry.owner === SESSION_USER) {
     cooldowns[modId] = Date.now() + COOLDOWN_MS;
-    _persistCooldowns();
   }
 
   // Activity 'expire' is emitted by the cloud function when applicable. Settle
@@ -8389,60 +8334,6 @@ function _startExpirySweeper() {
 if (window.FB) _startExpirySweeper();
 else window.addEventListener('fb-ready', _startExpirySweeper, { once: true });
 
-// [Fix #7] Pool stragglers: tokenClaims/* entries owned by guests that no
-// longer exist in /guests/ are unreachable until somebody runs cleanup.
-// onDisconnect normally handles this but partial network failures can leave
-// stragglers. This sweeper releases them so the pool stays at full capacity.
-// Runs less often than the lock sweeper (5min) since the symptom is a slow
-// drain on capacity, not a real-time UX issue.
-const _CLAIM_SWEEP_INTERVAL_MS = 5 * 60 * 1000;
-
-async function _sweepStrayClaims() {
-  if (!window.FB) return;
-  // Guests are read-only — skip the sweep write path entirely. Wallet
-  // sessions (and future Cloud Function) handle housekeeping. (audits.md P0)
-  if (typeof _isGuest === 'function' && _isGuest()) return;
-  const { db, ref, get, update } = window.FB;
-  let claims = {}, guests = {}, wallets = {};
-  try {
-    const [cs, gs, ws] = await Promise.all([
-      get(ref(db, 'tokenClaims')),
-      get(ref(db, 'guests')),
-      get(ref(db, 'wallets')),
-    ]);
-    if (cs.exists()) claims  = cs.val() || {};
-    if (gs.exists()) guests  = gs.val() || {};
-    if (ws.exists()) wallets = ws.val() || {};
-  } catch (_) { return; /* network glitch — try next pass */ }
-
-  const payload = {};
-  let count = 0;
-  for (const [tStr, owner] of Object.entries(claims)) {
-    if (typeof owner !== 'string') continue;
-    const basePath = _sessionBasePath(owner);
-    if (!basePath) continue;
-    const sessionRecords = basePath === 'guests' ? guests : wallets;
-    if (!sessionRecords[owner]) {
-      payload[`tokenClaims/${tStr}`] = null;
-      count++;
-    }
-  }
-  if (count > 0) {
-    try {
-      await update(ref(db, '/'), payload);
-      console.log('[claims] swept', count, 'stragglers');
-    } catch (err) { console.error('[claims] sweep failed:', err); }
-  }
-}
-
-function _startClaimSweeper() {
-  // First pass after a short delay so we don't fight with our own onDisconnect setup
-  setTimeout(_sweepStrayClaims, 30 * 1000);
-  setInterval(_sweepStrayClaims, _CLAIM_SWEEP_INTERVAL_MS);
-}
-if (window.FB) _startClaimSweeper();
-else window.addEventListener('fb-ready', _startClaimSweeper, { once: true });
-
 // Helper surfacing remaining cooldown time for a given modulo, in ms.
 // Returns 0 when no cooldown is active.
 function _cooldownRemaining(modId) {
@@ -8452,38 +8343,16 @@ function _cooldownRemaining(modId) {
   return rem > 0 ? rem : 0;
 }
 
-// ═══ Session model (plan.md §1.4 / Phase 2 wallet — Pass 2) ═══
-// Two session types share the same pool-claim mechanic and Firebase schema:
-//   - Guest:  anonymous, beta-only, single slot for ubk's testing
+// ═══ Session model (plan.md §1.4 / Phase 2) ═══
+// Two session types share the Firebase presence schema:
+//   - Guest:  anonymous, read-only, browses shared modulos
 //             (id format: "guest-XXXXXXXX", base path: /guests/{id})
 //   - Wallet: real ethereum address from connected wallet
 //             (id format: "0x..." 42 chars, base path: /wallets/{address})
 //
-// Both records hold { tokens, connectedAt, lastActivity }. Token claims
-// (/tokenClaims/{tokenNum}) are written with the session id as value, so a
-// single sweeper can free claims from either type.
-//
-// On disconnect (tab close / network drop / inactivity / user-clicks-disconnect),
-// the session cleans up via onDisconnect + inactivity timer + manual REST.
-
-const POOL_GUEST_TOKENS     = 0;    // guest = read-only, no pool claim
-// Sepolia testing 2026-05-04: set to 0 so wallet sessions don't auto-claim
-// fake pool tokens. Real tokens come from on-chain via _sepoliaSync().
-// Pre-mainnet cleanup: remove the entire pool claim flow (project.md
-// "Phase 1 → Phase 2 deletion list").
-const POOL_WALLET_TOKENS    = 0;
-const INACTIVITY_TIMEOUT_MS = 30 * 60 * 1000; // 30 min (plan.md §1.4)
-
-let _guestInactivityTimer = null;
-let _guestDisconnectHandle = null; // OnDisconnect instance for manual cancel
-
-function _makeGuestId() {
-  // Always 8 hex chars — Math.random().toString(16) can produce fewer when
-  // trailing zeros strip, so we generate from raw 32-bit ints and pad.
-  // Activity feed RX_OWNER expects guest-[6,12], padding ensures match.
-  const a = Math.floor(Math.random() * 0xffffffff).toString(16).padStart(8, '0');
-  return 'guest-' + a;
-}
+// Records hold { connectedAt, lastActivity }. Phase 2 ownership lives on-chain
+// (TokenAgent) — there is no pool-claim layer. Locks are commitments and are
+// reaped by Cloud Functions on expiry, not by client cleanup.
 
 // Map a session id to its Firebase base path. Returns null for unknown shapes
 // so callers can skip cleanup writes that would otherwise corrupt the DB.
@@ -8501,144 +8370,12 @@ function _sessionBasePath(id) {
 
 // True when the current session is a guest (read-only on shared modulos).
 // Wallet sessions are full-rights — they can lock + settle on shared modulos
-// because their identity is verifiable (and in Phase 2 will be on-chain owned).
+// because their identity is verifiable on-chain.
 function _isGuest() {
   return _sessionBasePath(SESSION_USER) === 'guests';
 }
 
-// Atomic claim transaction — picks up to `n` free tokens from the pool and
-// writes `{ [tokenNum]: guestId }` to tokenClaims/. Returns the array of
-// claimed tokenNums, or null if < n were free (pool-full).
-async function _claimGuestPool(guestId, n) {
-  if (!window.FB || !window.FB.runTransaction) return null;
-  const { db, ref, runTransaction } = window.FB;
-  const result = await runTransaction(ref(db, 'tokenClaims'), current => {
-    current = current || {};
-    const taken = new Set(Object.keys(current).map(Number));
-    const free = [];
-    for (let i = 0; i < TOTAL_TOKENS; i++) if (!taken.has(i)) free.push(i);
-    if (free.length < n) return; // abort transaction — not enough tokens
-    // Fisher-Yates shuffle, pick n
-    for (let i = free.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [free[i], free[j]] = [free[j], free[i]];
-    }
-    const mine = free.slice(0, n);
-    for (const t of mine) current[String(t)] = guestId;
-    return current;
-  });
-  if (!result.committed) return null;
-  // Extract what WE claimed (may differ from what we picked if concurrent)
-  const claims = result.snapshot.val() || {};
-  const myTokens = [];
-  for (const [tStr, owner] of Object.entries(claims)) {
-    if (owner === guestId) myTokens.push(+tStr);
-  }
-  return myTokens;
-}
-
-// Show the pool-full overlay and stop further init. Only "way out" is reload.
-function _showPoolFull() {
-  const ov = document.getElementById('pool-full-overlay');
-  if (ov) ov.classList.add('visible');
-}
-
-// Module-level state for disconnect cleanup. _myClaimedTokens is the array
-// of tokenNums claimed at session start (used to clear tokenClaims/* on drop).
-// _refreshDisconnectCleanup re-registers the onDisconnect spec with the
-// current set of locks so socket drops clear them immediately instead of
-// leaving them as orphans for the 30s sweeper to find.
-let _myClaimedTokens = [];
-
-// Wire up onDisconnect so Firebase automatically cleans up the guest's pool
-// claims, presence record, AND any active locks if the WebSocket drops.
-function _registerDisconnectCleanup(guestId, tokens) {
-  _myClaimedTokens = tokens.slice();
-  _refreshDisconnectCleanup();
-}
-
-// Re-register the onDisconnect handler so its payload reflects the CURRENT
-// set of my locks. Called whenever I add or remove a lock so the cleanup
-// spec stays current. The orphan sweeper remains as a backstop for races
-// (e.g. socket drops mid-refresh).
-function _refreshDisconnectCleanup() {
-  if (!window.FB || !window.FB.onDisconnect) return;
-  const basePath = _sessionBasePath(SESSION_USER);
-  if (!basePath) return;
-  const { db, ref, onDisconnect } = window.FB;
-
-  // Cancel previous handle (fire-and-forget — server merges by latest spec)
-  if (_guestDisconnectHandle) {
-    _guestDisconnectHandle.cancel().catch(() => {});
-  }
-
-  // Build the full payload: presence + all claims. Locks are NOT included
-  // here anymore because /session/ rules are strict (only Cloud Functions
-  // can write). Orphan locks are reaped by the unlockToken cloud function
-  // when the sweeper detects /wallets/{addr} or /guests/{id} is missing —
-  // typically within 30s of disconnect.
-  const payload = {};
-  payload[`${basePath}/${SESSION_USER}`] = null;
-  for (const t of _myClaimedTokens) payload[`tokenClaims/${t}`] = null;
-
-  _guestDisconnectHandle = onDisconnect(ref(db, '/'));
-  _guestDisconnectHandle.update(payload).catch(err => {
-    console.error('[session] refresh onDisconnect failed:', err);
-  });
-}
-
-// Manual cleanup — used when the inactivity timer fires (we can't rely on
-// onDisconnect since the socket is still open).
-async function _runManualCleanup(sessionId, tokens) {
-  if (!window.FB) return;
-  const basePath = _sessionBasePath(sessionId);
-  if (!basePath) return;
-  const { db, ref, update } = window.FB;
-  const payload = {};
-  payload[`${basePath}/${sessionId}`] = null;
-  for (const t of tokens) payload[`tokenClaims/${t}`] = null;
-  // Locks are NOT included — strict rules block direct writes. Orphan locks
-  // get reaped by the unlockToken cloud function when /wallets/ or /guests/
-  // record disappears (sweeper detects it).
-  try { await update(ref(db, '/'), payload); }
-  catch (err) { console.error('[session] manual cleanup failed:', err); }
-  // Cancel the onDisconnect since we've already run cleanup
-  if (_guestDisconnectHandle) {
-    try { await _guestDisconnectHandle.cancel(); } catch (_) {}
-    _guestDisconnectHandle = null;
-  }
-}
-
-// Inactivity: 30min since last user input → cleanup + reload. Any pointer/key
-// event resets the timer.
-//
-// Re-callable safely: on subsequent calls (e.g. session swap), the previous
-// listener set is detached before re-attaching. Without this, listeners would
-// stack and each event would trigger N timer resets. (audits.md P2 #17)
-let _inactivityListeners = null;
-function _armInactivityTimer(sessionId, tokens) {
-  const reset = () => {
-    if (_guestInactivityTimer) clearTimeout(_guestInactivityTimer);
-    _guestInactivityTimer = setTimeout(async () => {
-      await _runManualCleanup(sessionId, tokens);
-      location.reload();
-    }, INACTIVITY_TIMEOUT_MS);
-  };
-  // Detach previous listeners (if any) before re-attaching for this session
-  if (_inactivityListeners) {
-    for (const { evt, fn } of _inactivityListeners) {
-      window.removeEventListener(evt, fn);
-    }
-  }
-  _inactivityListeners = [];
-  for (const evt of ['mousemove','mousedown','keydown','wheel','touchstart','scroll']) {
-    window.addEventListener(evt, reset, { passive: true });
-    _inactivityListeners.push({ evt, fn: reset });
-  }
-  reset();
-}
-
-// Stale-guest sweeper — runs once at startup before claiming. Removes any
+// Stale-guest sweeper — runs once at startup. Removes any
 // guest whose `connectedAt` is older than STALE_GUEST_MAX_MS (their
 // onDisconnect cleanup must have failed — e.g. browser crash, force-quit,
 // file:// origin where pagehide doesn't fire reliably). Frees their pool
@@ -8693,57 +8430,29 @@ async function _sweepStaleGuests() {
   }
 }
 
-// Generic session bootstrap — used by both guest and wallet flows. Claims
-// `claimCount` tokens from the shared pool, writes the presence record at
-// `/{basePath}/{sessionId}`, registers cleanup, swaps SESSION_USER, updates
-// ownership, refreshes UI. Returns true on success.
-async function _startSession({ sessionId, basePath, claimCount, label }) {
+// Generic session bootstrap — writes the presence record at
+// `/{basePath}/{sessionId}` and swaps SESSION_USER. Phase 2: ownership is
+// on-chain via TokenAgent; no pool claim, no inventory rebuild on session
+// start (TOKEN_DATA owners are placeholders until _sepoliaSync runs).
+async function _startSession({ sessionId, basePath, label }) {
   if (!window.FB) return false;
-  // 1. Atomically claim tokens from the shared pool. claimCount=0 means
-  // "no tokens for this session" (guest read-only mode) — skip the
-  // transaction entirely so the pool isn't queried/locked unnecessarily.
-  let claimed = [];
-  if (claimCount > 0) {
-    claimed = await _claimGuestPool(sessionId, claimCount);
-    if (!claimed) { _showPoolFull(); return false; }
-  }
-  // 2. Write presence record
   const { db, ref, set } = window.FB;
   const now = Date.now();
   try {
     await set(ref(db, `${basePath}/${sessionId}`), {
-      tokens:       claimed,
       connectedAt:  now,
       lastActivity: now,
     });
   } catch (err) {
     console.error(`[${label}] presence write failed:`, err);
   }
-  // 3. Register onDisconnect cleanup
-  _registerDisconnectCleanup(sessionId, claimed);
-  // 4. Update SESSION_USER + TOKEN_DATA ownership for claimed tokens
   SESSION_USER = sessionId;
-  for (const t of claimed) {
-    if (TOKEN_DATA[t]) TOKEN_DATA[t].owner = sessionId;
-  }
-  // 5. Rebuild inventory so the claimed tokens appear
-  if (typeof _rebuildInventory === 'function') _rebuildInventory();
-  if (typeof updatePillTokens === 'function') updatePillTokens();
-  if (typeof updateTopbarWallet === 'function') updateTopbarWallet();
-  // 5b. Re-render shared modulo cards so lock buttons reflect the new
-  //     guest/wallet state (the disabled-on-guest UI is decided at build time).
-  if (typeof MODULOS !== 'undefined' && typeof buildLeft === 'function') {
-    for (const m of MODULOS) if (!m.personal) buildLeft(m);
-  }
-  // 6. Arm inactivity timer (resets on user input)
-  _armInactivityTimer(sessionId, claimed);
-  console.log(`[${label}] session started`, sessionId, 'tokens:', claimed);
+  // No tokens to update — Phase 2 ownership is on-chain via TokenAgent.
   return true;
 }
 
-// Tear down the current session in-place (release tokens + clear presence
-// record + cancel onDisconnect + clear inactivity timer + reset SESSION_USER
-// to a fresh placeholder). Used when:
+// Tear down the current session in-place (clear presence record + reset
+// SESSION_USER to a fresh placeholder). Used when:
 //   - Wallet disconnects (release wallet session)
 //   - Wallet connects while a guest session is active (release guest first)
 async function _endSession() {
@@ -8751,22 +8460,15 @@ async function _endSession() {
   const basePath = _sessionBasePath(SESSION_USER);
   if (!basePath) return;
   const sessionId = SESSION_USER;
-  const tokens = _myClaimedTokens.slice();
-  // Clear inactivity timer
-  if (_guestInactivityTimer) {
-    clearTimeout(_guestInactivityTimer);
-    _guestInactivityTimer = null;
+  // Null the presence record. Locks are commitments and are NOT cleaned up
+  // here (Phase 2: locks live on-chain / are reaped by Cloud Functions on
+  // expiry).
+  if (window.FB) {
+    const { db, ref, update } = window.FB;
+    try {
+      await update(ref(db, '/'), { [`${basePath}/${sessionId}`]: null });
+    } catch (err) { console.error('[session] end cleanup failed:', err); }
   }
-  // Manual cleanup writes presence=null + claims=null + locks=null
-  await _runManualCleanup(sessionId, tokens);
-  // Reset client state. Note: ownership in TOKEN_DATA is set back to a
-  // placeholder so isOwnToken() returns false until the next session starts.
-  for (const t of tokens) {
-    if (TOKEN_DATA[t] && TOKEN_DATA[t].owner === sessionId) {
-      TOKEN_DATA[t].owner = '0x0000000000000000000000000000000000000000';
-    }
-  }
-  _myClaimedTokens = [];
   SESSION_USER = '0x0000000000000000000000000000000000000000';
   // Clear all drafts that belonged to the ended session. Drafts are local-only
   // (Layer A in plan.md §1.2) and tied to the user — when the session ends,
@@ -8804,33 +8506,23 @@ async function _endSession() {
 }
 
 async function _initGuestSession() {
-  if (!window.FB) return;
-  // Sweep stale sessions first (covers guests AND wallets)
-  await _sweepStaleGuests();
-  const guestId = _makeGuestId();
-  await _startSession({
-    sessionId:  guestId,
-    basePath:   'guests',
-    claimCount: POOL_GUEST_TOKENS,
-    label:      'guest',
-  });
+  const id = `guest-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+  return _startSession({ sessionId: id, basePath: 'guests', label: 'guest' });
 }
 
 async function _initWalletSession(address) {
   if (!window.FB) return;
   if (!address || _sessionBasePath(address) !== 'wallets') return;
-  // End any active session (guest OR wallet) before claiming for the new
-  // wallet. Wallet→wallet swap is rare (only via accountsChanged race) but
-  // covering it here makes the function idempotent for any caller.
+  // End any active session (guest OR wallet) before starting the new
+  // wallet session. Idempotent for any caller.
   if (SESSION_USER !== address && _sessionBasePath(SESSION_USER)) {
     await _endSession();
   }
-  // Sweep stale sessions before claiming
+  // Sweep stale sessions before starting the new one
   await _sweepStaleGuests();
   await _startSession({
     sessionId:  address,
     basePath:   'wallets',
-    claimCount: POOL_WALLET_TOKENS,
     label:      'wallet',
   });
 }
@@ -8839,15 +8531,9 @@ async function _initWalletSession(address) {
 // reconnect is going to succeed. The wallet IIFE further down will either
 // trigger _initWalletSession (if reconnect succeeds) or fall back to
 // _initGuestSession via _walletDeferredFallback.
-//
-// Detection of "session active" uses _myClaimedTokens.length instead of
-// _sessionBasePath(SESSION_USER) because SESSION_USER is initialized with a
-// placeholder address (0xd3adb33f...) that incorrectly matches the wallet
-// regex — without this, the fallback would think a wallet session is already
-// running and skip the guest claim entirely.
 async function _walletDeferredFallback() {
   if (_walletAddress) return;
-  if (_myClaimedTokens && _myClaimedTokens.length > 0) return;
+  if (_sessionBasePath(SESSION_USER) === 'guests') return;
   await _initGuestSession();
 }
 
@@ -9074,7 +8760,7 @@ async function _walletConnect({ silent = false } = {}) {
   }
   // Re-entrancy guard: accountsChanged can fire during eth_requestAccounts
   // and trigger a duplicate session start. Without this, _initWalletSession
-  // runs twice claiming 200 tokens instead of 100. (audits 2026-04-30)
+  // runs twice and writes the presence record twice. (audits 2026-04-30)
   if (_walletConnecting) return null;
   _walletConnecting = true;
   const btn = document.getElementById('wallet-toggle-btn');
@@ -9106,7 +8792,7 @@ async function _walletConnect({ silent = false } = {}) {
       await _walletEnsureChain();
     }
     console.log('[wallet] connected', _shortAddr(_walletAddress), 'chainId', _walletChainId);
-    // Pass 2 — initiate the wallet session (claims pool tokens, writes /wallets/{addr})
+    // Initiate the wallet session (writes /wallets/{addr} presence record)
     if (typeof _initWalletSession === 'function') {
       await _initWalletSession(_walletAddress);
     }
@@ -9183,7 +8869,7 @@ function _walletAttachListeners() {
     // Skip while a connect/disconnect is in flight — accountsChanged can fire
     // synchronously during eth_requestAccounts (initial connect) or during
     // wallet_revokePermissions (disconnect). Without these guards, the handler
-    // would double-start the session (200 tokens claimed) or double-cleanup.
+    // would double-start or double-cleanup the session.
     if (_walletDisconnecting) return;
     if (_walletConnecting) return;
     if (!accounts || !accounts.length) { await _walletDisconnect(); return; }
@@ -9195,8 +8881,8 @@ function _walletAttachListeners() {
       console.warn('[wallet] accountsChanged ignored — FB or provider not ready');
       return;
     }
-    // Swap the active session: end the old wallet session (release pool tokens
-    // + clear /wallets/{oldAddr}), then claim fresh tokens for the new address.
+    // Swap the active session: end the old wallet session (clear
+    // /wallets/{oldAddr}), then start a fresh session for the new address.
     if (typeof _endSession === 'function' && _sessionBasePath(SESSION_USER) === 'wallets') {
       await _endSession();
     }
@@ -9233,9 +8919,8 @@ function _walletAttachListeners() {
   _walletAttachListeners();
 
   // Coordinated bootstrap: try silent wallet reconnect first, then fall back to
-  // a guest session if no wallet was previously connected. This avoids a race
-  // where _initGuestSession claims 100 tokens, then wallet reconnects and we
-  // have to release+reclaim. We block on FB ready before either path runs.
+  // a guest session if no wallet was previously connected. We block on FB
+  // ready before either path runs.
   async function _bootstrap() {
     const last = localStorage.getItem(WALLET_LS_KEY);
     if (last && window.ethereum) {
@@ -9248,66 +8933,6 @@ function _walletAttachListeners() {
   if (window.FB) _bootstrap();
   else window.addEventListener('fb-ready', _bootstrap, { once: true });
 })();
-
-// Page unload handler — two-pronged cleanup so refresh/close frees the guest's
-// pool slot INSTANTLY instead of waiting 30-60s for Firebase to time out the
-// dead WebSocket.
-//
-// 1. goOffline()      — closes the WebSocket cleanly. The server runs our
-//                       registered onDisconnect spec when it detects the close.
-//                       Best-effort: browser may cancel pending socket ops
-//                       before they reach the server.
-// 2. fetch + keepalive — sends a synchronous PATCH to the Firebase REST API
-//                       that nulls the guest's paths atomically. `keepalive`
-//                       guarantees delivery even after the page is destroyed.
-//                       This is the safety net for #1.
-//
-// pagehide is more reliable than beforeunload (especially on mobile + bfcache).
-// Both are registered for max coverage. The double-write to Firebase is
-// idempotent — nulling already-null paths is a no-op.
-const _DB_REST_BASE = 'https://modulo-de521-default-rtdb.firebaseio.com';
-
-function _gracefulOffline() {
-  // 1. Best-effort WebSocket close
-  try {
-    if (window.FB && window.FB.goOffline) window.FB.goOffline(window.FB.db);
-  } catch (_) {}
-  // 2. Guaranteed REST cleanup (works for both guest and wallet sessions)
-  try {
-    const basePath = _sessionBasePath(SESSION_USER);
-    if (!basePath) return;
-    const payload = {};
-    payload[`${basePath}/${SESSION_USER}`] = null;
-    if (Array.isArray(_myClaimedTokens)) {
-      for (const t of _myClaimedTokens) payload[`tokenClaims/${t}`] = null;
-    }
-    // Locks are NOT included — strict rules block direct writes. Orphan locks
-    // are reaped by the unlockToken cloud function within 30s when the
-    // sweeper detects the session record is gone.
-    fetch(`${_DB_REST_BASE}/.json?print=silent`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-      keepalive: true   // survive page unload
-    }).catch(() => {});
-  } catch (_) {}
-}
-window.addEventListener('pagehide', _gracefulOffline);
-window.addEventListener('beforeunload', _gracefulOffline);
-
-// bfcache restore — when iOS Safari (and other browsers) freezes the page in
-// back/forward cache, our pagehide handler ran and we may have closed the
-// Firebase socket via goOffline + null'd our presence via REST. On a back-nav
-// restore, the page resumes mid-state with a stale Firebase connection and
-// no presence record. Force a full reload so _initGuestSession runs again.
-//
-// `event.persisted === true` only when the page was hydrated from bfcache
-// (not a normal navigation). On a regular load this fires too but persisted
-// is false, so we no-op. Reload is the safest path — re-establishes the
-// presence record + onDisconnect cleanly with no risk of dangling listeners.
-window.addEventListener('pageshow', (e) => {
-  if (e.persisted) location.reload();
-});
 
 // ═══ Settle (plan.md §5, beta mock flow per §5.6) ═══
 // Phase 1 settle is INTENTIONALLY minimal: emit an activity event + remove
@@ -9323,7 +8948,7 @@ window.addEventListener('pageshow', (e) => {
 //
 // Burned tokens go into sessionBurnedTokens so _rebuildInventory and the
 // return-to-inventory path in removeTokenFromModulo know not to reappear
-// them. They return to the guest pool on disconnect (Phase 1 step 7).
+// them. Phase 2: settle is on-chain so burns are permanent.
 const sessionBurnedTokens = new Set();
 
 async function settleModulo(modId) {
@@ -9483,7 +9108,6 @@ async function settleModulo(modId) {
       if (fbLocked[modId]) delete fbLocked[modId][tokenNum];
     }
     _syncModuloState(mod);
-    _refreshDisconnectCleanup();
   }
 
   // Final sweep so inventory reflects the burned tokens being gone
