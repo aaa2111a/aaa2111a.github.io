@@ -7581,9 +7581,16 @@ document.querySelector('.topbar-home-dot').addEventListener('click', e => {
   document.addEventListener('click', () => picker.classList.remove('open'));
 })();
 
+// _onchainTotalMinted is populated by _sepoliaSync() after wallet connect.
+// Until then we show "—" as the denominator (real total unknown without an
+// on-chain read). The pre-Phase-2 behavior used `TOTAL_TOKENS` (the local
+// preview pool size, currently 600) which was misleading once tokens were
+// minted on-chain. Phase 2 prefers showing the truthful on-chain count.
+let _onchainTotalMinted = null;
 function updatePillTokens() {
   const placed = MODULOS.reduce((a,c) => a + c.tokens.length, 0);
-  document.getElementById('pill-tokens').textContent = `${placed}/${TOTAL_TOKENS} tokens`;
+  const denom  = (_onchainTotalMinted != null) ? _onchainTotalMinted : '—';
+  document.getElementById('pill-tokens').textContent = `${placed}/${denom} tokens`;
 }
 updatePillTokens();
 document.getElementById('pill-modulos').textContent=`${MODULOS.length} modulos`;
@@ -8525,6 +8532,14 @@ async function _initWalletSession(address) {
     basePath:   'wallets',
     label:      'wallet',
   });
+  // Auto-sync on-chain ownership (Phase 2). Replaces manual `_sepoliaSync()`
+  // call from devtools console. Wired 2026-05-05 — Le's request: "podemos
+  // pasar al sepolia async automatico pls". Failure is non-fatal — wallet
+  // session still works, just without on-chain inventory hydration.
+  if (typeof _sepoliaSync === 'function') {
+    try { await _sepoliaSync(); }
+    catch (err) { console.warn('[wallet] auto-sepoliaSync failed:', err); }
+  }
 }
 
 // At init, defer the guest auto-start until we know whether silent wallet
@@ -8648,6 +8663,10 @@ async function _sepoliaSync() {
   try { total = Number(await agent.totalMinted()); }
   catch (err) { console.error('[sepolia] totalMinted failed:', err); return { ok: false, reason: 'rpc-error', err }; }
   console.log('[sepolia] totalMinted on-chain:', total);
+  // Stash on a module global so the topbar pill can show the truthful denominator.
+  // updatePillTokens reads `_onchainTotalMinted` and re-renders.
+  _onchainTotalMinted = total;
+  if (typeof updatePillTokens === 'function') updatePillTokens();
   if (total === 0) { console.log('[sepolia] no tokens minted yet'); return { ok: true, count: 0 }; }
 
   const owned = [];
