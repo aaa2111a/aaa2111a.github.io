@@ -3752,7 +3752,11 @@ function buildTokenList(mod) {
       // SAFE: hardcoded constant SVG, no interpolation.
       _lockIconEl.innerHTML = isLocked ? _LOCK_ICON_SVG_LOCKED : _LOCK_ICON_SVG_DRAFT;
     }
-    header.replaceChildren(
+    // .filter(Boolean) drops null entries (lock icon for personal modulos,
+    // randomize button for non-owned tokens). Without it, replaceChildren
+    // coerces `null` to the DOMString "null" and renders the literal text
+    // "null" between the lock icon and the arrow on shared/locked rows.
+    header.replaceChildren(...[
       _el('div', { class: 'sdot ' + sdotCls, title: sdotTitle }),
       _el('span', { class: 'tr-idx', text: 'R#' + String(rank).padStart(3, '0') }),
       _el('div', { class: 'tr-swatch' }),
@@ -3761,7 +3765,7 @@ function buildTokenList(mod) {
       _lockIconEl,
       own ? _el('button', { class: 'tr-rand', title: 'randomize', text: '↺' }) : null,
       _el('span', { class: 'tr-arrow', text: '▸' })
-    );
+    ].filter(Boolean));
     applySwatch(header.querySelector('.tr-swatch'), mod.id, i);
     const randBtn = header.querySelector('.tr-rand');
     if (randBtn) randBtn.addEventListener('click', e => { e.stopPropagation(); randomizeToken(mod, i); });
@@ -7588,9 +7592,13 @@ document.querySelector('.topbar-home-dot').addEventListener('click', e => {
 // minted on-chain. Phase 2 prefers showing the truthful on-chain count.
 let _onchainTotalMinted = null;
 function updatePillTokens() {
-  const placed = MODULOS.reduce((a,c) => a + c.tokens.length, 0);
+  // "Locked" = tokens placed in shared (non-personal) modulos. Workshop drafts
+  // (personal modulo) are private and excluded. The pill is a public counter:
+  // how many tokens across all shared modulos are currently committed,
+  // out of the on-chain total minted.
+  const locked = MODULOS.filter(m => !m.personal).reduce((a,c) => a + c.tokens.length, 0);
   const denom  = (_onchainTotalMinted != null) ? _onchainTotalMinted : '—';
-  document.getElementById('pill-tokens').textContent = `${placed}/${denom} tokens`;
+  document.getElementById('pill-tokens').textContent = `${locked}/${denom} tokens`;
 }
 updatePillTokens();
 document.getElementById('pill-modulos').textContent=`${MODULOS.length} modulos`;
@@ -8540,6 +8548,11 @@ async function _initWalletSession(address) {
     try { await _sepoliaSync(); }
     catch (err) { console.warn('[wallet] auto-sepoliaSync failed:', err); }
   }
+  // Refresh topbar after _sepoliaSync stamps owner=SESSION_USER on the user's
+  // tokens. Otherwise the topbar-inv counter stays at the value from
+  // _endSession's call (when SESSION_USER was 0x0000…0000 → matched all the
+  // pre-generated TOKEN_DATA placeholders → shown as "600 tokens").
+  if (typeof updateTopbarWallet === 'function') updateTopbarWallet();
 }
 
 // At init, defer the guest auto-start until we know whether silent wallet
@@ -8798,6 +8811,28 @@ async function _walletConnect({ silent = false } = {}) {
       }
       return null;
     }
+    // Locked-MetaMask gate (silent path only). MetaMask returns the cached
+    // account from eth_accounts even when the extension is locked, which makes
+    // the page show as "connected" with the address displayed — but signing,
+    // _sepoliaSync hydration, and any owner-mutation flow silently fail because
+    // MetaMask refuses signer requests until unlocked. Cleaner UX: treat locked
+    // as disconnected. User unlocks → click "connect" (or the unlock event
+    // listener below auto-retries) → normal flow proceeds.
+    // Uses the undocumented `_metamask.isUnlocked()` API (MetaMask-only). For
+    // other injected wallets without this API, assume unlocked (they don't
+    // expose a lock state distinct from disconnected).
+    if (silent && window.ethereum._metamask && typeof window.ethereum._metamask.isUnlocked === 'function') {
+      let unlocked = true;
+      try { unlocked = await window.ethereum._metamask.isUnlocked(); } catch { unlocked = true; }
+      if (!unlocked) {
+        _walletProvider = null;
+        _walletAddress = null;
+        // Keep localStorage entry — user may unlock + reconnect; no need to
+        // re-pick the wallet from scratch. (Removed only on explicit disconnect.)
+        _renderWalletUI();
+        return null;
+      }
+    }
     _walletAddress = window.ethers.getAddress(accounts[0]);
     try {
       const net = await _walletProvider.getNetwork();
@@ -8924,6 +8959,25 @@ function _walletAttachListeners() {
       console.warn('[wallet] chain switched to', _walletChainId, '— expected', WALLET_TARGET_CHAIN_ID);
     }
   });
+  // Auto-reconnect when MetaMask is unlocked from a previously-locked state
+  // (silent reconnect aborts on locked, so we need this hook to recover the
+  // session without making the user click "connect" again). 'unlock' is a
+  // MetaMask-specific event; other wallets ignore the listener.
+  if (typeof window.ethereum.on === 'function') {
+    try {
+      window.ethereum.on('unlock', async () => {
+        if (_walletAddress) return; // already connected
+        const stashed = localStorage.getItem(WALLET_LS_KEY);
+        if (!stashed) return;       // user explicitly disconnected previously
+        if (_walletConnecting) return;
+        console.log('[wallet] metamask unlocked — silent reconnect');
+        await _walletConnect({ silent: true });
+        if (_walletAddress && typeof _initWalletSession === 'function') {
+          await _initWalletSession(_walletAddress);
+        }
+      });
+    } catch (_) { /* provider doesn't support 'unlock' event — ignore */ }
+  }
 }
 
 (function _walletInit() {
