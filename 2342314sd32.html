@@ -2569,6 +2569,14 @@ const userDraftTraits = {};
 // Shape of each entry: { owner, traits, lockedAt, lockedUntil }.
 const fbLocked = {};
 
+// Tracks the locked-token Set as it was at the END of the last _syncModuloState
+// run, per modulo. Used to detect draft→locked transitions across syncs —
+// fbLocked itself is overwritten by the listener BEFORE _syncModuloState fires
+// (line ~7979), so reading fbLocked at function entry shows the NEW state, not
+// the old one. Without this tracker the diff at line ~2702 was dead code:
+// oldLockedSet and newLockedSet derived from the same post-mutation source.
+const _lastSyncedLocked = {};
+
 // Slot 0 (top) gets the most weight, last slot the least. Total ≈ 28.
 // 1→14, 2→19/9, 3→14/9/5, 4→11/8/6/3, 5→9/7/6/4/2, 6→8/7/5/4/3/1
 function positionDefaultOps(nSlots, si) {
@@ -2695,11 +2703,12 @@ function _syncModuloState(mod, forceRebuild = false) {
   );
 
   const oldTokens = mod.tokens.slice();
-  // Also snapshot which tokens were locked BEFORE the new state is computed
-  // so we can detect draft→locked transitions (same token id, different state).
-  // Without this, locking a single token while no other slots change leaves
-  // the padlock UI stale (mod.tokens didn't change, so the rebuild was skipped).
-  const oldLockedSet = new Set(Object.keys(fbLocked[mod.id] || {}).map(Number));
+  // Detect draft→locked transitions: compare against the last-seen lockedSet
+  // captured at the END of the previous _syncModuloState call (see _lastSyncedLocked
+  // declaration above). fbLocked is already mutated by the listener at this point,
+  // so reading it here gives the NEW state — using the parallel tracker as the
+  // "old" source is the only way to spot the diff.
+  const oldLockedSet = _lastSyncedLocked[mod.id] || new Set();
   const newLockedSet = new Set(lockedTokens);
   const tokensChanged = oldTokens.length !== allTokens.length ||
                         oldTokens.some((t, i) => t !== allTokens[i]) ||
@@ -2790,6 +2799,9 @@ function _syncModuloState(mod, forceRebuild = false) {
     if (typeof updateNavBattery === 'function') updateNavBattery(mod.id, mod.tokens.length);
     if (typeof updatePillTokens === 'function') updatePillTokens();
   }
+  // Record current lockedSet so the NEXT _syncModuloState call can diff against
+  // it (fbLocked gets clobbered by the listener before each call).
+  _lastSyncedLocked[mod.id] = newLockedSet;
 }
 let   inventoryModuloId  = null; // floating window (non-expand mode)
 let   _invBtnEl           = null;
@@ -3237,16 +3249,33 @@ function buildModulo(mod) {
       e.stopPropagation();
       if (settleBtn.disabled) return;
       settleBtn.disabled = true;
+      // Tx-pending feedback: shared settle takes 10-30s on Sepolia (sign + nonce
+      // read + attestSettle + signTypedData + submit + tx.wait). Without this
+      // toast the user sees a frozen disabled button and assumes the click was lost.
+      // Workshop is local-only so no toast needed there.
+      const _isShared = !mod.personal;
+      const _toast = _isShared ? _showToast('Settling…', { sticky: true, sub: 'sign + submit + confirm' }) : null;
       try {
         const result = await settleModulo(mod.id);
+        if (_toast) _dismissToast(_toast);
         if (!result.ok) {
           if (result.reason === 'guest-readonly') {
             alert('Connect a wallet to settle on shared modulos. Guest sessions can only settle in the workshop.');
+          } else if (result.reason === 'user-rejected-tx' || result.reason === 'user-rejected-sig') {
+            // Quiet — user explicitly cancelled; no need for an alert.
+            dbg.log('[settle]', mod.id, 'cancelled by user');
           } else {
-            // Nothing to settle — no feedback UI yet, just a dev log
-            dbg.warn('[settle]', mod.id, result.reason);
+            const _msg = (result.err && (result.err.shortMessage || result.err.reason || result.err.message)) || result.reason;
+            if (_isShared) _showToast('Settle failed', { sub: String(_msg).slice(0, 80), variant: 'error', ttlMs: 6000 });
+            dbg.warn('[settle]', mod.id, result.reason, result.err || '');
           }
+        } else if (_isShared) {
+          _showToast('Settle confirmed ✓', { ttlMs: 3000 });
         }
+      } catch (err) {
+        if (_toast) _dismissToast(_toast);
+        console.error('[settle] unexpected', err);
+        if (_isShared) _showToast('Settle error', { sub: String((err && (err.shortMessage || err.message)) || err).slice(0, 80), variant: 'error', ttlMs: 6000 });
       } finally {
         settleBtn.disabled = false;
       }
@@ -5942,6 +5971,10 @@ function startAnim(canvasId, mod) {
     _activeDxPattern = getModuloDxPattern(mod);
     const el = document.getElementById(`dxstat-${mod.id}`);
     if (el) { const v = _activeDxPattern; el.textContent = v ? (DX_ABBR[v] || v) : '-'; }
+    // Phase diagram structure depends on whether ANY token has DX (the lastCol
+    // shows DX vs BIOS vs nothing). Setting DX for the first time, or clearing
+    // the last DX in the modulo, changes that structure — must rebuild.
+    if (typeof buildPhaseDiagram === 'function') buildPhaseDiagram(mod);
   };
 }
 
@@ -8017,9 +8050,30 @@ else window.addEventListener('fb-ready', _fbInitSync, { once: true });
 // inconsistency accepted for beta (plan.md §1.4 / §4.2).
 
 // cooldowns[modId] = timestamp until which SESSION_USER cannot lock in modId.
-// Phase 2: cooldowns are session-scoped only (in-memory). On-chain
-// wallet-keyed cooldown will be enforced via TokenAgent in a later pass.
-const cooldowns = {};
+// Persisted to localStorage so reload doesn't bypass the 10-min window. The CF
+// rate-limit (60 lock/h per wallet) is the real anti-grief mechanism — this is
+// UX-level enforcement so casual F5-bypass doesn't trivially defeat the cooldown.
+const _COOLDOWN_LS_KEY = 'tc_cd_v2';
+const cooldowns = (() => {
+  try {
+    const raw = localStorage.getItem(_COOLDOWN_LS_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object') return {};
+    // Drop already-expired entries on boot — no point keeping cruft.
+    const now = Date.now();
+    const live = {};
+    for (const k of Object.keys(parsed)) {
+      const v = parsed[k];
+      if (typeof v === 'number' && v > now) live[k] = v;
+    }
+    return live;
+  } catch (_) { return {}; }
+})();
+function _persistCooldowns() {
+  try { localStorage.setItem(_COOLDOWN_LS_KEY, JSON.stringify(cooldowns)); }
+  catch (_) { /* quota / private mode — silently skip; in-memory still works */ }
+}
 
 // Duration constants. See plan.md §1.4 + §4.2.
 //
@@ -8192,6 +8246,7 @@ async function unlockToken(modId, tokenNum, options) {
   // Cooldown starts only when an expiration (not a settle) clears the lock.
   if (options && options.startCooldown && entry.owner === SESSION_USER) {
     cooldowns[modId] = Date.now() + COOLDOWN_MS;
+    _persistCooldowns();
   }
 
   // Activity 'expire' is emitted by the cloud function when applicable. Settle
@@ -9052,10 +9107,14 @@ async function settleModulo(modId) {
     if (tokensToBurn.length === 0) return { ok: false, reason: 'no-locked' };
   }
 
-  // Mark burned BEFORE cleanup so removeTokenFromModulo and _rebuildInventory
-  // correctly keep them out of inventory during the teardown.
-  for (const tokenNum of tokensToBurn) {
-    sessionBurnedTokens.add(tokenNum);
+  // For workshop (local-only), mark burned BEFORE removal so inventory rebuild
+  // correctly excludes them. For shared modulos we DEFER this until after
+  // tx.wait() succeeds — otherwise a user-rejected sig or reverted tx would
+  // leave tokens marked "burned" client-side until refresh (state inconsistency).
+  if (mod.personal) {
+    for (const tokenNum of tokensToBurn) {
+      sessionBurnedTokens.add(tokenNum);
+    }
   }
 
   if (mod.personal) {
@@ -9178,8 +9237,16 @@ async function settleModulo(modId) {
     }
     dbg.log('[settle] confirmed in block', receipt.blockNumber, 'gas used:', receipt.gasUsed.toString());
 
-    // Step 6: clean up local timers + state. Firebase locks stay stale until
-    // expiry; the contract is the source of truth (burns happened on-chain).
+    // Step 6: tx confirmed — NOW it's safe to mark these tokens as burned
+    // client-side. If we'd done this before tx.wait(), a user-rejected sig or
+    // a reverted tx would leave the tokens stuck in `sessionBurnedTokens` until
+    // refresh, hiding them from inventory while still alive on-chain.
+    for (const tokenNum of tokensToBurn) {
+      sessionBurnedTokens.add(tokenNum);
+    }
+
+    // Clean up local timers + Firebase mirror state. Firebase locks stay stale
+    // until expiry; the contract is the source of truth (burns happened on-chain).
     for (const tokenNum of tokensToBurn) {
       const timerKey = modId + ':' + tokenNum;
       if (_ownExpiryTimers[timerKey]) {
@@ -9394,7 +9461,7 @@ const _ACTIVITY_TTL_MS_PLANNED = 7 * 24 * 60 * 60 * 1000;  // 7 days, planned
 // Small floating top-center notification. Auto-dismisses after `ttlMs`.
 function _showToast(text, opts) {
   const stack = document.getElementById('toast-stack');
-  if (!stack) return;
+  if (!stack) return null;
   const o = opts || {};
   const el = document.createElement('div');
   el.className = 'toast' + (o.variant ? ' ' + o.variant : '');
@@ -9410,11 +9477,24 @@ function _showToast(text, opts) {
     el.textContent = text;
   }
   stack.appendChild(el);
-  const ttl = o.ttlMs || 4200;
-  setTimeout(() => {
-    el.classList.add('fade-out');
-    setTimeout(() => el.remove(), 360);
-  }, ttl);
+  // sticky=true → caller manages lifecycle via el.classList.add('fade-out') + remove(),
+  // typically wrapped in _dismissToast() below. Used for tx-pending feedback where the
+  // toast must stay visible for the full network round-trip (10-30s on Sepolia).
+  if (!o.sticky) {
+    const ttl = o.ttlMs || 4200;
+    setTimeout(() => {
+      el.classList.add('fade-out');
+      setTimeout(() => el.remove(), 360);
+    }, ttl);
+  }
+  return el;
+}
+
+// Dismiss a sticky toast returned by _showToast({sticky:true}). Idempotent.
+function _dismissToast(el) {
+  if (!el || !el.parentNode) return;
+  el.classList.add('fade-out');
+  setTimeout(() => { if (el && el.parentNode) el.remove(); }, 360);
 }
 
 // ═══ Lock UI — confirmation modal + button wiring (plan.md §6.3) ═══
