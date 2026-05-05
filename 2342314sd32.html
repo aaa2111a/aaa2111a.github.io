@@ -2776,6 +2776,16 @@ function _syncModuloState(mod, forceRebuild = false) {
     if (moduloRectDensitySetters[mod.id])   moduloRectDensitySetters[mod.id]();
     if (moduloDitherPatternSetters[mod.id]) moduloDitherPatternSetters[mod.id]();
     if (moduloBiosCycleResetters[mod.id])   moduloBiosCycleResetters[mod.id]();
+    // Speed: refresh animator's dtOps + the spd-<modId> stat label using the
+    // total of the (possibly just-rebuilt) moduloTokenOps array. Without this,
+    // post-load shared modulos render with stale animation speed even though
+    // step 3 above repopulated moduloTokenOps from traits.speedOps.
+    if (moduloSpeedSetters[mod.id] && moduloTokenOps[mod.id]) {
+      const _spdTotal = moduloTokenOps[mod.id].reduce((a, v) => a + (v || 0), 0);
+      moduloSpeedSetters[mod.id](_spdTotal);
+      const _spdEl = document.getElementById(`spd-${mod.id}`);
+      if (_spdEl) _spdEl.textContent = _spdTotal;
+    }
     if (typeof updatePhaseDiagram === 'function') updatePhaseDiagram(mod);
     if (typeof updateNavBattery === 'function') updateNavBattery(mod.id, mod.tokens.length);
     if (typeof updatePillTokens === 'function') updatePillTokens();
@@ -3111,7 +3121,7 @@ function updatePhaseDiagram(mod) {
   if (!el || el.classList.contains('phase-diagram-empty')) return;
   const ao = moduloAnimObjs[mod.id];
   if (!ao) return;
-  const { idx, frames, total, activeRS, activeRD } = ao.getCycleState();
+  const { idx, frames, total, activeRS, activeRD, activeRV } = ao.getCycleState();
   const pct = ((frames / total) * 100).toFixed(1) + '%';
   el.querySelectorAll('.pd-col-mode').forEach((col, si) => {
     const active = si === idx;
@@ -3128,6 +3138,13 @@ function updatePhaseDiagram(mod) {
   el.querySelectorAll('.pd-rd-row').forEach(row => {
     const on = activeRD && row.dataset.rd === activeRD;
     const dot = row.querySelector('.pd-rect-dot-rd');
+    if (dot) dot.classList.toggle('pd-rect-dot-on', on);
+  });
+  // Active dot on rect-variant rows (audit 2026-05-05: was missing — the diagram
+  // built `pd-rv-row` entries but never highlighted the active one).
+  el.querySelectorAll('.pd-rv-row').forEach(row => {
+    const on = activeRV && row.dataset.rv === activeRV;
+    const dot = row.querySelector('.pd-rect-dot-rv');
     if (dot) dot.classList.toggle('pd-rect-dot-on', on);
   });
 }
@@ -5882,7 +5899,7 @@ function startAnim(canvasId, mod) {
     if (idx !== -1) globalAnims.splice(idx, 1);
   }
   function resetGrid() { _prevPalN = -1; updatePalette(); }
-  const animObj = { step, render, paintTo, stampBios: _stampBiosToGrid, applyRects: applyRectShifts, tickRects, stopRects: stopRectTimers, startRects: startRectTimers, dtOps: initDtOps, isVisibleFn:()=>isVisible, setVisible:(v)=>{ isVisible=v; }, destroy: destroyAnim, resetGrid, _exporting: false, getCycleState: () => ({ idx: _cycleIdx, frames: _cycleFrames, modes: [..._cycleModes], total: CYCLE_FRAMES, activeRS: _rsSize, activeRD: _rdDensity }) };
+  const animObj = { step, render, paintTo, stampBios: _stampBiosToGrid, applyRects: applyRectShifts, tickRects, stopRects: stopRectTimers, startRects: startRectTimers, dtOps: initDtOps, isVisibleFn:()=>isVisible, setVisible:(v)=>{ isVisible=v; }, destroy: destroyAnim, resetGrid, _exporting: false, getCycleState: () => ({ idx: _cycleIdx, frames: _cycleFrames, modes: [..._cycleModes], total: CYCLE_FRAMES, activeRS: _rsSize, activeRD: _rdDensity, activeRV: _activeRectVariant }) };
   _animsByCanvas.set(canvas, animObj);
   globalAnims.push(animObj);
   moduloAnimObjs[mod.id] = animObj;
@@ -6889,13 +6906,18 @@ function addTokenToModulo(modId, tokenNum) {
       if (newRank < r) { slotIdx = i; break; }
     }
 
-    // Shift all per-slot state maps UP from the insertion point to make room
-    _shiftSlotMapUp(nodeColors,         modId, slotIdx);
-    _shiftSlotMapUp(tokenModes,         modId, slotIdx);
-    _shiftSlotMapUp(tokenSizes,         modId, slotIdx);
-    _shiftSlotMapUp(tokenRectSizes,     modId, slotIdx);
-    _shiftSlotMapUp(tokenRectDensities, modId, slotIdx);
-    _shiftSlotMapUp(biosStates,         modId, slotIdx);
+    // Shift all per-slot state maps UP from the insertion point to make room.
+    // List MUST cover every per-slot map (token*) — missing ones cause the
+    // following slots to render with traits from the slot AFTER them. (Audit
+    // 2026-05-05: tokenRectVariants + tokenDitherPatterns were missing.)
+    _shiftSlotMapUp(nodeColors,           modId, slotIdx);
+    _shiftSlotMapUp(tokenModes,           modId, slotIdx);
+    _shiftSlotMapUp(tokenSizes,           modId, slotIdx);
+    _shiftSlotMapUp(tokenRectSizes,       modId, slotIdx);
+    _shiftSlotMapUp(tokenRectVariants,    modId, slotIdx);
+    _shiftSlotMapUp(tokenRectDensities,   modId, slotIdx);
+    _shiftSlotMapUp(biosStates,           modId, slotIdx);
+    _shiftSlotMapUp(tokenDitherPatterns,  modId, slotIdx);
     if (moduloTokenOps[modId]) moduloTokenOps[modId].splice(slotIdx, 0, 0);
     reseedPositionOps(modId);
 
@@ -6912,11 +6934,12 @@ function addTokenToModulo(modId, tokenNum) {
     _restoreTokenListState(mod, _listStateAdd);
 
     if (moduloAnimUpdaters[modId]) moduloAnimUpdaters[modId]();
-    if (moduloSizeSetters[modId])        moduloSizeSetters[modId](moduloDominantSize(mod));
-    if (moduloModeSetters[modId])        moduloModeSetters[modId]();
-    if (moduloRectSizeSetters[modId])    moduloRectSizeSetters[modId]();
-    if (moduloRectVariantSetters[modId]) moduloRectVariantSetters[modId]();
-    if (moduloRectDensitySetters[modId]) moduloRectDensitySetters[modId]();
+    if (moduloSizeSetters[modId])         moduloSizeSetters[modId](moduloDominantSize(mod));
+    if (moduloModeSetters[modId])         moduloModeSetters[modId]();
+    if (moduloRectSizeSetters[modId])     moduloRectSizeSetters[modId]();
+    if (moduloRectVariantSetters[modId])  moduloRectVariantSetters[modId]();
+    if (moduloRectDensitySetters[modId])  moduloRectDensitySetters[modId]();
+    if (moduloDitherPatternSetters[modId]) moduloDitherPatternSetters[modId]();
 
     if (moduloSpeedSetters[modId] && moduloTokenOps[modId]) {
       const total = moduloTokenOps[modId].reduce((a, v) => a + (v || 0), 0);
@@ -7035,10 +7058,14 @@ function removeTokenFromModulo(modId, slotIdx) {
       _sortInventory();
     }
 
+    // Shift list MUST cover every per-slot map. Missing entries cause the
+    // following slots to render with traits from the slot BEFORE them.
+    // (Audit 2026-05-05: tokenRectVariants was missing.)
     _shiftSlotMapDown(nodeColors,         modId, slotIdx);
     _shiftSlotMapDown(tokenModes,         modId, slotIdx);
     _shiftSlotMapDown(tokenSizes,         modId, slotIdx);
     _shiftSlotMapDown(tokenRectSizes,     modId, slotIdx);
+    _shiftSlotMapDown(tokenRectVariants,  modId, slotIdx);
     _shiftSlotMapDown(tokenRectDensities, modId, slotIdx);
     _shiftSlotMapDown(biosStates,         modId, slotIdx);
     clearTokenDitherPattern(modId, slotIdx);
