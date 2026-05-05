@@ -2659,7 +2659,14 @@ function _rebuildInventory() {
 //   2. If tokens didn't change: still refresh trait maps (values may have
 //      changed even if identities didn't), skip heavy UI rebuild
 //   3. If tokens changed: full UI rebuild path
-function _syncModuloState(mod) {
+// `forceRebuild=true` skips the `tokensChanged` guard for the heavy UI rebuild
+// at the bottom of the function. Used by `_sepoliaSync` post-hydration: locks
+// that landed via Firebase listener BEFORE TOKEN_DATA was hydrated produced
+// a render with rank-9999 fallback + default color; once hydration completes
+// we must re-run the sort + visual rebuild even though `mod.tokens` itself
+// didn't change. Without this flag, the stale render persists until the user
+// triggers a token composition change (inventory drag, draft, lock).
+function _syncModuloState(mod, forceRebuild = false) {
   if (mod.personal) return; // workshop owns its mod.tokens directly
 
   // 1. Build merged token list
@@ -2751,8 +2758,9 @@ function _syncModuloState(mod) {
     renderInlineInventory(expandedModuloId);
   }
 
-  // 5. UI refresh. Only do the heavy rebuild if the token list actually changed.
-  if (tokensChanged) {
+  // 5. UI refresh. Only do the heavy rebuild if the token list actually changed,
+  // OR the caller explicitly forces it (e.g. _sepoliaSync post-hydration).
+  if (tokensChanged || forceRebuild) {
     // Wait for the card DOM to exist before touching it — early init may call this
     // before buildModulo has rendered.
     const cardEl = document.getElementById('card-' + mod.id);
@@ -8665,6 +8673,20 @@ async function _sepoliaSync() {
   if (typeof _rebuildInventory === 'function') _rebuildInventory();
   if (typeof updatePillTokens === 'function') updatePillTokens();
   if (typeof updateTopbarWallet === 'function') updateTopbarWallet();
+
+  // Re-sync shared modulos so locks already in fbLocked pick up TOKEN_DATA
+  // owners/ranks now that hydration is complete. Without this, locks that
+  // landed via Firebase listener BEFORE _sepoliaSync finished render with
+  // rank-9999 fallback + default color, and stay stale until the user
+  // manually triggers a re-render (e.g. dragging an inventory token in).
+  // forceRebuild=true bypasses the `tokensChanged` guard since mod.tokens
+  // itself didn't change — only its derived render data did.
+  if (typeof MODULOS !== 'undefined' && typeof _syncModuloState === 'function') {
+    MODULOS.forEach(mod => {
+      if (!mod.personal) _syncModuloState(mod, /* forceRebuild */ true);
+    });
+  }
+
   return { ok: true, count: owned.length, tokens: owned };
 }
 window._sepoliaSync = _sepoliaSync;
