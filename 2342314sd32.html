@@ -2772,6 +2772,7 @@ function _syncModuloState(mod, forceRebuild = false) {
     if (moduloSizeSetters[mod.id])          moduloSizeSetters[mod.id](moduloDominantSize(mod));
     if (moduloModeSetters[mod.id])          moduloModeSetters[mod.id]();
     if (moduloRectSizeSetters[mod.id])      moduloRectSizeSetters[mod.id]();
+    if (moduloRectVariantSetters[mod.id])   moduloRectVariantSetters[mod.id]();
     if (moduloRectDensitySetters[mod.id])   moduloRectDensitySetters[mod.id]();
     if (moduloDitherPatternSetters[mod.id]) moduloDitherPatternSetters[mod.id]();
     if (moduloBiosCycleResetters[mod.id])   moduloBiosCycleResetters[mod.id]();
@@ -6914,6 +6915,7 @@ function addTokenToModulo(modId, tokenNum) {
     if (moduloSizeSetters[modId])        moduloSizeSetters[modId](moduloDominantSize(mod));
     if (moduloModeSetters[modId])        moduloModeSetters[modId]();
     if (moduloRectSizeSetters[modId])    moduloRectSizeSetters[modId]();
+    if (moduloRectVariantSetters[modId]) moduloRectVariantSetters[modId]();
     if (moduloRectDensitySetters[modId]) moduloRectDensitySetters[modId]();
 
     if (moduloSpeedSetters[modId] && moduloTokenOps[modId]) {
@@ -7056,6 +7058,7 @@ function removeTokenFromModulo(modId, slotIdx) {
     if (moduloSizeSetters[modId])        moduloSizeSetters[modId](moduloDominantSize(mod));
     if (moduloModeSetters[modId])        moduloModeSetters[modId]();
     if (moduloRectSizeSetters[modId])    moduloRectSizeSetters[modId]();
+    if (moduloRectVariantSetters[modId]) moduloRectVariantSetters[modId]();
     if (moduloRectDensitySetters[modId]) moduloRectDensitySetters[modId]();
 
     if (moduloSpeedSetters[modId] && moduloTokenOps[modId]) {
