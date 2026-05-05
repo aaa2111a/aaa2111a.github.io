@@ -2679,7 +2679,16 @@ function _syncModuloState(mod, forceRebuild = false) {
 
   // 1. Build merged token list
   const lockedEntries = fbLocked[mod.id] || {};
-  const lockedTokens = Object.keys(lockedEntries).map(Number);
+  // Filter out zombie locks: tokens that were burned on-chain (TOKEN_DATA[id]
+  // is null after _sepoliaSync's ownerOf() reverted with ERC721NonexistentToken)
+  // but whose Firebase entry still lingers because no client called unlockToken.
+  // Without this filter the slot renders with rank-0 + default color (TOKEN_DATA
+  // lookup fails → fallback path). The sweeper will eventually clean Firebase,
+  // but we don't want to wait visually. Pre-hydration (TOKEN_DATA[id] === undefined
+  // before _sepoliaSync runs) keep the lock — assume it's valid until proven otherwise.
+  const lockedTokens = Object.keys(lockedEntries)
+    .map(Number)
+    .filter(t => TOKEN_DATA[t] !== null);
 
   // Draft eviction (plan.md §3.1): when locked count hits 8, drafts in this
   // modulo are auto-evicted back to inventory. We can only evict our OWN
@@ -8198,6 +8207,11 @@ function _scheduleOwnExpiry(modId, tokenNum, lockedUntil) {
   const delay = Math.max(0, lockedUntil - Date.now()) + 2000;
   _ownExpiryTimers[key] = setTimeout(() => {
     delete _ownExpiryTimers[key];
+    // Skip if a settle is in flight for this modulo — the settle owns the
+    // cleanup and we don't want to set a spurious cooldown via unlockToken
+    // while tx.wait is pending. settleModulo's finally re-arms us if the
+    // settle ultimately fails.
+    if (_settleInFlight.has(modId)) return;
     // Re-check: only sweep if it's still ours and still in fbLocked.
     const entry = fbLocked[modId] && fbLocked[modId][tokenNum];
     if (!entry || entry.owner !== SESSION_USER) return;
@@ -8290,6 +8304,10 @@ async function _sweepExpiredLocks() {
   } catch (_) { /* network glitch — skip orphan check this pass */ }
 
   for (const modId of Object.keys(fbLocked)) {
+    // Skip modulos with a settle in-flight — settleModulo owns the cleanup of
+    // these locks and we don't want to interfere with a spurious unlock that
+    // would record a cooldown despite the settle ultimately succeeding.
+    if (_settleInFlight.has(modId)) continue;
     const locked = fbLocked[modId] || {};
     for (const tokenNumStr of Object.keys(locked)) {
       const entry = locked[tokenNumStr];
@@ -9087,6 +9105,13 @@ function _walletAttachListeners() {
 // them. Phase 2: settle is on-chain so burns are permanent.
 const sessionBurnedTokens = new Set();
 
+// In-flight settle tracker — keyed by modId. Used by `_scheduleOwnExpiry`'s
+// timer callback to skip the auto-expire path when a settle is mid-flight for
+// the same modulo (avoids the cooldown-race-vs-settle bug found 2026-05-05:
+// short-duration locks could fire their expiry timer DURING tx.wait, setting
+// a spurious cooldown despite the settle ultimately succeeding).
+const _settleInFlight = new Set();
+
 async function settleModulo(modId) {
   const mod = MODULOS.find(m => m.id === modId);
   if (!mod) return { ok: false, reason: 'no-modulo' };
@@ -9105,6 +9130,18 @@ async function settleModulo(modId) {
       .filter(t => locked[t] && locked[t].owner === SESSION_USER)
       .map(Number);
     if (tokensToBurn.length === 0) return { ok: false, reason: 'no-locked' };
+    // Mark settle in-flight + suspend per-token expiry timers BEFORE the long
+    // attestSettle + sign + tx.wait flow. Otherwise a 1m-duration lock can have
+    // its timer fire during tx.wait and trigger unlockToken with startCooldown,
+    // causing a spurious cooldown post-settle. We re-evaluate on failure.
+    _settleInFlight.add(modId);
+    for (const tokenNum of tokensToBurn) {
+      const timerKey = modId + ':' + tokenNum;
+      if (_ownExpiryTimers[timerKey]) {
+        clearTimeout(_ownExpiryTimers[timerKey]);
+        delete _ownExpiryTimers[timerKey];
+      }
+    }
   }
 
   // For workshop (local-only), mark burned BEFORE removal so inventory rebuild
@@ -9143,6 +9180,8 @@ async function settleModulo(modId) {
     // The legacy `settleSharedModulo` CF is no longer used here. It still
     // exists in the CF codebase as a fallback for migration but the active
     // path is `attestSettle` + on-chain settle.
+    let _txConfirmed = false;
+    try {
     const { functions, httpsCallable } = window.FB || {};
     if (!functions || !httpsCallable) return { ok: false, reason: 'no-functions' };
     if (!_walletProvider)              return { ok: false, reason: 'no-wallet-provider' };
@@ -9235,6 +9274,7 @@ async function settleModulo(modId) {
       console.error('[settle] tx revert:', err);
       return { ok: false, reason: 'tx-reverted', err };
     }
+    _txConfirmed = true;
     dbg.log('[settle] confirmed in block', receipt.blockNumber, 'gas used:', receipt.gasUsed.toString());
 
     // Step 6: tx confirmed — NOW it's safe to mark these tokens as burned
@@ -9248,14 +9288,24 @@ async function settleModulo(modId) {
     // Clean up local timers + Firebase mirror state. Firebase locks stay stale
     // until expiry; the contract is the source of truth (burns happened on-chain).
     for (const tokenNum of tokensToBurn) {
-      const timerKey = modId + ':' + tokenNum;
-      if (_ownExpiryTimers[timerKey]) {
-        clearTimeout(_ownExpiryTimers[timerKey]);
-        delete _ownExpiryTimers[timerKey];
-      }
       if (fbLocked[modId]) delete fbLocked[modId][tokenNum];
     }
     _syncModuloState(mod);
+    } finally {
+      // Always lift the in-flight flag. If the settle didn't reach tx.wait
+      // (any failure path before _txConfirmed=true), re-arm the precise
+      // expiry timers we suspended at the top — the locks survive and should
+      // expire normally on schedule.
+      _settleInFlight.delete(modId);
+      if (!_txConfirmed) {
+        for (const tokenNum of tokensToBurn) {
+          const entry = fbLocked[modId] && fbLocked[modId][tokenNum];
+          if (entry && entry.owner === SESSION_USER && entry.lockedUntil) {
+            _scheduleOwnExpiry(modId, tokenNum, entry.lockedUntil);
+          }
+        }
+      }
+    }
   }
 
   // Final sweep so inventory reflects the burned tokens being gone
