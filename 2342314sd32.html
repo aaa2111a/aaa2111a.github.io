@@ -2125,66 +2125,40 @@ function _weightedPick(options, weights) {
 // only until the identity layer is wired up.
 let SESSION_USER = '0xd3adb33f1234567890abcdef1234567890abcdef';
 
-// ═══ TOKEN_DATA — generative tokens ═══
-// ─── Supply config ──────────────────────────────────────────────────────────
-// TOTAL_TOKENS controls the size of the deterministic pool: rank assignment,
-// DX assignment, owner pre-allocation, inventory iteration, pool-claim math,
-// pill display ("X/N tokens"). Every token-related loop bounds with this.
+// ═══ TOKEN_DATA — on-chain population (Phase 2, 2026-05-04) ═══
+// In Phase 2 the entire TOKEN_DATA array is hydrated from the TokenAgent
+// contract via `_sepoliaSync()` (see below): for each minted tokenId we read
+// `getTraits(id)` + `ownerOf(id)` and store the converted record at
+// TOKEN_DATA[id]. The array is 1-INDEXED (slot 0 is unused / null) to mirror
+// the contract's 1-based tokenId convention. Burned / un-minted slots stay
+// null — every consumer guards with `TOKEN_DATA[i] && ...`.
 //
-// PHASE 1 (beta, current): hardcoded test pool of 100. Suitable for multi-tab
-//   testing without coordinating a real mint.
-// PHASE 2 (mainnet): replace the literal with `getTokenSupply()` which reads
-//   from the deployed TokenAgent contract via wagmi/viem at app init. Because
-//   downstream pools (`_rankPool`, `_dxPool`, `TOKEN_DATA`) are computed at
-//   module-init time, the contract read MUST resolve BEFORE this script runs —
-//   either by inlining the supply via build-time substitution, or by gating
-//   app boot on an async `await getTokenSupply()` before the pool-init block.
-//   Don't try to mutate TOTAL_TOKENS post-init; the pools won't recompute.
-//
-// To change for testing: edit the literal here, reload. Single source of truth.
-const TOTAL_TOKENS = 600;
-
-// Ownership NOTE (Phase 2, 2026-05-04):
-// TOKEN_DATA[i].owner is initialised to the zero address as a placeholder.
-// Real ownership is fetched from the TokenAgent contract via _sepoliaSync()
-// post wallet-connect; isOwnToken() compares against SESSION_USER once owner
-// fields have been rewritten to the on-chain truth.
+// MAX_SUPPLY mirrors TokenAgent.MAX_SUPPLY — currently informational, kept
+// here so the rank formula has a named constant. Inventory loops iterate
+// `[1..TOKEN_DATA.length-1]` (only the hydrated range) instead of always
+// scanning to MAX_SUPPLY.
+const MAX_SUPPLY = 6666;
 
 // Rank assignment — Linear Congruential Permutation.
 //
 // ⚠️ MIRROR OF `TokenAgent.rankOf(tokenId)` in
 // `Code/contracts/src/TokenAgent.sol`. If you change MAX_SUPPLY / RANK_MULT
 // / RANK_OFFSET below, change them there TOO. Post-mint the contract is the
-// source of truth — this JS formula only powers the pre-mint preview pool
-// (the simulated 600 test tokens you see in dev). Real minted tokens read
-// rank from the contract via RPC.
+// source of truth — this JS formula is purely a CPU-side mirror so we don't
+// pay an extra RPC per token to read the rank. The contract's `rankOf` is
+// pure, so the result is guaranteed identical.
 //
 // Formula: rank = ((tokenId - 1) * RANK_MULT + RANK_OFFSET) % MAX_SUPPLY + 1
 // Bijection (gcd(RANK_MULT, MAX_SUPPLY) = 1) → unique rank per tokenId in
-// [1, 6666], even if only 600 tokens get minted.
+// [1, 6666], even if only a fraction of tokens get minted.
 const RANK_MAX_ONCHAIN = 6666;
 const RANK_MULT_ONCHAIN = 4111;
 const RANK_OFFSET_ONCHAIN = 333;
 function rankOf(tokenId) {
-  // tokenId is 1-indexed in the contract. Frontend uses 0-indexed slot
-  // numbers in many places — callers must ensure they pass the contract's
-  // 1-indexed value here (same convention as `td.rank`).
+  // tokenId is 1-indexed in the contract.
   const i = tokenId - 1;
   return ((i * RANK_MULT_ONCHAIN + RANK_OFFSET_ONCHAIN) % RANK_MAX_ONCHAIN) + 1;
 }
-// _rankPool kept as a lookup table indexed by 0..TOTAL_TOKENS-1 (same shape
-// as before for downstream code that does `_rankPool[i]`). For the on-chain
-// contract this maps to tokenId = i + 1.
-const _rankPool = Array.from({ length: TOTAL_TOKENS }, (_, i) => rankOf(i + 1));
-
-// Fisher-Yates shuffle to pick exactly 44% of TOTAL_TOKENS as DX-enabled
-const _dxSet  = new Set();
-const _dxPool = Array.from({ length: TOTAL_TOKENS }, (_, i) => i);
-for (let i = _dxPool.length - 1; i > 0; i--) {
-  const j = Math.floor(_rng() * (i + 1));
-  [_dxPool[i], _dxPool[j]] = [_dxPool[j], _dxPool[i]];
-}
-_dxPool.slice(0, Math.round(TOTAL_TOKENS * 0.44)).forEach(i => _dxSet.add(i));  // ~44% DX
 
 // ── Dither Pattern Trait ────────────────────────────────────────────────────
 // Patterns marked "internal" are NOT exposed in DX_PATTERN_KEYS / DX_LABELS —
@@ -2274,155 +2248,38 @@ function clearTokenDitherPattern(modId, i) { if (!_canEditSlot(modId, i)) return
 function moduloDistinctDitherPatterns(mod) { const s=new Set(); mod.tokens.forEach((_,i)=>{ const v=getTokenDitherPattern(mod.id,i); if(v!==null) s.add(v); }); return [...s]; }
 function getModuloDxPattern(mod) { for (let i=0;i<mod.tokens.length;i++) { const v=getTokenDitherPattern(mod.id,i); if(v!==null) return v; } return null; }
 
-// Mode subset generator — same two-stage architecture as RV.
-//   1) MODE_COUNT_WEIGHTS picks how many modes (1..8). Index 0 forced to 0
-//      since hasMode tokens always have at least 1 mode. Curve is near-flat
-//      monotonic descending (16% → 10%) so all-8 still ~10% within hasMode.
-//   2) MODE_RARITY weights which modes fill those N slots, sampled
-//      without replacement. Pyramid: feedback top, blocks bottom.
-const ALL_MODES = ['feedback','shift','noise','modulo','wave','jungle','sector','blocks'];
-// Index = number of modes. Same shape as RV_COUNT_WEIGHTS. Slot 0 unused
-// (Math.max(1, ...) floor in _genModesIndependent absorbs it). Sum = 1.0.
-const MODE_COUNT_WEIGHTS = [0, 0.16, 0.14, 0.13, 0.125, 0.12, 0.115, 0.11, 0.10];
-const MODE_RARITY = {
-  feedback: 100, noise: 70, wave: 60, shift: 55,
-  modulo: 50, jungle: 35, sector: 25, blocks: 20
-};
-function _pickModeCount() {
-  let r = _rng(), acc = 0;
-  for (let i = 0; i < MODE_COUNT_WEIGHTS.length; i++) {
-    acc += MODE_COUNT_WEIGHTS[i];
-    if (r < acc) return i;
-  }
-  return MODE_COUNT_WEIGHTS.length - 1;
-}
-function _genModesIndependent() {
-  const n = Math.max(1, _pickModeCount());
-  if (n >= ALL_MODES.length) return ALL_MODES.slice();
-  const pool = ALL_MODES.slice();
-  const weights = pool.map(m => MODE_RARITY[m]);
-  const out = [];
-  for (let k = 0; k < n; k++) {
-    let total = 0;
-    for (const w of weights) total += w;
-    let r = _rng() * total, idx = 0;
-    for (; idx < pool.length; idx++) {
-      r -= weights[idx];
-      if (r < 0) break;
-    }
-    if (idx >= pool.length) idx = pool.length - 1;
-    out.push(pool[idx]);
-    pool.splice(idx, 1);
-    weights.splice(idx, 1);
-  }
-  return out;
-}
+// MODE_NAMES — canonical contract index → mode name mapping. ORDER MUST
+// match TraitsLib.sol `_modeRarity` (feedback=0, shift=1, noise=2, modulo=3,
+// wave=4, jungle=5, sector=6, blocks=7). Used by `_traitsToTokenData` to
+// decode the contract's uint8[] modes array into frontend strings.
+const MODE_NAMES = ['feedback','shift','noise','modulo','wave','jungle','sector','blocks'];
 
-// Same independent-roll subset logic for DX patterns. Each DX appears in
-// ~weight*100 % of hasDX tokens. Weights sum to 1.00 → ~1 DX per token avg.
-const DX_WEIGHTS = [0.22,0.18,0.15,0.13,0.11,0.09,0.07,0.05]; // matches DX_PATTERN_KEYS
-function _genDxIndependent() {
-  let dxs = [];
-  let safety = 32;
-  while (dxs.length === 0 && safety-- > 0) {
-    dxs = DX_PATTERN_KEYS.filter((k, idx) => _rng() < DX_WEIGHTS[idx]);
-  }
-  if (dxs.length === 0) dxs = [DX_PATTERN_KEYS[0]];
-  return dxs;
-}
-
-// Same independent-roll subset for rect-shift variants. 8 variants today:
-// core (single rect 8-dir), mecha (random walk), hysteria (3-tile diagonal
-// stair w/ phase boomerang), metro (velocity gradient bands), side-b (random
-// resetting sub-rects), earthquake (1-3 dirs sampled per frame, periodic
-// reroll), retro (wave collision: incoming + impact + spray bands), ladder
-// (interference beat tiles on compound sine).
+// Rect-shift variants — 8 algorithms in total: core (single rect 8-dir),
+// mecha (random walk), hysteria (3-tile diagonal stair w/ phase boomerang),
+// metro (velocity gradient bands), side-b (random resetting sub-rects),
+// earthquake (1-3 dirs sampled per frame, periodic reroll), retro (wave
+// collision: incoming + impact + spray bands), ladder (interference beat
+// tiles on compound sine).
 //
-// Selection model: two-stage.
-//   1) RV_COUNT_WEIGHTS picks how many RVs the token gets (0..8) —
-//      near-flat monotonic descending curve so count=8 (10%) is the floor.
-//   2) RV_RARITY weights which variants fill those N slots, sampled
-//      without replacement.
+// RECT_VARIANTS — canonical contract index → variant name mapping. ORDER
+// MUST match TraitsLib.sol `_rvRarity` (core=0, mecha=1, hysteria=2,
+// metro=3, side-b=4, earthquake=5, retro=6, ladder=7). Consumed by
+// `_traitsToTokenData` and the rect-shift renderer.
 const RECT_VARIANTS = ['core','mecha','hysteria','metro','side-b','earthquake','retro','ladder'];
-// Index = number of RVs. Slot 0 unused (count=0 returns []). Curve almost
-// flat to allow 10% on count=8 while staying monotonic descending. Sum = 1.0.
-// Combined with hasRS gate (0.70) → ~7 all-8 tokens per 100 total.
-const RV_COUNT_WEIGHTS = [0, 0.16, 0.14, 0.13, 0.125, 0.12, 0.115, 0.11, 0.10];
-const RV_RARITY = {
-  core: 100, ladder: 70, mecha: 60, retro: 55,
-  metro: 50, earthquake: 35, 'side-b': 25, hysteria: 20
-};
-function _pickRVCount() {
-  let r = _rng(), acc = 0;
-  for (let i = 0; i < RV_COUNT_WEIGHTS.length; i++) {
-    acc += RV_COUNT_WEIGHTS[i];
-    if (r < acc) return i;
-  }
-  return RV_COUNT_WEIGHTS.length - 1;
-}
-function _genRectVariantsIndependent() {
-  const n = _pickRVCount();
-  if (n === 0) return [];
-  if (n >= RECT_VARIANTS.length) return RECT_VARIANTS.slice();
-  // weighted sampling without replacement
-  const pool = RECT_VARIANTS.slice();
-  const weights = pool.map(v => RV_RARITY[v]);
-  const out = [];
-  for (let k = 0; k < n; k++) {
-    let total = 0;
-    for (const w of weights) total += w;
-    let r = _rng() * total, idx = 0;
-    for (; idx < pool.length; idx++) {
-      r -= weights[idx];
-      if (r < 0) break;
-    }
-    if (idx >= pool.length) idx = pool.length - 1;
-    out.push(pool[idx]);
-    pool.splice(idx, 1);
-    weights.splice(idx, 1);
-  }
-  return out;
-}
 
-const TOKEN_DATA = [];
-for (let i = 0; i < TOTAL_TOKENS; i++) {
-  const hasMode = _rng() < 0.75;
-  const hasSz   = hasMode; // SIZE exists iff MODE exists
-  const hasRS   = _rng() < 0.70;
-  const hasRD   = _rng() < 0.30;
-  const hasBios = _rng() < 0.15;
-  const hasDX   = _dxSet.has(i);
-  const pal     = i % COLS_DATA.length;
-  const rank    = _rankPool[i];
-  // Subset of allowed modes/dxs (Option B sorting): independent rolls per
-  // mode/dx weighted by their respective weights. Each mode/dx appears in
-  // ~weight*100 % of tokens. `mode`/`dx` (singular) = currently selected
-  // default (first of subset). The editor can only set them to values in
-  // their subsets.
-  const modes = hasMode ? _genModesIndependent() : null;
-  const dxs   = hasDX   ? _genDxIndependent()   : null;
-  const rvs   = hasRS   ? _genRectVariantsIndependent() : null;
-  TOKEN_DATA.push({
-    palette: pal,
-    sel:     Math.floor(_rng() * COLS_DATA[pal].length),
-    speed:   20 + Math.floor(_rng() * 71),
-    status:  _weightedPick(['connected','locked','unconnected'], [0.60, 0.20, 0.20]),
-    owner:   '0x' + '0'.repeat(40),
-    rank,
-    hasSz, hasMode, hasRS, hasRD, hasBios, hasDX,
-    sz:    hasSz   ? _weightedPick(['sm','md','lg'], [0.15,0.55,0.30]) : null,
-    modes, mode: modes ? modes[0] : null,
-    dxs,   dx:   dxs   ? dxs[0]   : null,
-    rvs,   rv:   rvs   ? rvs[0]   : null, // rect-shift variant subset (Option B)
-    rs:    hasRS  ? _weightedPick(['sm','md','lg','xl'], [0.15,0.40,0.30,0.15]) : null,
-    rd:    hasRD  ? _weightedPick(['lo','md','hi','mx'], [0.30,0.35,0.25,0.10]) : null,
-    bios:  hasBios ? (_rng() < 0.70) : null,
-  });
-}
+// TOKEN_DATA is 1-indexed: TOKEN_DATA[id] is the record for tokenId `id`.
+// Slot 0 is unused (kept as null so the indexing math stays trivial).
+// Hydrated by `_sepoliaSync()` post wallet-connect. Burned / un-minted
+// tokens stay null — every consumer guards with `TOKEN_DATA[i] && ...`.
+const TOKEN_DATA = [null];
 
 function isOwnToken(tokenNum) {
   const td = TOKEN_DATA[tokenNum];
-  return td && td.owner === SESSION_USER;
+  if (!td || !td.owner || !SESSION_USER) return false;
+  // Case-insensitive: contract returns EIP-55 checksum, SESSION_USER may be
+  // lowercased depending on the connect path. Comparing both lowercased
+  // avoids false negatives without normalizing on every write.
+  return td.owner.toLowerCase() === SESSION_USER.toLowerCase();
 }
 
 // JS ownership + lock guard for trait setters.
@@ -2719,9 +2576,12 @@ function reseedPositionOps(modId) {
 
 // ═══ Inventory state ═══
 // Inventory = user-owned tokens NOT already placed in a modulo.
+// Initial pass runs before _sepoliaSync hydrates TOKEN_DATA, so this list
+// is empty until _rebuildInventory is called post-connect. Kept here so
+// `tokenInventory` is a stable identity referenced by other modules.
 const _placed = new Set(MODULOS.flatMap(m => m.tokens));
 const tokenInventory = [];
-for (let i = 0; i < TOTAL_TOKENS; i++) {
+for (let i = 1; i < TOKEN_DATA.length; i++) {
   if (isOwnToken(i) && !_placed.has(i)) tokenInventory.push(i);
 }
 let inventorySortAsc = true; // true = rank ascending
@@ -2763,7 +2623,10 @@ function _rebuildInventory() {
     }
   });
   tokenInventory.length = 0;
-  for (let i = 0; i < TOTAL_TOKENS; i++) {
+  // TOKEN_DATA is 1-indexed (slot 0 is null); only iterate over hydrated
+  // entries. Burned/un-minted tokenIds in [1..TOKEN_DATA.length-1] are null
+  // and isOwnToken() returns false for them — implicit skip.
+  for (let i = 1; i < TOKEN_DATA.length; i++) {
     // Exclude tokens burned via settle during this session — they should not
     // reappear in the user's inventory once committed on-chain.
     // sessionBurnedTokens is declared later in the script (Set); typeof guard
@@ -7585,9 +7448,8 @@ document.querySelector('.topbar-home-dot').addEventListener('click', e => {
 
 // _onchainTotalMinted is populated by _sepoliaSync() after wallet connect.
 // Until then we show "—" as the denominator (real total unknown without an
-// on-chain read). The pre-Phase-2 behavior used `TOTAL_TOKENS` (the local
-// preview pool size, currently 600) which was misleading once tokens were
-// minted on-chain. Phase 2 prefers showing the truthful on-chain count.
+// on-chain read). Phase 2: pure on-chain — there is no JS-side preview pool
+// any more, the contract's `totalMinted()` is the only source of truth.
 let _onchainTotalMinted = null;
 function updatePillTokens() {
   // "Locked" = tokens placed in shared (non-personal) modulos. Workshop drafts
@@ -8606,6 +8468,7 @@ const TOKEN_AGENT_ABI = [
   'function ownerOf(uint256) view returns (address)',
   'function rankOf(uint256) pure returns (uint256)',
   'function tokenURI(uint256) view returns (string)',
+  'function getTraits(uint256 tokenId) view returns (tuple(bool hasMode, bool hasSize, bool hasRS, bool hasRD, bool hasBios, bool hasDX, uint8[] modes, uint8[] dxPatterns, uint8[] rectVariants, uint8 size, uint8 rectSize, uint8 rectDim, bool biosOn, uint8 colorIndex, uint8 speed))',
   'function mint(uint256 quantity) payable',
   'event Transfer(address indexed from, address indexed to, uint256 indexed tokenId)',
 ];
@@ -8653,16 +8516,49 @@ function _getSettleArtifact(runner) {
   return new window.ethers.Contract(SETTLE_ARTIFACT_ADDRESS, SETTLE_ARTIFACT_ABI, runner);
 }
 
-// Sepolia test mode: scans on-chain ownership for the connected wallet and
-// pushes those token IDs into the local TOKEN_DATA inventory so the user can
-// interact with them via the existing lock/settle UI.
+// Convert a contract `Traits` struct + owner into the TOKEN_DATA[id] shape
+// the engine reads. Contract field names diverge in one place: `hasSize`
+// (contract) → `hasSz` (frontend). Numeric uint8 indices for modes/dxs/rvs
+// are decoded against MODE_NAMES / DX_PATTERN_KEYS / RECT_VARIANTS — those
+// MUST stay in lockstep with TraitsLib.sol's per-index ordering.
+function _traitsToTokenData(id, t, owner) {
+  const modes = (t.modes        || []).map(i => MODE_NAMES[Number(i)]).filter(Boolean);
+  const dxs   = (t.dxPatterns   || []).map(i => DX_PATTERN_KEYS[Number(i)]).filter(Boolean);
+  const rvs   = (t.rectVariants || []).map(i => RECT_VARIANTS[Number(i)]).filter(Boolean);
+  const SZ = ['sm','md','lg'];
+  const RS = ['sm','md','lg','xl'];
+  const RD = ['lo','md','hi','mx'];
+  return {
+    id,
+    owner,
+    rank:    rankOf(id),
+    palette: 0, // flat 18-color palette
+    sel:     Number(t.colorIndex),
+    speed:   Number(t.speed),
+    hasMode: !!t.hasMode,
+    hasSz:   !!t.hasSize,    // contract `hasSize` → frontend `hasSz`
+    hasRS:   !!t.hasRS,
+    hasRD:   !!t.hasRD,
+    hasBios: !!t.hasBios,
+    hasDX:   !!t.hasDX,
+    modes,   mode: modes[0] || null,
+    dxs,     dx:   dxs[0]   || null,
+    rvs,     rv:   rvs[0]   || null,
+    sz:    t.hasSize ? (SZ[Number(t.size)]     || null) : null,
+    rs:    t.hasRS   ? (RS[Number(t.rectSize)] || null) : null,
+    rd:    t.hasRD   ? (RD[Number(t.rectDim)]  || null) : null,
+    bios:  t.hasBios ? !!t.biosOn : null,
+  };
+}
+
+// Phase 2 hydration: pulls every minted token's traits + owner from the
+// TokenAgent contract and populates TOKEN_DATA. Called automatically after
+// wallet connect (see _initWalletSession). For Sepolia test mode the volume
+// (≤100 mints) is fine for a parallel fan-out; mainnet at full supply will
+// need pagination + an indexer-driven batch path.
 //
-// Why a manual function (not auto on connect): the full ownership pipeline
-// (auto-sync, balanceOf indexing, Transfer event subscriptions) is post-Sepolia
-// work. For E2E settle validation, Le calls `_sepoliaSync()` from the devtools
-// console after connecting his wallet. Tokens 1..totalMinted are scanned via
-// `ownerOf(i)` calls — fine for ≤100 tokens. Mainnet scaling will need a
-// proper indexer or `tokensOfOwner` view-only batch helper.
+// Burned / un-minted tokenIds revert on `getTraits` / `ownerOf` — caught
+// silently and left as null in TOKEN_DATA. Every consumer null-guards.
 async function _sepoliaSync() {
   if (!_walletProvider || !_walletAddress) {
     console.warn('[sepolia] connect wallet first');
@@ -8681,33 +8577,35 @@ async function _sepoliaSync() {
   if (typeof updatePillTokens === 'function') updatePillTokens();
   if (total === 0) { console.log('[sepolia] no tokens minted yet'); return { ok: true, count: 0 }; }
 
-  const owned = [];
+  // Grow TOKEN_DATA to total+1 so direct index writes don't sparse-fill it.
+  while (TOKEN_DATA.length <= total) TOKEN_DATA.push(null);
+
+  // Hydrate in parallel — one ownerOf + getTraits pair per minted id.
+  // Burned tokens revert; the catch keeps TOKEN_DATA[id] = null (skipped).
+  const tasks = [];
   for (let id = 1; id <= total; id++) {
-    try {
-      const o = await agent.ownerOf(id);
-      if (o.toLowerCase() === _walletAddress.toLowerCase()) owned.push(id);
-    } catch (_) { /* burned / nonexistent — skip */ }
+    tasks.push((async () => {
+      try {
+        const [owner, traits] = await Promise.all([
+          agent.ownerOf(id),
+          agent.getTraits(id),
+        ]);
+        TOKEN_DATA[id] = _traitsToTokenData(id, traits, owner);
+      } catch (_) {
+        TOKEN_DATA[id] = null; // burned or nonexistent
+      }
+    })());
   }
+  await Promise.all(tasks);
+
+  const owned = TOKEN_DATA
+    .filter(t => t && t.owner && t.owner.toLowerCase() === _walletAddress.toLowerCase())
+    .map(t => t.id);
   console.log('[sepolia] tokens owned by', _shortAddr(_walletAddress), ':', owned);
 
-  // Populate TOKEN_DATA so isOwnToken returns true. We extend the array if
-  // needed (1-indexed → array index = id) and stamp owner = SESSION_USER.
-  for (const id of owned) {
-    while (TOKEN_DATA.length <= id) TOKEN_DATA.push(null);
-    if (!TOKEN_DATA[id]) {
-      // Synthesize a minimal entry — real traits come from the contract via
-      // tokenURI. The frontend's local trait derivation (TraitsLib.js mirror)
-      // also runs against the seed if needed.
-      TOKEN_DATA[id] = {
-        id,
-        owner: SESSION_USER,
-        seed: null, // unknown until we read it on-chain
-      };
-    } else {
-      TOKEN_DATA[id].owner = SESSION_USER;
-    }
-  }
   if (typeof _rebuildInventory === 'function') _rebuildInventory();
+  if (typeof updatePillTokens === 'function') updatePillTokens();
+  if (typeof updateTopbarWallet === 'function') updateTopbarWallet();
   return { ok: true, count: owned.length, tokens: owned };
 }
 window._sepoliaSync = _sepoliaSync;
