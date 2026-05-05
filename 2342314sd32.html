@@ -44,7 +44,7 @@
       '<body style="background:#000;color:#fff;font-family:monospace;' +
       'padding:40px;text-align:center"><h2>modulo</h2>' +
       '<p>This page cannot be embedded in a frame. Open ' +
-      '<a href="https://modulo.ubk.art" style="color:#fff" target="_top">' +
+      '<a href="https://modulo.ubk.art" style="color:#fff" target="_top" rel="noopener noreferrer">' +
       'modulo.ubk.art</a> directly.</p></body>';
     throw new Error('embedded in iframe — execution halted');
   }
@@ -2121,9 +2121,13 @@ function _weightedPick(options, weights) {
 //   - Phase 1 (beta): an anonymous guest ID assigned on page load (`guest-xxxx`)
 //   - Phase 2 (on-chain): the connected wallet address from MetaMask / WalletConnect
 // Declared with `let` (not `const`) so downstream code can reassign it when
-// the identity resolves. The hardcoded hex string below is a placeholder used
-// only until the identity layer is wired up.
-let SESSION_USER = '0xd3adb33f1234567890abcdef1234567890abcdef';
+// the identity resolves. Initialized to `null` (no identity yet) — all consumers
+// either null-guard before reading (`!SESSION_USER`) or run only post-init via
+// _initGuestSession / _initWalletSession which both set this to a real string
+// before any code path that interpolates it could run. (Audit 2026-05-05: the
+// previous `0xd3adb33f…` deadbeef placeholder was an anti-pattern — even though
+// no real exploit, it could surface as a leaky value in races.)
+let SESSION_USER = null;
 
 // ═══ TOKEN_DATA — on-chain population (Phase 2, 2026-05-04) ═══
 // In Phase 2 the entire TOKEN_DATA array is hydrated from the TokenAgent
@@ -8197,6 +8201,14 @@ async function _sweepExpiredLocks() {
       unlockToken(modId, tokenNum, {
         startCooldown: isMine && isExpired,
         emitExpire: isExpired   // emit for any real expiry (not orphan-only sweeps)
+      }).then(res => {
+        // Diagnostic logging — see why expires sometimes don't appear in feed.
+        // Remove once stabilized.
+        if (res && res.ok) {
+          console.log('[lock] sweep cleared', modId, tokenNum, isExpired ? '(expired)' : '(orphan)');
+        } else if (res && res.reason && res.reason !== 'not-locked') {
+          console.warn('[lock] sweep skipped', modId, tokenNum, '→', res.reason);
+        }
       }).catch(err => {
         console.error('[lock] sweep failed:', err);
       });
@@ -8348,7 +8360,11 @@ async function _endSession() {
       await update(ref(db, '/'), { [`${basePath}/${sessionId}`]: null });
     } catch (err) { console.error('[session] end cleanup failed:', err); }
   }
-  SESSION_USER = '0x0000000000000000000000000000000000000000';
+  // Reset to null (no identity) — same audit reason as the initial value:
+  // avoid sending a fake placeholder address through any code path. All
+  // ownership consumers null-guard. _sessionBasePath(null) returns null,
+  // matching the prior behavior of `_sessionBasePath('0x0000…')`.
+  SESSION_USER = null;
   // Clear all drafts that belonged to the ended session. Drafts are local-only
   // (Layer A in plan.md §1.2) and tied to the user — when the session ends,
   // they shouldn't carry over into a new session (especially guest, which
