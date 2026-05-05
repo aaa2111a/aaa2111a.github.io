@@ -7467,7 +7467,10 @@ function updateTopbarWallet() {
   // The connected wallet address is rendered by `_renderWalletUI()` into
   // #wallet-address. This function only manages the inventory counter
   // (`topbar-inv`) shown after the connect/disconnect button.
-  const owned = TOKEN_DATA.filter(t => t.owner === SESSION_USER).length;
+  // Pass 2 made TOKEN_DATA sparse (1-indexed, null at index 0 + at burned ids)
+  // so the filter MUST null-guard before reading `.owner`.
+  const ownerLc = (SESSION_USER || '').toLowerCase();
+  const owned = TOKEN_DATA.filter(t => t && t.owner && t.owner.toLowerCase() === ownerLc).length;
   document.getElementById('topbar-inv').textContent = owned + ' tokens';
 }
 updateTopbarWallet();
