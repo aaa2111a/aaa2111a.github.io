@@ -333,7 +333,6 @@ button, a, [role="button"], .pill, .info-btn, .toggle-btn, .modal-close,
   font-size:10px; font-family:monospace; letter-spacing:.04em;
   color:var(--topbar-text);
 }
-#topbar-wallet { opacity:0.7; }
 #topbar-inv-sep { opacity:0.3; }
 #topbar-inv { opacity:0.85; }
 .pill { font-size:10px; padding:2px 9px; border-radius:20px; border:0.5px solid var(--pill-border); color:var(--pill-color); background:var(--pill-bg); }
@@ -1896,7 +1895,6 @@ button, a, [role="button"], .pill, .info-btn, .toggle-btn, .modal-close,
   <div class="topbar">
     <a href="homepage.html#app" class="topbar-home-dot" title="Homepage"></a>
     <div id="topbar-center">
-      <span id="topbar-wallet"></span>
       <span id="wallet-address"></span>
       <button id="wallet-toggle-btn" title="Connect wallet">connect</button>
       <button id="wallet-chain-warn" title="Switch to Sepolia">wrong chain — switch</button>
@@ -7604,8 +7602,9 @@ updatePillTokens();
 document.getElementById('pill-modulos').textContent=`${MODULOS.length} modulos`;
 
 function updateTopbarWallet() {
-  const addr = SESSION_USER;
-  document.getElementById('topbar-wallet').textContent = addr.slice(0,6) + '…' + addr.slice(-4);
+  // The connected wallet address is rendered by `_renderWalletUI()` into
+  // #wallet-address. This function only manages the inventory counter
+  // (`topbar-inv`) shown after the connect/disconnect button.
   const owned = TOKEN_DATA.filter(t => t.owner === SESSION_USER).length;
   document.getElementById('topbar-inv').textContent = owned + ' tokens';
 }
