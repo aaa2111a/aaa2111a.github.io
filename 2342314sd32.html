@@ -2707,6 +2707,7 @@ function _syncModuloState(mod) {
   tokenModes[mod.id]          = {};
   tokenSizes[mod.id]          = {};
   tokenRectSizes[mod.id]      = {};
+  tokenRectVariants[mod.id]   = {};
   tokenRectDensities[mod.id]  = {};
   biosStates[mod.id]          = {};
   tokenDitherPatterns[mod.id] = {};
@@ -2720,6 +2721,7 @@ function _syncModuloState(mod) {
     if (traits.mode)  tokenModes[mod.id][slotIdx] = traits.mode;
     if (traits.sz)    tokenSizes[mod.id][slotIdx] = traits.sz;
     if (traits.rs)    tokenRectSizes[mod.id][slotIdx] = traits.rs;
+    if (traits.rv)    tokenRectVariants[mod.id][slotIdx] = traits.rv;
     if (traits.rd)    tokenRectDensities[mod.id][slotIdx] = traits.rd;
     if (traits.bios !== undefined && traits.bios !== null) biosStates[mod.id][slotIdx] = traits.bios;
     if (traits.dx)    tokenDitherPatterns[mod.id][slotIdx] = traits.dx;
