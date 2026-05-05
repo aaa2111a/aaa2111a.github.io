@@ -8590,7 +8590,10 @@ const WALLET_TARGET_CHAIN_INFO = {
   chainId: WALLET_TARGET_CHAIN_HEX,
   chainName: 'Sepolia',
   nativeCurrency: { name: 'Sepolia Ether', symbol: 'ETH', decimals: 18 },
-  rpcUrls: ['https://rpc.sepolia.org', 'https://ethereum-sepolia-rpc.publicnode.com'],
+  // Order matters: _getReadonlyProvider uses rpcUrls[0]. publicnode.com supports
+  // browser CORS for read calls; rpc.sepolia.org does NOT (returns no
+  // Access-Control-Allow-Origin header). Keep publicnode first.
+  rpcUrls: ['https://ethereum-sepolia-rpc.publicnode.com', 'https://rpc.sepolia.org'],
   blockExplorerUrls: ['https://sepolia.etherscan.io'],
 };
 const WALLET_LS_KEY = 'tc-wallet-address';
