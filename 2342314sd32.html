@@ -2024,6 +2024,23 @@ button, a, [role="button"], .pill, .info-btn, .toggle-btn, .modal-close,
 'use strict';
 
 // ═══════════════════════════════════════════════════════
+// DEBUG WRAPPER (T-7, 2026-05-05)
+// ═══════════════════════════════════════════════════════
+// `dbg.log` and `dbg.warn` are no-ops in production (DEBUG=false).
+// `console.error` is intentionally left untouched — real errors must
+// always surface to the user / telemetry layer.
+//
+// To re-enable verbose logs during local debugging, flip DEBUG to true
+// below and reload. There is NO localStorage toggle by design (Opción B):
+// the switch lives in the source so an attacker cannot enable internal
+// logs from the client side.
+const DEBUG = false;
+const dbg = {
+  log:  DEBUG ? console.log.bind(console)  : () => {},
+  warn: DEBUG ? console.warn.bind(console) : () => {},
+};
+
+// ═══════════════════════════════════════════════════════
 // DOM HELPERS
 // ═══════════════════════════════════════════════════════
 // _el — terse element builder used throughout the app to construct DOM nodes
@@ -2099,21 +2116,10 @@ const COLS_DATA = [
    '#57686e','#2a0b18','#23242a','#ab0a5f','#0f1021','#000000','#bfbcce','#8b8b8b'],
 ];
 const COLS_SPLIT = 10; // first COLS_SPLIT colors = vivid row, rest = dark row
-// ═══ Seeded PRNG (mulberry32) — deterministic token generation ═══
-function mulberry32(seed) {
-  return function() {
-    seed |= 0; seed = seed + 0x6D2B79F5 | 0;
-    let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
-    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
-    return ((t ^ t >>> 14) >>> 0) / 4294967296;
-  };
-}
-const _rng = mulberry32(42);
-function _weightedPick(options, weights) {
-  let r = _rng(), cum = 0;
-  for (let i = 0; i < options.length; i++) { cum += weights[i]; if (r < cum) return options[i]; }
-  return options[options.length - 1];
-}
+// (Pass 2 removed `mulberry32`, `_rng`, `_weightedPick` — they only fed the
+// 600-fake TOKEN_DATA generator, now extinct. Kept the on-chain renderer's
+// own copy of mulberry32 inside `modulo-token-v1.html` / `modulo-artifact-v1.html`
+// since the contract-injected payload still needs deterministic per-token RNG.)
 
 // ═══ Ownership — infrastructure for wallet connect ═══
 // SESSION_USER is the current user's identity. Its value gets replaced at
@@ -3210,7 +3216,7 @@ function buildModulo(mod) {
             alert('Connect a wallet to settle on shared modulos. Guest sessions can only settle in the workshop.');
           } else {
             // Nothing to settle — no feedback UI yet, just a dev log
-            console.warn('[settle]', mod.id, result.reason);
+            dbg.warn('[settle]', mod.id, result.reason);
           }
         }
       } finally {
@@ -7060,7 +7066,7 @@ function removeTokenFromModulo(modId, slotIdx) {
   const isLocked = !!(fbLocked[modId] && fbLocked[modId][tokenNum]);
   if (isLocked) {
     // Locked tokens can only leave via expiry or settle. Block the action.
-    console.warn('[removeTokenFromModulo] token is locked, cannot remove', { modId, tokenNum });
+    dbg.warn('[removeTokenFromModulo] token is locked, cannot remove', { modId, tokenNum });
     return;
   }
 
@@ -7068,7 +7074,7 @@ function removeTokenFromModulo(modId, slotIdx) {
   if (!isMyDraft) {
     // This slot isn't a draft I control (likely another user's locked token
     // that surfaced in the merged view). Nothing to remove locally.
-    console.warn('[removeTokenFromModulo] slot is not my draft', { modId, tokenNum, slotIdx });
+    dbg.warn('[removeTokenFromModulo] slot is not my draft', { modId, tokenNum, slotIdx });
     return;
   }
 
@@ -8022,19 +8028,26 @@ async function lockToken(modId, tokenNum, durationMs) {
   if (!_walletProvider) return { ok: false, reason: 'no-wallet-provider' };
 
   const ts = Date.now();
-  // Message format includes <owner> as of 2026-05-03 (P1 from security
-  // checklist). Wallet prompt now shows the user's own address — clarity
-  // of intent + smoother transition path to EIP-712 typed data later.
-  // CF rejects the old format `modulo:lock|<modId>|...` (no owner).
-  const message = `modulo:lock|${SESSION_USER}|${modId}|${tokenNum}|${ts}`;
+  // EIP-712 typed-data signature (migrated 2026-05-05 from personal_sign).
+  // MetaMask renders a structured prompt with chainId + verifyingContract so
+  // the user sees they're authorizing a Lock on the Modulo TokenAgent —
+  // not a generic opaque string a phishing site could mimic.
+  // CF reconstructs the same value from `payload` and verifies via ethers.verifyTypedData.
+  const value = {
+    owner:     SESSION_USER,
+    modId:     modId,
+    tokenNum:  tokenNum,
+    duration:  durationMs,
+    timestamp: ts,
+  };
   const traits = userDraftTraits[tokenNum] ? { ...userDraftTraits[tokenNum] } : {};
   let signature;
   try {
     const signer = await _walletProvider.getSigner();
-    signature = await signer.signMessage(message);
+    signature = await signer.signTypedData(EIP712_DOMAIN_LOCK, EIP712_TYPES_LOCK, value);
   } catch (err) {
     if (err && err.code === 4001) return { ok: false, reason: 'user-rejected' };
-    console.error('[lock] sign failed:', err);
+    console.error('[lock] signTypedData failed:', err);
     return { ok: false, reason: 'sign-error', err };
   }
 
@@ -8043,7 +8056,7 @@ async function lockToken(modId, tokenNum, durationMs) {
     const lockFn = httpsCallable(functions, 'lockToken');
     cfResult = await lockFn({
       payload: { modId, tokenNum, owner: SESSION_USER, traits, durationMs },
-      message, signature, ts,
+      signature, ts,
     });
   } catch (err) {
     console.error('[lock] cloud function failed:', err);
@@ -8205,9 +8218,9 @@ async function _sweepExpiredLocks() {
         // Diagnostic logging — see why expires sometimes don't appear in feed.
         // Remove once stabilized.
         if (res && res.ok) {
-          console.log('[lock] sweep cleared', modId, tokenNum, isExpired ? '(expired)' : '(orphan)');
+          dbg.log('[lock] sweep cleared', modId, tokenNum, isExpired ? '(expired)' : '(orphan)');
         } else if (res && res.reason && res.reason !== 'not-locked') {
-          console.warn('[lock] sweep skipped', modId, tokenNum, '→', res.reason);
+          dbg.warn('[lock] sweep skipped', modId, tokenNum, '→', res.reason);
         }
       }).catch(err => {
         console.error('[lock] sweep failed:', err);
@@ -8247,14 +8260,16 @@ function _cooldownRemaining(modId) {
 
 // Map a session id to its Firebase base path. Returns null for unknown shapes
 // so callers can skip cleanup writes that would otherwise corrupt the DB.
-// The zero address (post-_endSession placeholder) and the deadbeef placeholder
-// (initial SESSION_USER) are explicitly rejected so they don't trigger spurious
-// writes to wallets/0x000…000 or wallets/0xd3adb33f… in cleanup paths.
+// SESSION_USER is initialized to `null` (post 2026-05-05 audit), so the
+// `typeof id !== 'string'` check below catches the no-session case. The two
+// hex regex rejections below (zero address + deadbeef) are kept as
+// defense-in-depth in case stale localStorage entries from old builds still
+// hold those placeholder values; they're not produced by current code.
 function _sessionBasePath(id) {
   if (typeof id !== 'string') return null;
   if (id.startsWith('guest-')) return 'guests';
-  if (/^0x0+$/.test(id)) return null;                          // zero address
-  if (/^0xd3adb33f/.test(id)) return null;                     // initial placeholder
+  if (/^0x0+$/.test(id)) return null;                          // legacy zero-address placeholder (defense-in-depth)
+  if (/^0xd3adb33f/.test(id)) return null;                     // legacy deadbeef placeholder (defense-in-depth)
   if (/^0x[0-9a-fA-F]{40}$/.test(id)) return 'wallets';
   return null;
 }
@@ -8315,9 +8330,9 @@ async function _sweepStaleGuests() {
       if (stale.has(owner)) payload[`tokenClaims/${tStr}`] = null;
     }
     await update(ref(db, '/'), payload);
-    console.log(`[session] swept ${stale.size} stale sessions, freed ${Object.keys(payload).length - stale.size} claims`);
+    dbg.log(`[session] swept ${stale.size} stale sessions, freed ${Object.keys(payload).length - stale.size} claims`);
   } catch (err) {
-    console.warn('[session] stale sweep failed:', err);
+    dbg.warn('[session] stale sweep failed:', err);
   }
 }
 
@@ -8397,7 +8412,7 @@ async function _endSession() {
   if (typeof MODULOS !== 'undefined' && typeof buildLeft === 'function') {
     for (const m of MODULOS) buildLeft(m);
   }
-  console.log('[session] ended', sessionId);
+  dbg.log('[session] ended', sessionId);
 }
 
 async function _initGuestSession() {
@@ -8426,7 +8441,7 @@ async function _initWalletSession(address) {
   // session still works, just without on-chain inventory hydration.
   if (typeof _sepoliaSync === 'function') {
     try { await _sepoliaSync(); }
-    catch (err) { console.warn('[wallet] auto-sepoliaSync failed:', err); }
+    catch (err) { dbg.warn('[wallet] auto-sepoliaSync failed:', err); }
   }
   // Refresh topbar after _sepoliaSync stamps owner=SESSION_USER on the user's
   // tokens. Otherwise the topbar-inv counter stays at the value from
@@ -8524,6 +8539,29 @@ const EIP712_TYPES_SETTLE = {
   ],
 };
 
+// EIP-712 domain for lockToken signatures (migrated 2026-05-05 from
+// personal_sign). Verified off-chain in Firebase Functions, NOT on-chain — but
+// the typed-data envelope still gives MetaMask a structured prompt + binds the
+// signature to (chainId, TokenAgent contract) so a phishing site running on
+// another chain or contract can't reuse the signature. Distinct `name` from
+// Settle so a Lock signature can never be replayed as a Settle signature.
+const EIP712_DOMAIN_LOCK = {
+  name:    'Modulo Lock',
+  version: '1',
+  chainId: WALLET_TARGET_CHAIN_ID,
+  verifyingContract: TOKEN_AGENT_ADDRESS,
+};
+
+const EIP712_TYPES_LOCK = {
+  LockToken: [
+    { name: 'owner',     type: 'address' },
+    { name: 'modId',     type: 'string'  },
+    { name: 'tokenNum',  type: 'uint256' },
+    { name: 'duration',  type: 'uint256' },
+    { name: 'timestamp', type: 'uint256' },
+  ],
+};
+
 // Helpers — return ethers.Contract instances bound to either provider (read)
 // or signer (write). Signer-bound contracts can submit txs.
 function _getTokenAgent(runner) {
@@ -8580,7 +8618,7 @@ function _traitsToTokenData(id, t, owner) {
 // silently and left as null in TOKEN_DATA. Every consumer null-guards.
 async function _sepoliaSync() {
   if (!_walletProvider || !_walletAddress) {
-    console.warn('[sepolia] connect wallet first');
+    dbg.warn('[sepolia] connect wallet first');
     return { ok: false, reason: 'no-wallet' };
   }
   const agent = _getTokenAgent(_walletProvider);
@@ -8589,12 +8627,12 @@ async function _sepoliaSync() {
   let total;
   try { total = Number(await agent.totalMinted()); }
   catch (err) { console.error('[sepolia] totalMinted failed:', err); return { ok: false, reason: 'rpc-error', err }; }
-  console.log('[sepolia] totalMinted on-chain:', total);
+  dbg.log('[sepolia] totalMinted on-chain:', total);
   // Stash on a module global so the topbar pill can show the truthful denominator.
   // updatePillTokens reads `_onchainTotalMinted` and re-renders.
   _onchainTotalMinted = total;
   if (typeof updatePillTokens === 'function') updatePillTokens();
-  if (total === 0) { console.log('[sepolia] no tokens minted yet'); return { ok: true, count: 0 }; }
+  if (total === 0) { dbg.log('[sepolia] no tokens minted yet'); return { ok: true, count: 0 }; }
 
   // Grow TOKEN_DATA to total+1 so direct index writes don't sparse-fill it.
   while (TOKEN_DATA.length <= total) TOKEN_DATA.push(null);
@@ -8620,7 +8658,7 @@ async function _sepoliaSync() {
   const owned = TOKEN_DATA
     .filter(t => t && t.owner && t.owner.toLowerCase() === _walletAddress.toLowerCase())
     .map(t => t.id);
-  console.log('[sepolia] tokens owned by', _shortAddr(_walletAddress), ':', owned);
+  dbg.log('[sepolia] tokens owned by', _shortAddr(_walletAddress), ':', owned);
 
   if (typeof _rebuildInventory === 'function') _rebuildInventory();
   if (typeof updatePillTokens === 'function') updatePillTokens();
@@ -8687,12 +8725,12 @@ async function _walletEnsureChain() {
         });
         return true;
       } catch (addErr) {
-        console.warn('[wallet] addEthereumChain failed:', addErr);
+        dbg.warn('[wallet] addEthereumChain failed:', addErr);
         return false;
       }
     }
     if (err && err.code === 4001) return false; // user rejected
-    console.warn('[wallet] switchEthereumChain failed:', err);
+    dbg.warn('[wallet] switchEthereumChain failed:', err);
     return false;
   }
 }
@@ -8761,7 +8799,7 @@ async function _walletConnect({ silent = false } = {}) {
     if (!silent && _walletChainId !== WALLET_TARGET_CHAIN_ID) {
       await _walletEnsureChain();
     }
-    console.log('[wallet] connected', _shortAddr(_walletAddress), 'chainId', _walletChainId);
+    dbg.log('[wallet] connected', _shortAddr(_walletAddress), 'chainId', _walletChainId);
     // Initiate the wallet session (writes /wallets/{addr} presence record)
     if (typeof _initWalletSession === 'function') {
       await _initWalletSession(_walletAddress);
@@ -8804,7 +8842,7 @@ async function _walletDisconnect() {
     } catch (err) {
       // Older wallets or user-rejection — log and continue with local clear.
       if (err && err.code !== 4001) {
-        console.warn('[wallet] revokePermissions not supported or failed:', err.message || err);
+        dbg.warn('[wallet] revokePermissions not supported or failed:', err.message || err);
       }
     }
   }
@@ -8813,7 +8851,7 @@ async function _walletDisconnect() {
   _walletChainId = null;
   localStorage.removeItem(WALLET_LS_KEY);
   _renderWalletUI();
-  console.log('[wallet] disconnected');
+  dbg.log('[wallet] disconnected');
   // Restart guest fallback so the user keeps a (read-only soon) session
   if (typeof _initGuestSession === 'function') await _initGuestSession();
   _walletDisconnecting = false;
@@ -8848,7 +8886,7 @@ function _walletAttachListeners() {
     // Defensive: if FB isn't ready or provider isn't initialized yet (event
     // fired during bootstrap before _walletConnect ran), don't mutate state.
     if (!window.FB || !_walletProvider) {
-      console.warn('[wallet] accountsChanged ignored — FB or provider not ready');
+      dbg.warn('[wallet] accountsChanged ignored — FB or provider not ready');
       return;
     }
     // Swap the active session: end the old wallet session (clear
@@ -8866,13 +8904,13 @@ function _walletAttachListeners() {
     if (typeof _initWalletSession === 'function') {
       await _initWalletSession(_walletAddress);
     }
-    console.log('[wallet] account switched →', _shortAddr(_walletAddress));
+    dbg.log('[wallet] account switched →', _shortAddr(_walletAddress));
   });
   window.ethereum.on('chainChanged', hex => {
     _walletChainId = parseInt(hex, 16);
     _renderWalletUI();
     if (_walletChainId !== WALLET_TARGET_CHAIN_ID) {
-      console.warn('[wallet] chain switched to', _walletChainId, '— expected', WALLET_TARGET_CHAIN_ID);
+      dbg.warn('[wallet] chain switched to', _walletChainId, '— expected', WALLET_TARGET_CHAIN_ID);
     }
   });
   // Auto-reconnect when MetaMask is unlocked from a previously-locked state
@@ -8886,7 +8924,7 @@ function _walletAttachListeners() {
         const stashed = localStorage.getItem(WALLET_LS_KEY);
         if (!stashed) return;       // user explicitly disconnected previously
         if (_walletConnecting) return;
-        console.log('[wallet] metamask unlocked — silent reconnect');
+        dbg.log('[wallet] metamask unlocked — silent reconnect');
         await _walletConnect({ silent: true });
         if (_walletAddress && typeof _initWalletSession === 'function') {
           await _initWalletSession(_walletAddress);
@@ -9012,7 +9050,7 @@ async function settleModulo(modId) {
     try {
       nonce = Number(await artifact.nonces(settlerAddr));
       deadline = Math.floor(Date.now() / 1000) + 300; // 5 min window
-      console.log('[settle] settler:', settlerAddr, 'nonce:', nonce, 'deadline:', deadline);
+      dbg.log('[settle] settler:', settlerAddr, 'nonce:', nonce, 'deadline:', deadline);
     } catch (err) {
       console.error('[settle] read nonce failed:', err);
       return { ok: false, reason: 'rpc-error', err };
@@ -9037,7 +9075,7 @@ async function settleModulo(modId) {
     const composition = attestation.composition.map(s => BigInt(s));
     const toBurn      = attestation.toBurn.map(s => BigInt(s));
     const signerSig   = attestation.signerSig;
-    console.log('[settle] attestation received, composition:', composition.length, 'toBurn:', toBurn.length);
+    dbg.log('[settle] attestation received, composition:', composition.length, 'toBurn:', toBurn.length);
 
     // Step 3: settler signs the same typed data
     const value = {
@@ -9069,7 +9107,7 @@ async function settleModulo(modId) {
         nonce,
         deadline,
       }, signerSig, settlerSig);
-      console.log('[settle] tx submitted:', tx.hash);
+      dbg.log('[settle] tx submitted:', tx.hash);
     } catch (err) {
       if (err && (err.code === 4001 || err.code === 'ACTION_REJECTED')) return { ok: false, reason: 'user-rejected-tx' };
       console.error('[settle] tx submit failed:', err);
@@ -9084,7 +9122,7 @@ async function settleModulo(modId) {
       console.error('[settle] tx revert:', err);
       return { ok: false, reason: 'tx-reverted', err };
     }
-    console.log('[settle] confirmed in block', receipt.blockNumber, 'gas used:', receipt.gasUsed.toString());
+    dbg.log('[settle] confirmed in block', receipt.blockNumber, 'gas used:', receipt.gasUsed.toString());
 
     // Step 6: clean up local timers + state. Firebase locks stay stale until
     // expiry; the contract is the source of truth (burns happened on-chain).
@@ -9397,12 +9435,12 @@ async function confirmLockModal() {
   try {
     const ms = LOCK_DURATIONS[_pendingLockDuration];
     if (ms == null) {
-      console.warn('[lock] unknown duration:', _pendingLockDuration);
+      dbg.warn('[lock] unknown duration:', _pendingLockDuration);
       return;
     }
     const result = await lockToken(modId, tokenNum, ms);
     if (!result.ok) {
-      console.warn('[lock] failed:', result);
+      dbg.warn('[lock] failed:', result);
       if (result.reason === 'guest-readonly') {
         alert('Connect a wallet to lock tokens. Guest sessions are read-only on shared modulos.');
       }
@@ -9528,7 +9566,7 @@ const _LOCK_BTN_SVG =
         const testRef = ref(db, 'connection-test');
         await set(testRef, { ts: Date.now(), msg: 'hello from tokencluster-v2' });
         const snap = await get(testRef);
-        console.log('[FB] connection OK →', snap.val());
+        dbg.log('[FB] connection OK →', snap.val());
       } catch (err) {
         console.error('[FB] connection failed:', err);
       }
