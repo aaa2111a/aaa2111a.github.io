@@ -8571,6 +8571,13 @@ async function _walletDeferredFallback() {
   if (_walletAddress) return;
   if (_sessionBasePath(SESSION_USER) === 'guests') return;
   await _initGuestSession();
+  // Hydrate TOKEN_DATA from on-chain even without wallet — guests need it for
+  // locks held by other users to render with real rank + color (bug 2026-05-06).
+  // _sepoliaSync now uses _getReadonlyProvider() so this works without ethereum.
+  if (typeof _sepoliaSync === 'function') {
+    try { await _sepoliaSync(); }
+    catch (err) { console.error('[bootstrap] guest sepoliaSync failed:', err); }
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -8753,17 +8760,24 @@ function _traitsToTokenData(id, t, owner) {
 // Burned / un-minted tokenIds revert on `getTraits` / `ownerOf` — caught
 // silently and left as null in TOKEN_DATA. Every consumer null-guards.
 async function _sepoliaSync() {
-  if (!_walletProvider || !_walletAddress) {
-    dbg.warn('[sepolia] connect wallet first');
-    return { ok: false, reason: 'no-wallet' };
-  }
   // Use a dedicated readonly RPC provider for view calls instead of MetaMask's
   // BrowserProvider. Reason: view calls on burned tokens revert with
   // ERC721NonexistentToken — perfectly normal, our try/catch handles it — but
   // MetaMask's inpage.js logs every revert as "RPC Error: execution reverted"
   // before our catch runs, polluting DevTools. Public Sepolia RPC handles the
   // revert without logging. Wallet provider remains for tx + signing.
-  const agent = _getTokenAgent(_getReadonlyProvider() || _walletProvider);
+  //
+  // Guest mode: this function still hydrates TOKEN_DATA via the readonly RPC
+  // even with no wallet connected, so locks held by other users render with
+  // their real rank + color instead of the rank-9999 fallback (default blue).
+  // Without this, guests saw locked tokens as "blue blanks" until they
+  // connected a wallet (bug 2026-05-06).
+  const provider = _getReadonlyProvider() || _walletProvider;
+  if (!provider) {
+    dbg.warn('[sepolia] no provider available');
+    return { ok: false, reason: 'no-provider' };
+  }
+  const agent = _getTokenAgent(provider);
   if (!agent) return { ok: false, reason: 'no-ethers' };
 
   let total;
@@ -8797,10 +8811,17 @@ async function _sepoliaSync() {
   }
   await Promise.all(tasks);
 
-  const owned = TOKEN_DATA
-    .filter(t => t && t.owner && t.owner.toLowerCase() === _walletAddress.toLowerCase())
-    .map(t => t.id);
-  dbg.log('[sepolia] tokens owned by', _shortAddr(_walletAddress), ':', owned);
+  // Inventory only relevant when a wallet is connected. Guest mode still
+  // benefits from TOKEN_DATA hydration above (rank + color for shared locks).
+  let owned = [];
+  if (_walletAddress) {
+    owned = TOKEN_DATA
+      .filter(t => t && t.owner && t.owner.toLowerCase() === _walletAddress.toLowerCase())
+      .map(t => t.id);
+    dbg.log('[sepolia] tokens owned by', _shortAddr(_walletAddress), ':', owned);
+  } else {
+    dbg.log('[sepolia] hydrated', TOKEN_DATA.filter(t => t).length, 'tokens (guest mode, no inventory)');
+  }
 
   if (typeof _rebuildInventory === 'function') _rebuildInventory();
   if (typeof updatePillTokens === 'function') updatePillTokens();
