@@ -1836,7 +1836,8 @@ if (localStorage.getItem('tc-night') === '1') _setNight(true);
 // All tx feedback via top-right toast stack. Esc / click-outside cancels modal.
 (function(){
   // ── Constants matching contracts.md / TokenAgent Sepolia deploy ─────────
-  const TOKEN_AGENT_ADDRESS = '0xdE4AC7c11c0B3dbDcE4d60F2B14F659a553f8b8a';
+  // Public on-chain address (visible on Etherscan + contracts.md). Not a secret.
+  const TOKEN_AGENT_ADDRESS = '0xdE4AC7c11c0B3dbDcE4d60F2B14F659a553f8b8a'; // gitleaks:allow
   const TOKEN_AGENT_ABI = [
     'function mint(uint256 quantity) external payable',
     'function totalMinted() external view returns (uint256)',
