@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' https://www.gstatic.com https://www.google.com https://www.recaptcha.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://firebasestorage.googleapis.com; font-src 'self'; connect-src 'self' https://antibot2000-b6aae-default-rtdb.firebaseio.com https://us-central1-antibot2000-b6aae.cloudfunctions.net https://firebaseappcheck.googleapis.com https://content-firebaseappcheck.googleapis.com https://firebaseinstallations.googleapis.com https://www.google.com https://www.recaptcha.net; frame-src https://www.google.com https://www.recaptcha.net; worker-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
+<meta name="referrer" content="no-referrer">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Room · Anti Bot 2000</title>
+<style>
+  :root{
+    --bg:#dbd8d1; --bg-tint:#eae7e0;
+    --ink:#2b2926; --ink-2:#6b655c; --ink-3:#9c958a;
+    --glass:rgba(255,255,255,0.50); --glass-strong:rgba(255,255,255,0.74);
+    --glass-border:rgba(255,255,255,0.72); --hairline:rgba(43,41,38,0.10);
+    --accent:#4f7384; --accent-ink:#33525f;
+    --ok:#2a9d3f; --no:#c0392b;
+    --shadow:0 12px 34px rgba(54,48,40,0.13), 0 2px 6px rgba(54,48,40,0.06);
+    --shadow-sm:0 4px 14px rgba(54,48,40,0.10);
+    --radius:16px; --spring:cubic-bezier(.2,.8,.25,1);
+    --serif:'Times New Roman',Times,Georgia,serif;
+    --sans:-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',system-ui,sans-serif;
+  }
+  [data-theme="dark"]{
+    --bg:#1b1b1d; --bg-tint:#2b2b2e;
+    --ink:#f1eee8; --ink-2:#a9a39a; --ink-3:#74706a;
+    --glass:rgba(58,58,62,0.55); --glass-strong:rgba(66,66,70,0.70);
+    --glass-border:rgba(255,255,255,0.10); --hairline:rgba(255,255,255,0.10);
+    --accent:#82abbc; --accent-ink:#bcd6e0; --ok:#5fd877; --no:#e8736e;
+    --shadow:0 16px 44px rgba(0,0,0,0.46), 0 2px 8px rgba(0,0,0,0.34);
+    --shadow-sm:0 6px 18px rgba(0,0,0,0.40);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{min-height:100vh; color:var(--ink); font-family:var(--sans);
+    -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility;
+    background:radial-gradient(900px 480px at 50% -12%, var(--bg-tint), transparent 62%), var(--bg);
+    transition:background .4s ease, color .4s ease; padding-bottom:env(safe-area-inset-bottom)}
+  /* ---- mobile-first base ---- */
+  .topbar{display:flex; align-items:center; gap:12px; padding:13px max(16px,env(safe-area-inset-right)) 13px max(16px,env(safe-area-inset-left))}
+  .circ{width:44px; height:44px; border-radius:50%; border:1px solid var(--hairline);
+    background:var(--glass-strong); color:var(--ink-2); cursor:pointer; text-decoration:none;
+    display:grid; place-items:center; transition:transform .2s var(--spring)}
+  .circ:active{transform:scale(.94)}
+  .wm{font:500 12.5px/1 var(--sans); color:var(--ink-3)}
+  .topbar .sp{flex:1}
+  svg{stroke:currentColor; fill:none}
+
+  .wrap{max-width:640px; margin:14px auto 0; padding:0 16px; display:flex; flex-direction:column; gap:16px}
+
+  /* header card */
+  .head{background:var(--glass); -webkit-backdrop-filter:blur(22px) saturate(1.5);
+    backdrop-filter:blur(22px) saturate(1.5); border:1px solid var(--glass-border);
+    border-radius:var(--radius); box-shadow:var(--shadow); overflow:hidden}
+  .banner{position:relative; height:132px; background-color:#7d9b6e; background-position:center;
+    background-size:cover; background-repeat:no-repeat;
+    background-image:linear-gradient(135deg,#92b081,#5e7c53)}
+  .badge{display:inline-flex; align-items:center; gap:6px; white-space:nowrap;
+    font:500 12px/1 var(--sans); color:var(--ink-2)}
+  .badge i{width:7px; height:7px; border-radius:50%; display:block; background:#28c840}
+  .badge.soon i{background:#e0a020}
+  .badge.full i{background:#c0392b}
+  .badge.ovr{position:absolute; top:10px; right:10px; padding:6px 11px; border-radius:999px;
+    background:rgba(255,255,255,0.84); color:#2b2926; box-shadow:0 2px 8px rgba(0,0,0,.14);
+    -webkit-backdrop-filter:blur(8px); backdrop-filter:blur(8px)}
+  [data-theme="dark"] .badge.ovr{background:rgba(28,28,30,0.68); color:#f1eee8}
+  .hbody{padding:15px 16px 16px}
+  .nm{font:500 20px/1.2 var(--sans); color:var(--ink); margin:0}
+  .by{font:400 13px/1 var(--sans); color:var(--ink-3); margin-top:5px}
+  .links{display:flex; flex-wrap:wrap; gap:8px; margin-top:13px}
+  .lk{display:inline-flex; align-items:center; gap:6px; text-decoration:none;
+    font:500 13px/1 var(--sans); color:var(--ink); padding:9px 13px; border-radius:999px;
+    background:var(--glass-strong); border:1px solid var(--hairline); transition:transform .18s var(--spring)}
+  .lk:active{transform:scale(.96)}
+  .lk svg{opacity:.6}
+
+  /* description */
+  .desc{font:400 14.5px/1.65 var(--sans); color:var(--ink-2); margin:13px 0 0}
+
+  /* requirements */
+  .req{display:flex; flex-direction:column; gap:10px; align-items:center; text-align:center}
+  .req .lbl{font:500 13px/1 var(--sans); color:var(--ink-3)}
+  .chips{display:flex; flex-wrap:wrap; gap:7px; justify-content:center}
+  .chip{position:relative; font:500 12px/1 var(--sans); padding:7px 11px; border-radius:8px;
+    background:var(--glass-strong); border:1px solid var(--hairline); color:var(--ink-2); cursor:help; outline:none}
+  .chip .tip{position:absolute; bottom:calc(100% + 9px); left:50%; transform:translateX(-50%) translateY(4px);
+    width:max-content; max-width:min(200px,calc(100vw - 28px)); padding:8px 11px; border-radius:10px; background:var(--ink); color:var(--bg);
+    font:400 11.5px/1.4 var(--sans); text-align:center; box-shadow:var(--shadow); opacity:0; pointer-events:none;
+    z-index:6; transition:opacity .16s ease, transform .16s var(--spring)}
+  .chip .tip::after{content:''; position:absolute; top:100%; left:50%; transform:translateX(-50%);
+    border:5px solid transparent; border-top-color:var(--ink)}
+  .chip:hover .tip, .chip:focus .tip, .chip.show .tip{opacity:1; transform:translateX(-50%) translateY(0)}
+
+  /* scan centerpiece */
+  .scan{background:var(--glass); -webkit-backdrop-filter:blur(22px) saturate(1.5);
+    backdrop-filter:blur(22px) saturate(1.5); border:1px solid var(--glass-border);
+    border-radius:var(--radius); box-shadow:var(--shadow); padding:18px 16px}
+  .rstats{display:flex; flex-direction:column; gap:8px; margin-bottom:16px}
+  .rstats .r{display:flex; justify-content:space-between; font:500 12.5px/1 var(--sans); color:var(--ink-2)}
+  .bar{height:6px; border-radius:999px; background:var(--hairline); overflow:hidden}
+  .bar i{display:block; height:100%; width:0; background:var(--accent); border-radius:999px; transition:width .5s var(--spring)}
+  .scan h3{font:500 17px/1.3 var(--sans); color:var(--ink); margin:0 0 13px; text-align:center}
+  .scanin{display:flex; flex-direction:column; gap:10px}
+  .scanin input{width:100%; font:400 16px/1 var(--sans); padding:14px 15px; border-radius:12px;
+    border:1px solid var(--hairline); background:var(--glass-strong); color:var(--ink);
+    outline:none; transition:box-shadow .18s ease}
+  .scanin input:focus{box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 26%, transparent)}
+  .scanin input:disabled{opacity:.55}
+  .btn{width:100%; min-height:50px; font:500 15px/1 var(--sans); padding:15px 24px; border-radius:999px;
+    cursor:pointer; border:1px solid transparent; transition:transform .18s var(--spring), box-shadow .18s ease}
+  .btn-primary{background:var(--ink); color:var(--bg); box-shadow:var(--shadow-sm)}
+  .btn-ok{background:var(--ok); color:#fff}
+  .btn-no{background:var(--no); color:#fff}
+  @keyframes shake{10%,90%{transform:translateX(-1px)}30%,70%{transform:translateX(2px)}50%{transform:translateX(-3px)}}
+  .shake{animation:shake .4s}
+  .btn:active{transform:scale(.985)}
+  .btn[disabled]{opacity:.6; cursor:default}
+  .scanerr{display:none; margin-top:12px; text-align:center; font:500 13px/1.45 var(--sans); color:var(--no)}
+  .scanerr.on{display:block}
+  .scanning{display:none; align-items:center; gap:9px; margin-top:15px;
+    font:500 13.5px/1 var(--sans); color:var(--ink-2)}
+  .scanning.on{display:flex}
+  .spin{width:16px; height:16px; border-radius:50%; border:2px solid var(--hairline);
+    border-top-color:var(--accent); animation:sp .7s linear infinite}
+  @keyframes sp{to{transform:rotate(360deg)}}
+  .reveal{display:grid; grid-template-rows:0fr; transition:grid-template-rows .45s var(--spring)}
+  .reveal.open{grid-template-rows:1fr}
+  .reveal-in{overflow:hidden; min-height:0}
+  .qhead{font:500 19px/1.3 var(--sans); text-align:center; margin:14px 0 10px}
+  .qhead:empty{display:none}
+  .qhead.ok{color:var(--ok)} .qhead.no{color:var(--no)}
+  .res{margin-top:4px}
+  .qrow{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:12px 0;
+    border-bottom:1px solid var(--hairline); opacity:0; transform:translateY(6px);
+    transition:opacity .4s ease, transform .4s var(--spring)}
+  .qrow.show{opacity:1; transform:none}
+  .ql{display:flex; flex-direction:column; gap:3px}
+  .ql b{font:500 14px/1.2 var(--sans); color:var(--ink)}
+  .ql span{font:400 12px/1 var(--sans); color:var(--ink-3)}
+  .qright{display:flex; align-items:center; gap:10px}
+  .qv{font:500 13.5px/1 var(--sans); color:var(--ink-2); text-align:right}
+  .qs{width:22px; height:22px; border-radius:50%; display:grid; place-items:center; flex:none}
+  .qs.ok{background:color-mix(in srgb,var(--ok) 18%, transparent); color:var(--ok)}
+  .qs.no{background:color-mix(in srgb,var(--no) 18%, transparent); color:var(--no)}
+  .done{display:none; align-items:center; gap:11px; margin-top:16px; padding:15px;
+    border-radius:12px; background:color-mix(in srgb,var(--ok) 14%, transparent);
+    border:1px solid color-mix(in srgb,var(--ok) 30%, transparent)}
+  .done.show{display:flex}
+  .done .ic{width:30px; height:30px; border-radius:50%; flex:none; display:grid; place-items:center;
+    background:var(--ok); color:#fff}
+  .done b{font:500 14.5px/1.3 var(--sans); color:var(--ink)}
+  .done span{font:400 12.5px/1.3 var(--sans); color:var(--ink-2)}
+
+  .pgfoot{text-align:center; font:400 12.5px/1.7 var(--sans); color:var(--ink-3);
+    margin:8px auto 40px; max-width:540px; padding:0 16px}
+
+  /* ---- desktop / tablet ---- */
+  @media (min-width:560px){
+    .topbar{padding:15px max(22px,env(safe-area-inset-right)) 15px max(22px,env(safe-area-inset-left))}
+    .wrap{margin-top:20px; padding:0 22px; gap:18px}
+    .banner{height:172px}
+    .hbody{padding:17px 20px 19px}
+    .nm{font-size:23px}
+    .scan{padding:22px 22px}
+    .scanin{flex-direction:row}
+    .scanin input{flex:1}
+    .scanin .btn{width:auto; min-width:128px}
+    .desc{font-size:15.5px}
+  }
+</style>
+</head>
+<body>
+  <div class="topbar">
+    <a class="circ" href="../" aria-label="Back to rooms">
+      <svg width="16" height="16" viewBox="0 0 24 24" stroke-width="2"><path d="M15 5l-7 7 7 7"/></svg>
+    </a>
+    <span class="wm">antibot · ubk.art</span>
+    <div class="sp"></div>
+    <button class="circ" id="tgl" aria-label="Toggle theme">
+      <svg width="15" height="15" viewBox="0 0 24 24" stroke-width="2"><path d="M12 3v2M12 19v2M5 5l1.5 1.5M17.5 17.5L19 19M3 12h2M19 12h2M5 19l1.5-1.5M17.5 6.5L19 5"/><circle cx="12" cy="12" r="3.4"/></svg>
+    </button>
+  </div>
+
+  <main class="wrap">
+    <section class="head" id="headSec">
+      <div class="banner" id="banner"><span class="badge ovr" id="badge"><i></i><span id="badgeLabel">Open</span></span></div>
+      <div class="hbody">
+        <h1 class="nm" id="nm">Loading room…</h1>
+        <div class="by" id="by" style="display:none"></div>
+        <div class="links" id="links" style="display:none"></div>
+        <p class="desc" id="desc" style="display:none"></p>
+      </div>
+    </section>
+
+    <section class="req" id="reqSec">
+      <span class="lbl">To qualify</span>
+      <div class="chips" id="chips"></div>
+    </section>
+
+    <section class="scan" id="scanSec">
+      <h3>Check if your wallet qualifies</h3>
+      <div class="rstats">
+        <div class="r"><span><b style="color:var(--ink)" id="cnt">0</b><span id="cap"> / 0 spots</span></span><span id="cd">—</span></div>
+        <div class="bar"><i id="bar"></i></div>
+      </div>
+      <div class="scanin">
+        <input id="addr" type="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"
+               placeholder="Paste your wallet address (0x…)" aria-label="Your wallet address">
+        <button class="btn btn-primary" id="check">Check</button>
+      </div>
+
+      <div class="scanerr" id="scanErr"></div>
+      <div class="scanning" id="scanning"><span class="spin"></span>Scanning wallet on-chain…</div>
+
+      <div class="reveal" id="reveal"><div class="reveal-in">
+        <div class="qhead" id="qhead"></div>
+        <div class="res" id="res"></div>
+        <div class="done" id="done">
+          <span class="ic"><svg width="16" height="16" viewBox="0 0 24 24" stroke-width="2.6"><path d="M5 12l5 5 9-11"/></svg></span>
+          <div><b id="doneTxt">You're in</b><br><span>Your wallet is saved to the whitelist.</span></div>
+        </div>
+      </div></div>
+    </section>
+
+    <section class="scan" id="notfound" style="display:none; text-align:center">
+      <h3>Room not found</h3>
+      <p class="desc" style="text-align:center; margin-top:4px">This room link is invalid, or the room no longer exists.</p>
+      <a class="lk" href="../" style="margin-top:14px">Back to rooms</a>
+    </section>
+
+    <p class="pgfoot">Scanning is read-only and free — it doesn't move anything from your wallet. Joining only saves your address to this room's list.</p>
+  </main>
+
+  <script type="module" src="./room.js"></script>
+</body>
+</html>
