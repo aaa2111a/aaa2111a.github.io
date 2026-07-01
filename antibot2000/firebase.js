@@ -41,8 +41,11 @@ const FN_REGION = 'us-central1';
 const STORAGE_DL = 'https://firebasestorage.googleapis.com/v0/b/' + firebaseConfig.storageBucket + '/o/';
 
 const app = initializeApp(firebaseConfig);
-// App Check — standard reCAPTCHA v3 for v1. Limited-use tokens (getLimitedUseToken +
-// server consume:true) = a hardening fast-follow (audit P2-3).
+// App Check — reCAPTCHA v3. All six callables use LIMITED-USE tokens (single-use → replay
+// protection). Backend enforces consumeAppCheckToken (Batch 5 flips FN_OPTS; the 2 scans already
+// consume). DEPLOYMENT PREREQUISITE (V22): set the reCAPTCHA v3 score threshold to 0.5 in the
+// Firebase Console (App Check → Apps → [web app] → reCAPTCHA v3 → score threshold; default 0.0
+// lets headless browsers ~0.1 through). Console-only — cannot be set in code.
 initializeAppCheck(app, {
   provider: new ReCaptchaV3Provider(RECAPTCHA_SITE_KEY),
   isTokenAutoRefreshEnabled: true,
@@ -50,16 +53,14 @@ initializeAppCheck(app, {
 const db = getDatabase(app);
 const fns = getFunctions(app, FN_REGION);
 
-// ── callable wrappers (App Check token auto-attached by the SDK) ──────────────
-const _call = (name) => httpsCallable(fns, name);
-const _createRoom        = _call('createRoom');
-// the 2 CU-spending scans use LIMITED-USE App Check tokens (single-use → replay protection;
-// pairs with `consumeAppCheckToken:true` on the backend SCAN_OPTS). reCAPTCHA v3 stays invisible.
-const _checkEligibility  = httpsCallable(fns, 'checkEligibility', { limitedUseAppCheckTokens: true });
-const _joinRoom          = httpsCallable(fns, 'joinRoom', { limitedUseAppCheckTokens: true });
-const _closeRoom         = _call('closeRoom');
-const _downloadWhitelist = _call('downloadWhitelist');
-const _lookupRoom        = _call('lookupRoom');
+// ── callable wrappers — all use limited-use App Check tokens (non-replayable, V21) ──────────────
+const LU = { limitedUseAppCheckTokens: true };
+const _createRoom        = httpsCallable(fns, 'createRoom',        LU);
+const _checkEligibility  = httpsCallable(fns, 'checkEligibility',  LU);
+const _joinRoom          = httpsCallable(fns, 'joinRoom',          LU);
+const _closeRoom         = httpsCallable(fns, 'closeRoom',         LU);
+const _downloadWhitelist = httpsCallable(fns, 'downloadWhitelist', LU);
+const _lookupRoom        = httpsCallable(fns, 'lookupRoom',        LU);
 
 export async function createRoom(data)               { return (await _createRoom(data)).data; }
 export async function checkEligibility(roomId, wallet){ return (await _checkEligibility({ roomId, wallet })).data; }
