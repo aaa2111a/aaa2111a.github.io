@@ -195,9 +195,9 @@
           <div class="sub" id="s-age"><input class="in" id="in-age" type="number" min="1" max="3650" value="90" aria-label="Minimum days"><span class="fhint">days</span></div>
         </div>
         <div class="field">
-          <div class="frow"><div><span class="flabel">Minimum mints</span><span class="fhint">NFTs minted from any collection.</span></div>
+          <div class="frow"><div><span class="flabel">Minimum mints</span><span class="fhint">NFTs minted from any collection (including self-deployed contracts).</span></div>
             <label class="sw"><input type="checkbox" data-sub="s-mints"><span class="tr"></span><span class="kn"></span></label></div>
-          <div class="sub" id="s-mints"><input class="in" id="in-mints" type="number" min="1" max="1000" value="5" aria-label="Minimum mints"></div>
+          <div class="sub" id="s-mints"><input class="in" id="in-mints" type="number" min="1" max="1000" value="5" aria-label="Minimum mints"><p class="subex">Tip: a bot can self-deploy minimal ERC-721 contracts and mint 1 token each for near-zero cost — those count here. Stack with <b>Active across months</b> (real time can't be faked) or <b>Paid mints only</b> to raise the cost.</p></div>
         </div>
         <div class="field">
           <div class="frow"><div><span class="flabel">Minimum transactions</span><span class="fhint">Total transactions ever sent. Filters brand-new wallets.</span></div>
@@ -205,9 +205,9 @@
           <div class="sub" id="s-tx"><input class="in" id="in-tx" type="number" min="1" max="100000" value="20" aria-label="Minimum transactions"><span class="fhint">txns</span></div>
         </div>
         <div class="field">
-          <div class="frow"><div><span class="flabel">Minimum distinct collections</span><span class="fhint">Different collections the wallet has minted from. Hard for sybils to fake.</span></div>
+          <div class="frow"><div><span class="flabel">Minimum distinct collections</span><span class="fhint">Different collections the wallet has minted from.</span></div>
             <label class="sw"><input type="checkbox" data-sub="s-distinct"><span class="tr"></span><span class="kn"></span></label></div>
-          <div class="sub" id="s-distinct"><input class="in" id="in-distinct" type="number" min="2" max="1000" value="3" aria-label="Minimum distinct collections"><span class="fhint">collections (min 2)</span></div>
+          <div class="sub" id="s-distinct"><input class="in" id="in-distinct" type="number" min="2" max="1000" value="3" aria-label="Minimum distinct collections"><span class="fhint">collections (min 2)</span><p class="subex">Tip: a determined bot can self-deploy cheap ERC-721 contracts and mint to its own wallet — those count too. Stack with <b>Active across months</b> or <b>Paid mints only</b> to make this filter meaningful.</p></div>
         </div>
         <div class="field">
           <div class="frow"><div><span class="flabel">Active across months</span><span class="fhint">On-chain activity in N different calendar months — the hardest signal to fake, needs real time.</span></div>
