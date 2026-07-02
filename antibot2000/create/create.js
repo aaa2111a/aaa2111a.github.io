@@ -40,9 +40,21 @@ document.querySelectorAll('.sw input[data-sub]').forEach((cb) => {
         n.min = cb.checked ? '2' : '1';
         if (cb.checked && Number(n.value) < 2) n.value = '2';
       }
+      _showHoldnNote(cb.checked);                              // V24: disclose the >=2 floor while paidOnly is on
     }
   });
 });
+
+// V24: keep in-holdn honest with the CF clamp — with paidOnly ON a value <2 snaps to 2 on COMMIT
+// (change, not input, so typing "12" isn't mangled mid-keystroke). Frontend-only; the CF re-clamps anyway.
+const _holdnEl = $('in-holdn');
+if (_holdnEl) _holdnEl.addEventListener('change', () => {
+  if (isOn('s-paid') && Number(_holdnEl.value) < 2) _holdnEl.value = '2';
+});
+function _showHoldnNote(show) {
+  const el = $('holdn-note');
+  if (el) el.style.display = show ? 'block' : 'none';
+}
 
 // ── segmented controls ───────────────────────────────────────────────────────
 document.querySelectorAll('.seg').forEach((seg) => {
