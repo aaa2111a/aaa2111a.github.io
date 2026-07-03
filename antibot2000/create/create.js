@@ -156,7 +156,7 @@ async function onCreate() {
   }
   const filters = {
     paidOnly,
-    minPaymentEth: paidOnly ? Math.min(10, Math.max(0, Number(val('in-paideth')) || 0)) : 0,   // mirror the CF _clampFloat [0,10]
+    minPaymentEth: paidOnly ? Math.max(0.001, Math.min(10, Number(val('in-paideth')) || 0.001)) : 0,   // B3/F039: mirror the CF clamp — paidOnly floor is 0.001 ETH (blank/0/neg → 0.001), never 0 (kills the 1-wei bypass)
     recencyDays:   isOn('s-recency') ? int('in-recency') : 0,
   };
 
