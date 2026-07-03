@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; base-uri 'self'; form-action 'self'">
+<meta name="referrer" content="no-referrer">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>About · Anti Bot 2000</title>
+<style>
+  :root{
+    --bg:#dbd8d1; --bg-tint:#eae7e0;
+    --ink:#2b2926; --ink-2:#6b655c; --ink-3:#9c958a;
+    --glass:rgba(255,255,255,0.50); --glass-strong:rgba(255,255,255,0.74);
+    --glass-border:rgba(255,255,255,0.72); --hairline:rgba(43,41,38,0.10);
+    --accent:#4f7384; --accent-ink:#33525f; --ok:#2a9d3f;
+    --shadow:0 12px 34px rgba(54,48,40,0.13), 0 2px 6px rgba(54,48,40,0.06);
+    --shadow-sm:0 4px 14px rgba(54,48,40,0.10);
+    --radius:16px; --spring:cubic-bezier(.2,.8,.25,1);
+    --serif:'Times New Roman',Times,Georgia,serif;
+    --sans:-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',system-ui,sans-serif;
+  }
+  [data-theme="dark"]{
+    --bg:#1b1b1d; --bg-tint:#2b2b2e;
+    --ink:#f1eee8; --ink-2:#a9a39a; --ink-3:#74706a;
+    --glass:rgba(58,58,62,0.55); --glass-strong:rgba(66,66,70,0.70);
+    --glass-border:rgba(255,255,255,0.10); --hairline:rgba(255,255,255,0.10);
+    --accent:#82abbc; --accent-ink:#bcd6e0; --ok:#5fd877;
+    --shadow:0 16px 44px rgba(0,0,0,0.46), 0 2px 8px rgba(0,0,0,0.34);
+    --shadow-sm:0 6px 18px rgba(0,0,0,0.40);
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  html,body{margin:0}
+  body{min-height:100vh; color:var(--ink); font-family:var(--sans);
+    -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility;
+    background:radial-gradient(900px 480px at 50% -12%, var(--bg-tint), transparent 62%), var(--bg);
+    transition:background .4s ease, color .4s ease; padding-bottom:env(safe-area-inset-bottom)}
+  svg{stroke:currentColor; fill:none}
+  a{color:var(--accent-ink)}
+  .topbar{display:flex; align-items:center; gap:12px; padding:13px max(16px,env(safe-area-inset-right)) 13px max(16px,env(safe-area-inset-left))}
+  .circ{width:44px; height:44px; border-radius:50%; border:1px solid var(--hairline);
+    background:var(--glass-strong); color:var(--ink-2); cursor:pointer; text-decoration:none;
+    display:grid; place-items:center; transition:transform .2s var(--spring)}
+  .circ:active{transform:scale(.94)}
+  .wm{font:500 12.5px/1 var(--sans); color:var(--ink-3)} .topbar .sp{flex:1}
+
+  .wrap{max-width:680px; margin:6px auto 0; padding:0 16px}
+  .ptitle{font:400 clamp(30px,9vw,46px)/1.05 var(--serif); letter-spacing:-.01em; margin:16px 2px 4px}
+  .lead{font:400 16px/1.6 var(--sans); color:var(--ink-2); margin:0 2px 6px; max-width:560px}
+
+  .glabel{font:500 12px/1 var(--sans); color:var(--ink-3); letter-spacing:.05em; text-transform:uppercase; margin:30px 4px 11px}
+  .group{background:var(--glass); -webkit-backdrop-filter:blur(22px) saturate(1.5); backdrop-filter:blur(22px) saturate(1.5);
+    border:1px solid var(--glass-border); border-radius:var(--radius); box-shadow:var(--shadow); padding:4px 18px}
+  .block{padding:16px 0; border-bottom:1px solid var(--hairline)}
+  .block:last-child{border-bottom:none}
+  .bh{font:500 15.5px/1.3 var(--sans); color:var(--ink); margin:0 0 6px}
+  .bp{font:400 13.5px/1.62 var(--sans); color:var(--ink-2); margin:0}
+  .bp + .bp{margin-top:9px}
+  .bp b{font-weight:600; color:var(--ink)}
+
+  ul.checks{list-style:none; margin:6px 0 0; padding:0; columns:2; column-gap:22px}
+  ul.checks li{font:400 13px/1.5 var(--sans); color:var(--ink-2); padding:5px 0 5px 20px; position:relative; break-inside:avoid}
+  ul.checks li::before{content:''; position:absolute; left:2px; top:9px; width:7px; height:7px; border-radius:50%; background:var(--accent)}
+  @media (max-width:479px){ ul.checks{columns:1} }
+
+  .faq details{border-bottom:1px solid var(--hairline)}
+  .faq details:last-child{border-bottom:none}
+  .faq summary{cursor:pointer; padding:16px 0; font:500 14.5px/1.4 var(--sans); color:var(--ink);
+    list-style:none; display:flex; justify-content:space-between; align-items:center; gap:14px}
+  .faq summary::-webkit-details-marker{display:none}
+  .faq summary::after{content:'+'; font:400 21px/1 var(--sans); color:var(--ink-3); flex:none}
+  .faq details[open] summary::after{content:'\2212'}
+  .faq .fa{font:400 13.5px/1.62 var(--sans); color:var(--ink-2); margin:0 0 16px; max-width:600px}
+
+  .cta{display:flex; flex-wrap:wrap; gap:10px; margin:26px 2px 0}
+  .btn{min-height:48px; font:500 14.5px/1 var(--sans); padding:14px 22px; border-radius:999px; cursor:pointer;
+    border:1px solid transparent; text-decoration:none; display:inline-flex; align-items:center; justify-content:center; transition:transform .18s var(--spring)}
+  .btn-primary{background:var(--ink); color:var(--bg); box-shadow:var(--shadow-sm)}
+  .btn-ghost{background:var(--glass-strong); color:var(--ink); border:1px solid var(--glass-border)}
+  .btn:active{transform:scale(.985)}
+
+  .pgfoot{text-align:center; font:400 12.5px/1.7 var(--sans); color:var(--ink-3); margin:40px auto 44px; max-width:560px; padding:0 16px}
+
+  @media (min-width:560px){
+    .topbar{padding:15px max(22px,env(safe-area-inset-right)) 15px max(22px,env(safe-area-inset-left))}
+    .wrap{padding:0 22px}
+    .group{padding:4px 22px}
+  }
+</style>
+</head>
+<body>
+  <div class="topbar">
+    <a class="circ" href="../" aria-label="Back">
+      <svg width="16" height="16" viewBox="0 0 24 24" stroke-width="2"><path d="M15 5l-7 7 7 7"/></svg>
+    </a>
+    <span class="wm">antibot · ubk.art</span>
+    <div class="sp"></div>
+    <button class="circ" id="tgl" aria-label="Toggle theme">
+      <svg width="15" height="15" viewBox="0 0 24 24" stroke-width="2"><path d="M12 3v2M12 19v2M5 5l1.5 1.5M17.5 17.5L19 19M3 12h2M19 12h2M5 19l1.5-1.5M17.5 6.5L19 5"/><circle cx="12" cy="12" r="3.4"/></svg>
+    </button>
+  </div>
+
+  <main class="wrap">
+    <h1 class="ptitle">About</h1>
+    <p class="lead">Anti Bot 2000 is an off-chain whitelist builder. It curates your community by <b>on-chain behavior</b> — filtering fresh, empty and farmed wallets — instead of a raffle or a CAPTCHA.</p>
+
+    <div class="glabel">For creators</div>
+    <div class="group">
+      <div class="block">
+        <div class="bh">It's invite-only</div>
+        <p class="bp"><a href="https://twitter.com/unbearableknife" target="_blank" rel="noopener noreferrer">Request a creator code</a> on Twitter. A code is <b>single-use</b> — it unlocks one action: open a room, or scan a whitelist.</p>
+      </div>
+      <div class="block">
+        <div class="bh">Open a room</div>
+        <p class="bp">Set the wallet requirements and a timer, then share your link. People join live with their wallet — pass the bar and they're added. When it closes or fills, export the qualified wallets straight to an OpenSea allowlist.</p>
+      </div>
+      <div class="block">
+        <div class="bh">Scan a whitelist</div>
+        <p class="bp">Already have a list? Upload a CSV of wallets and get back only the ones that clear your requirements — the clean list, ready to download. A display-only <b>showcase</b> card also publishes on the home page with your collection and how many wallets passed.</p>
+      </div>
+    </div>
+
+    <div class="glabel">For collectors</div>
+    <div class="group">
+      <div class="block">
+        <div class="bh">Joining a room</div>
+        <p class="bp">Open a room link, paste your wallet address, and it's scanned on-chain, live. Clear the requirements and you're on the list. No sign-up, no wallet connection — you paste an address, nothing is signed.</p>
+      </div>
+    </div>
+
+    <div class="glabel">What the scan looks at</div>
+    <div class="group">
+      <div class="block">
+        <p class="bp">Creators pick any mix of these — real wallets clear them, throwaway wallets don't:</p>
+        <ul class="checks">
+          <li>Average hold time (anti-flipper)</li>
+          <li>Wallet age</li>
+          <li>Minimum mints</li>
+          <li>Minimum transactions</li>
+          <li>Distinct collections</li>
+          <li>Active across months</li>
+          <li>Diamond hands (% still held)</li>
+          <li>Must hold a collection</li>
+          <li>Paid mints only</li>
+          <li>Ignore fresh activity</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="glabel">FAQ</div>
+    <div class="group faq">
+      <details>
+        <summary>Is this a CAPTCHA?</summary>
+        <p class="fa">No. It doesn't prove there's a human — it reads a wallet's on-chain history to filter fresh, empty and farmed wallets. A determined person with a real, aged, funded wallet can still pass; the point is to raise the cost far above a throwaway.</p>
+      </details>
+      <details>
+        <summary>How do I get a creator code?</summary>
+        <p class="fa">Request one on Twitter — <a href="https://twitter.com/unbearableknife" target="_blank" rel="noopener noreferrer">@unbearableknife</a>. Codes are invite-only and single-use: one code opens one room or runs one scan.</p>
+      </details>
+      <details>
+        <summary>What's the difference between a room and a CSV scan?</summary>
+        <p class="fa">A <b>room</b> is a live link people join with their own wallet, in real time. A <b>scan</b> takes a list you already have (a CSV) and hands back only the wallets that pass — no link, no waiting for people to join.</p>
+      </details>
+      <details>
+        <summary>Can bots fake the requirements?</summary>
+        <p class="fa">Some are cheap to fake — a bot can self-deploy throwaway contracts and mint to itself. Others can't: "active across months" needs real time, "paid mints only" needs real ETH to have left the wallet. Stack a few and faking gets expensive fast. It's a strong filter, not a guarantee.</p>
+      </details>
+      <details>
+        <summary>Is my wallet data stored?</summary>
+        <p class="fa">The scan reads only public on-chain data. A room's whitelist is deleted <b>5 days</b> after the room finishes — creators download it in time; the room itself stays as a record. Wallet lists are never public.</p>
+      </details>
+      <details>
+        <summary>What's a showcase?</summary>
+        <p class="fa">When a creator scans a CSV, a display-only card publishes on the home page — the collection name, banner, and how many wallets passed. It's not joinable; it's just a public record of the scan.</p>
+      </details>
+      <details>
+        <summary>What does it cost?</summary>
+        <p class="fa">Nothing. Creating is gated by invite (a code), not by payment. Joining a room is free too.</p>
+      </details>
+    </div>
+
+    <div class="cta">
+      <a class="btn btn-primary" href="https://twitter.com/unbearableknife" target="_blank" rel="noopener noreferrer">Request a creator code</a>
+      <a class="btn btn-ghost" href="../">Back to rooms</a>
+    </div>
+
+    <p class="pgfoot">Off-chain whitelist builder. Raises the bar on bots, not a CAPTCHA — it filters fresh and empty wallets, it can't prove there's a human behind one.</p>
+  </main>
+
+  <script type="module" src="./about.js"></script>
+</body>
+</html>
