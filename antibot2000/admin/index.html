@@ -44,6 +44,11 @@
 
   .wrap{max-width:640px; margin:8px auto 0; padding:0 16px}
   .ptitle{font:500 24px/1.2 var(--sans); margin:14px 2px 2px}
+  .phead{display:flex; align-items:center; gap:12px}
+  .phead .ptitle{margin:14px 0 2px}
+  .rfr{width:36px; height:36px}
+  @keyframes rspin{to{transform:rotate(360deg)}}
+  .rfr.spin svg{animation:rspin .7s linear infinite}
   .psub{font:400 14px/1.5 var(--sans); color:var(--ink-2); margin:0 2px 6px}
 
   .glabel{font:500 12px/1 var(--sans); color:var(--ink-3); letter-spacing:.05em;
@@ -134,7 +139,12 @@
   </div>
 
   <main class="wrap">
-    <h1 class="ptitle">Admin</h1>
+    <div class="phead">
+      <h1 class="ptitle">Admin</h1>
+      <button class="circ rfr" id="refreshBtn" aria-label="Refresh info" title="Refresh info" style="display:none">
+        <svg width="15" height="15" viewBox="0 0 24 24" stroke-width="2"><path d="M21 12a9 9 0 1 1-2.64-6.36M21 4v5h-5"/></svg>
+      </button>
+    </div>
 
     <!-- gate -->
     <section id="gate">

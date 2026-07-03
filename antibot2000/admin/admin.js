@@ -39,6 +39,7 @@ async function unlock() {
     $('gate').style.display = 'none';
     $('loading').style.display = 'none';
     $('panel').style.display = '';
+    if ($('refreshBtn')) $('refreshBtn').style.display = '';   // reveal the header refresh (codes have no live watcher)
     renderCodes((ov && ov.codes) || []);
     _unwatchRooms = watchPublicRooms('createdAt', 60, true, (rooms) => { _rooms = rooms || []; renderRooms(); });
     _unwatchShowcases = watchShowcases(30, (list) => { _showcases = list || []; renderShowcases(); });
@@ -58,6 +59,15 @@ if (lockBtn) lockBtn.addEventListener('click', () => {
   if (_unwatchShowcases) { try { _unwatchShowcases(); } catch (_) { /* ignore */ } }
   _master = '';
   location.reload();
+});
+
+// ── refresh: re-pull the codes list (redeemed/spent statuses); rooms + showcases are already live-watched ──
+const refreshBtn = $('refreshBtn');
+if (refreshBtn) refreshBtn.addEventListener('click', async () => {
+  if (!_master || refreshBtn.classList.contains('spin')) return;
+  refreshBtn.classList.add('spin');
+  try { await refreshCodes(); renderRooms(); renderShowcases(); }
+  finally { refreshBtn.classList.remove('spin'); }
 });
 
 // ── mint a creator code ──
