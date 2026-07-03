@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' https://www.gstatic.com https://www.google.com https://www.recaptcha.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://firebasestorage.googleapis.com; font-src 'self'; connect-src 'self' https://*.firebaseio.com wss://*.firebaseio.com https://us-central1-antibot2000-b6aae.cloudfunctions.net https://firebaseappcheck.googleapis.com https://content-firebaseappcheck.googleapis.com https://firebaseinstallations.googleapis.com https://www.google.com https://www.recaptcha.net; frame-src https://www.google.com https://www.recaptcha.net; worker-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
+<meta name="referrer" content="no-referrer">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Admin · Anti Bot 2000</title>
+<style>
+  :root{
+    --bg:#dbd8d1; --bg-tint:#eae7e0;
+    --ink:#2b2926; --ink-2:#6b655c; --ink-3:#9c958a;
+    --glass:rgba(255,255,255,0.50); --glass-strong:rgba(255,255,255,0.74);
+    --glass-border:rgba(255,255,255,0.72); --hairline:rgba(43,41,38,0.10);
+    --accent:#4f7384; --accent-ink:#33525f; --ok:#2a9d3f; --no:#c0392b;
+    --shadow:0 12px 34px rgba(54,48,40,0.13), 0 2px 6px rgba(54,48,40,0.06);
+    --shadow-sm:0 4px 14px rgba(54,48,40,0.10);
+    --radius:16px; --spring:cubic-bezier(.2,.8,.25,1);
+    --sans:-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',system-ui,sans-serif;
+  }
+  [data-theme="dark"]{
+    --bg:#1b1b1d; --bg-tint:#2b2b2e;
+    --ink:#f1eee8; --ink-2:#a9a39a; --ink-3:#74706a;
+    --glass:rgba(58,58,62,0.55); --glass-strong:rgba(66,66,70,0.70);
+    --glass-border:rgba(255,255,255,0.10); --hairline:rgba(255,255,255,0.10);
+    --accent:#82abbc; --accent-ink:#bcd6e0; --ok:#5fd877; --no:#e8736e;
+    --shadow:0 16px 44px rgba(0,0,0,0.46), 0 2px 8px rgba(0,0,0,0.34);
+    --shadow-sm:0 6px 18px rgba(0,0,0,0.40);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{min-height:100vh; color:var(--ink); font-family:var(--sans);
+    -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility;
+    background:radial-gradient(900px 480px at 50% -12%, var(--bg-tint), transparent 62%), var(--bg);
+    transition:background .4s ease, color .4s ease; padding-bottom:env(safe-area-inset-bottom)}
+  svg{stroke:currentColor; fill:none}
+  .topbar{display:flex; align-items:center; gap:12px; padding:13px max(16px,env(safe-area-inset-right)) 13px max(16px,env(safe-area-inset-left))}
+  .circ{width:44px; height:44px; border-radius:50%; border:1px solid var(--hairline);
+    background:var(--glass-strong); color:var(--ink-2); cursor:pointer; text-decoration:none;
+    display:grid; place-items:center; transition:transform .2s var(--spring)}
+  .circ:active{transform:scale(.94)}
+  .wm{font:500 12.5px/1 var(--sans); color:var(--ink-3)} .topbar .sp{flex:1}
+
+  .wrap{max-width:640px; margin:8px auto 0; padding:0 16px}
+  .ptitle{font:500 24px/1.2 var(--sans); margin:14px 2px 2px}
+  .psub{font:400 14px/1.5 var(--sans); color:var(--ink-2); margin:0 2px 6px}
+
+  .glabel{font:500 12px/1 var(--sans); color:var(--ink-3); letter-spacing:.05em;
+    text-transform:uppercase; margin:22px 4px 9px; display:flex; align-items:baseline; justify-content:space-between}
+  .group{background:var(--glass); -webkit-backdrop-filter:blur(22px) saturate(1.5);
+    backdrop-filter:blur(22px) saturate(1.5); border:1px solid var(--glass-border);
+    border-radius:var(--radius); box-shadow:var(--shadow); padding:0 16px}
+  .field{padding:14px 0; border-bottom:1px solid var(--hairline)}
+  .field:last-child{border-bottom:none}
+  .flabel{font:500 14px/1.3 var(--sans); color:var(--ink); display:block}
+  .fhint{font:400 12px/1.4 var(--sans); color:var(--ink-3); margin-top:3px; display:block}
+  .fin{margin-top:11px}
+
+  .in{width:100%; font:400 16px/1.3 var(--sans); padding:12px 14px; border-radius:10px;
+    border:1px solid var(--hairline); background:var(--glass-strong); color:var(--ink);
+    outline:none; transition:box-shadow .18s ease}
+  .in:focus{box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 26%, transparent)}
+
+  .tiles{display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin:2px 0 4px}
+  .tile{background:var(--glass); border:1px solid var(--glass-border); border-radius:12px; box-shadow:var(--shadow-sm); padding:13px 14px}
+  .tl{font:500 11px/1 var(--sans); color:var(--ink-3); letter-spacing:.04em; text-transform:uppercase}
+  .tv{font:500 22px/1.1 var(--sans); color:var(--ink); margin-top:7px}
+
+  .btn{min-height:50px; font:500 15px/1 var(--sans); padding:15px 24px; border-radius:999px;
+    cursor:pointer; border:1px solid transparent; transition:transform .18s var(--spring), box-shadow .18s ease}
+  .btn.full{width:100%}
+  .btn-primary{background:var(--ink); color:var(--bg); box-shadow:var(--shadow-sm)}
+  .btn-ghost{background:var(--glass-strong); color:var(--ink); border:1px solid var(--glass-border)}
+  .btn-danger{background:color-mix(in srgb, var(--no) 14%, transparent); color:var(--no); border:1px solid color-mix(in srgb, var(--no) 30%, transparent)}
+  .btn:active{transform:scale(.985)}
+  .btn[disabled]{opacity:.6; cursor:default}
+  .btn-sm{min-height:0; padding:9px 14px; font-size:13px; flex:none}
+  .cta{margin-top:16px}
+  .formerr{display:none; margin-top:11px; text-align:center; font:500 13px/1.45 var(--sans); color:var(--no)}
+  .formerr.on{display:block}
+
+  .cpf{display:flex; align-items:center; gap:8px}
+  .cpf input{flex:1; min-width:0; font:500 15px/1 var(--sans); padding:12px 13px; border-radius:10px;
+    border:1px solid var(--hairline); background:var(--glass-strong); color:var(--ink); outline:none}
+  .cpf .cp{width:44px; height:44px; flex:none; border:1px solid var(--hairline); border-radius:10px;
+    background:var(--glass-strong); color:var(--accent-ink); cursor:pointer; display:grid; place-items:center}
+  .cplabel{font:500 12px/1 var(--sans); color:var(--ink-3); letter-spacing:.04em; text-transform:uppercase; margin:14px 2px 7px}
+
+  .success{display:none; margin-top:16px; background:var(--glass);
+    -webkit-backdrop-filter:blur(22px) saturate(1.5); backdrop-filter:blur(22px) saturate(1.5);
+    border:1px solid var(--glass-border); border-radius:var(--radius); box-shadow:var(--shadow); padding:18px}
+  .success.show{display:block}
+  .shead{display:flex; align-items:center; gap:11px; margin-bottom:6px}
+  .shead .ic{width:30px; height:30px; border-radius:50%; flex:none; display:grid; place-items:center; background:var(--ok); color:#fff}
+  .shead b{font:500 17px/1.2 var(--sans); color:var(--ink)}
+  .warn{display:flex; gap:8px; margin-top:11px; font:400 12px/1.45 var(--sans); color:var(--ink-2)}
+  .warn svg{flex:none; margin-top:1px; color:var(--accent-ink)}
+  .warn.red{color:var(--no)} .warn.red svg{color:var(--no)}
+
+  /* admin list rows */
+  .arow{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:13px 0; border-bottom:1px solid var(--hairline)}
+  .arow:last-child{border-bottom:none}
+  .ainfo{min-width:0}
+  .aname{font:500 14px/1.3 var(--sans); color:var(--ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+  .ameta{font:400 12px/1.4 var(--sans); color:var(--ink-3); margin-top:3px}
+  .aacts{display:flex; gap:7px; flex:none}
+  .empty{font:400 13px/1.5 var(--sans); color:var(--ink-3); padding:15px 0}
+  .tag{font:600 10px/1 var(--sans); letter-spacing:.04em; text-transform:uppercase; padding:5px 8px; border-radius:999px; margin-left:7px; vertical-align:middle}
+  .tag.hid{background:color-mix(in srgb, var(--no) 13%, transparent); color:var(--no)}
+  .tag.feat{background:color-mix(in srgb, var(--accent) 15%, transparent); color:var(--accent-ink)}
+  .tag.rev{background:var(--hairline); color:var(--ink-3)}
+
+  .pgfoot{text-align:center; font:400 12.5px/1.7 var(--sans); color:var(--ink-3); margin:34px auto 44px; max-width:540px}
+
+  @media (min-width:560px){
+    .topbar{padding:15px max(22px,env(safe-area-inset-right)) 15px max(22px,env(safe-area-inset-left))}
+    .wrap{padding:0 22px}
+    .ptitle{font-size:27px}
+    .group{padding:0 20px}
+  }
+</style>
+</head>
+<body>
+  <div class="topbar">
+    <a class="circ" href="../" aria-label="Back">
+      <svg width="16" height="16" viewBox="0 0 24 24" stroke-width="2"><path d="M15 5l-7 7 7 7"/></svg>
+    </a>
+    <span class="wm">antibot · admin</span>
+    <div class="sp"></div>
+    <button class="circ" id="tgl" aria-label="Toggle theme">
+      <svg width="15" height="15" viewBox="0 0 24 24" stroke-width="2"><path d="M12 3v2M12 19v2M5 5l1.5 1.5M17.5 17.5L19 19M3 12h2M19 12h2M5 19l1.5-1.5M17.5 6.5L19 5"/><circle cx="12" cy="12" r="3.4"/></svg>
+    </button>
+  </div>
+
+  <main class="wrap">
+    <h1 class="ptitle">Admin</h1>
+
+    <!-- gate -->
+    <section id="gate">
+      <p class="psub">Enter the master code to manage codes, rooms and showcases.</p>
+      <div class="glabel">Master code</div>
+      <div class="group"><div class="field">
+        <div class="cpf">
+          <input class="in" id="gateCode" type="password" autocapitalize="off" autocomplete="off" spellcheck="false" aria-label="Master code" placeholder="master code">
+          <button class="cp" id="gateGo" aria-label="Unlock">&rarr;</button>
+        </div>
+        <div class="formerr" id="gateErr"></div>
+      </div></div>
+    </section>
+
+    <p class="psub" id="loading" style="display:none">Loading…</p>
+
+    <!-- panel -->
+    <div id="panel" style="display:none">
+      <div class="tiles">
+        <div class="tile"><div class="tl">Codes</div><div class="tv" id="statCodes">0</div></div>
+        <div class="tile"><div class="tl">Rooms</div><div class="tv" id="statRooms">0</div></div>
+        <div class="tile"><div class="tl">Showcases</div><div class="tv" id="statShowcases">0</div></div>
+      </div>
+
+      <div class="glabel">Mint a scan code</div>
+      <div class="group">
+        <div class="field"><label class="flabel" for="mcRows">Max rows</label><span class="fhint">Wallets this code can scan (1–5,000).</span>
+          <div class="fin"><input class="in" id="mcRows" type="number" min="1" max="5000" value="5000"></div></div>
+        <div class="field"><label class="flabel" for="mcLabel">Label</label><span class="fhint">For your own reference in the list below.</span>
+          <div class="fin"><input class="in" id="mcLabel" type="text" maxlength="60" placeholder="e.g. Voxel Apes batch"></div></div>
+        <div class="field"><button class="btn btn-primary full" id="mcGo">Mint code</button><div class="formerr" id="mcErr"></div></div>
+      </div>
+
+      <div class="success" id="mcReveal">
+        <div class="shead"><span class="ic"><svg width="16" height="16" viewBox="0 0 24 24" stroke-width="2.6"><path d="M5 12l5 5 9-11"/></svg></span><b>Code minted</b></div>
+        <div class="cplabel">Scan code</div>
+        <div class="cpf"><input id="mcCodeOut" type="text" readonly value=""><button class="cp" data-copy="mcCodeOut" aria-label="Copy code"><svg width="16" height="16" viewBox="0 0 24 24" stroke-width="2"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 012-2h10"/></svg></button></div>
+        <div class="warn red"><svg width="15" height="15" viewBox="0 0 24 24" stroke-width="2"><path d="M12 9v4M12 17h.01M10.3 3.9l-8 14A2 2 0 004 21h16a2 2 0 001.7-3.1l-8-14a2 2 0 00-3.4 0z"/></svg><span>Shown once — copy it now and hand it to the creator. It won't be shown again.</span></div>
+        <button class="btn btn-ghost full cta" id="mcDone">Done</button>
+      </div>
+
+      <div class="glabel">Codes</div>
+      <div class="group" id="codesGroup"><div class="empty">No codes yet.</div></div>
+
+      <div class="glabel">Rooms</div>
+      <div class="group" id="roomsGroup"><div class="empty">No rooms.</div></div>
+
+      <div class="glabel">Showcases</div>
+      <div class="group" id="showcasesGroup"><div class="empty">No showcases.</div></div>
+
+      <button class="btn btn-ghost full" id="lockBtn" style="margin-top:24px">Lock</button>
+    </div>
+
+    <p class="pgfoot">Owner only. Deletes are reversible — a hidden room or a removed showcase can be restored.</p>
+  </main>
+
+  <script type="module" src="./admin.js"></script>
+</body>
+</html>

@@ -61,6 +61,17 @@ const _joinRoom          = httpsCallable(fns, 'joinRoom',          LU);
 const _closeRoom         = httpsCallable(fns, 'closeRoom',         LU);
 const _downloadWhitelist = httpsCallable(fns, 'downloadWhitelist', LU);
 const _lookupRoom        = httpsCallable(fns, 'lookupRoom',        LU);
+// ── v1.1 (CSV-scan + admin) callables ──
+const _adminMintCode         = httpsCallable(fns, 'adminMintCode',         LU);
+const _redeemScanCode        = httpsCallable(fns, 'redeemScanCode',        LU);
+const _downloadCleanCsv      = httpsCallable(fns, 'downloadCleanCsv',      LU);
+const _adminDeleteRoom       = httpsCallable(fns, 'adminDeleteRoom',       LU);
+const _adminUndeleteRoom     = httpsCallable(fns, 'adminUndeleteRoom',     LU);
+const _adminSetFeatured      = httpsCallable(fns, 'adminSetFeatured',      LU);
+const _adminDeleteShowcase   = httpsCallable(fns, 'adminDeleteShowcase',   LU);
+const _revokeScanCode        = httpsCallable(fns, 'revokeScanCode',        LU);
+const _adminUnrevokeScanCode = httpsCallable(fns, 'adminUnrevokeScanCode', LU);
+const _listAdminOverview     = httpsCallable(fns, 'listAdminOverview',     LU);
 
 export async function createRoom(data)               { return (await _createRoom(data)).data; }
 export async function checkEligibility(roomId, wallet){ return (await _checkEligibility({ roomId, wallet })).data; }
@@ -69,6 +80,18 @@ export async function downloadWhitelist(roomId, creatorCode, format) {
   return (await _downloadWhitelist({ roomId, creatorCode, format })).data;
 }
 export async function lookupRoom(creatorCode)        { return (await _lookupRoom({ creatorCode })).data; }
+
+// ── v1.1 callables ──
+export async function adminMintCode(masterCode, maxRows, label)     { return (await _adminMintCode({ masterCode, maxRows, label })).data; }
+export async function redeemScanCode(data)                          { return (await _redeemScanCode(data)).data; }   // {scanCode,title,description,twitterHandle,openSeaSlug,requirements,filters,wallets,banner}
+export async function downloadCleanCsv(scanCode, jobId, format)     { return (await _downloadCleanCsv({ scanCode, jobId, format })).data; }
+export async function adminDeleteRoom(masterCode, roomId)           { return (await _adminDeleteRoom({ masterCode, roomId })).data; }
+export async function adminUndeleteRoom(masterCode, roomId)         { return (await _adminUndeleteRoom({ masterCode, roomId })).data; }
+export async function adminSetFeatured(masterCode, id, kind, on)    { return (await _adminSetFeatured({ masterCode, id, kind, on })).data; }
+export async function adminDeleteShowcase(masterCode, id)           { return (await _adminDeleteShowcase({ masterCode, id })).data; }
+export async function revokeScanCode(masterCode, codeHash)          { return (await _revokeScanCode({ masterCode, codeHash })).data; }
+export async function adminUnrevokeScanCode(masterCode, codeHash)   { return (await _adminUnrevokeScanCode({ masterCode, codeHash })).data; }
+export async function listAdminOverview(masterCode)                 { return (await _listAdminOverview({ masterCode })).data; }
 
 // joinRoom auto-retries the RETRYABLE 'aborted' code (a concurrent same-wallet commit
 // in flight — Brief #6b). Short backoff, ≤3 tries; any other error propagates.
@@ -108,6 +131,22 @@ export function watchPublicRooms(field, n, desc, cb) {
     if (desc !== false) arr.reverse();                            // newest/most first
     cb(arr);
   });
+}
+
+// ── v1.1 reads — showcase grid (read:true) + a job's live progress (read:true) ──
+// showcase = display-only cards (scanned whitelists); ordered by publishedAt, newest first.
+export function watchShowcases(n, cb) {
+  const q = query(ref(db, 'showcase'), orderByChild('publishedAt'), limitToLast(n || 30));
+  return onValue(q, (s) => {
+    const arr = [];
+    s.forEach((c) => { arr.push({ id: c.key, ...c.val() }); });   // ascending by publishedAt
+    arr.reverse();                                                // newest first
+    cb(arr);
+  });
+}
+// a batch job's progress node (only `progress` is read:true — counts, never wallets).
+export function watchJobProgress(jobId, cb) {
+  return onValue(ref(db, `scanJobs/${jobId}/progress`), (s) => cb(s.val() || null));
 }
 
 // ── render helpers — textContent only (never innerHTML for user data) ──────────

@@ -2,7 +2,7 @@
 // homages), the live publicRooms grids (Featured + Recently created — rendered via
 // mk()/textContent, NEVER innerHTML with user data), and the creator-code re-entry
 // (lookupRoom → dashboard). ES module; imports the foundation from ./firebase.js.
-import { watchPublicRooms, lookupRoom, txt, mk, bannerUrl, errMsg, stashCode } from './firebase.js';
+import { watchPublicRooms, watchShowcases, lookupRoom, txt, mk, bannerUrl, openSeaHref, errMsg, stashCode } from './firebase.js';
 
 // ── theme toggle ──────────────────────────────────────────────────────────────
 const body = document.body, tglBtn = document.getElementById('tgl');
@@ -112,6 +112,55 @@ function gridOf(list) {
 }
 function clear(node) { while (node.firstChild) node.removeChild(node.firstChild); }
 
+// ── showcase card (scanned whitelists) — DISPLAY-ONLY: a div, not an <a>; no join, no countdown ──
+function showcaseCard(s) {
+  const bUrl = bannerUrl(s.bannerPath);
+  const card = mk('div', { class: 'card' });                    // div (not <a>) → not clickable into a room
+  if (bUrl) {
+    const banner = mk('div', { class: 'banner' });
+    banner.style.backgroundImage = 'url("' + bUrl + '")';       // bUrl pre-validated by bannerUrl()
+    const badge = mk('span', { class: 'badge full ovr', kids: [mk('i')] });
+    badge.appendChild(document.createTextNode('Showcase'));
+    banner.appendChild(badge);
+    card.appendChild(banner);
+  }
+  const bodyEl = mk('div', { class: 'body' });
+  const idWrap = mk('div', {});
+  idWrap.appendChild(mk('div', { class: 'nm', text: s.title || 'Scanned whitelist' }));
+  if (s.twitterHandle) idWrap.appendChild(mk('div', { class: 'by', text: 'by @' + s.twitterHandle }));
+  const top = mk('div', { class: 'top', kids: [idWrap] });
+  if (!bUrl) {
+    const badge = mk('span', { class: 'badge full', kids: [mk('i')] });
+    badge.appendChild(document.createTextNode('Showcase'));
+    top.appendChild(badge);
+  }
+  bodyEl.appendChild(top);
+  // req chips
+  const chips = mk('div', { class: 'chips' });
+  for (const c of reqChips(s.req)) chips.appendChild(mk('span', { class: 'chip', text: c }));
+  bodyEl.appendChild(chips);
+  // passed stat (reuse the progress row + bar styling)
+  const total = Number(s.total) || 0, passed = Number(s.passCount) || 0;
+  const pct = total > 0 ? Math.min(100, Math.round(passed / total * 100)) : 0;
+  const r1 = mk('div', { class: 'r' });
+  r1.appendChild(mk('span', { text: 'Passed' }));
+  const r1b = mk('span', {});
+  r1b.appendChild(mk('b', { text: String(passed) }));
+  r1b.appendChild(document.createTextNode(' / ' + total));
+  r1.appendChild(r1b);
+  const barI = mk('i'); barI.style.width = pct + '%';
+  bodyEl.appendChild(mk('div', { class: 'prog', kids: [r1, mk('div', { class: 'bar', kids: [barI] })] }));
+  // foot: optional OpenSea link + published-ago
+  const foot = mk('div', { class: 'foot' });
+  const os = openSeaHref(s.openSeaSlug);
+  if (os) foot.appendChild(mk('a', { class: 'd', text: 'OpenSea ↗', attrs: { href: os, target: '_blank', rel: 'noopener noreferrer' } }));
+  if (os) foot.appendChild(mk('span', { class: 'sepdot' }));
+  foot.appendChild(mk('span', { text: fmtAgo(s.publishedAt) }));
+  bodyEl.appendChild(foot);
+  card.appendChild(bodyEl);
+  return card;
+}
+
 // ── live data: one subscription to the newest rooms; filters re-sort client-side ──
 let ALL = [];
 const recentWrap = document.getElementById('recentWrap');
@@ -154,10 +203,25 @@ function renderRecent() {
 }
 
 watchPublicRooms('createdAt', 60, true, (rooms) => {
-  ALL = rooms || [];
+  ALL = (rooms || []).filter((r) => r.adminDeleted !== true);   // hide admin-soft-deleted rooms (load-bearing for the delete feature)
   renderFeatured();
   renderRecent();
 });
+
+// ── showcases (scanned whitelists) — own section, newest first, display-only ──
+const showcaseGrid = document.getElementById('showcaseGrid');
+const showcaseSec = document.getElementById('showcaseSec');
+function renderShowcases(list) {
+  if (!showcaseGrid) return;
+  clear(showcaseGrid);
+  if (list && list.length) {
+    const g = mk('section', { class: 'grid' });
+    for (const s of list) g.appendChild(showcaseCard(s));
+    showcaseGrid.appendChild(g);
+    if (showcaseSec) showcaseSec.style.display = '';
+  } else if (showcaseSec) showcaseSec.style.display = 'none';   // hide the section when there are none
+}
+watchShowcases(30, (list) => renderShowcases(list));
 
 // filter buttons
 const rf = document.getElementById('rfilters');

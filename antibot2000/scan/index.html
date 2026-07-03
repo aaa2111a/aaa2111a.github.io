@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' https://www.gstatic.com https://www.google.com https://www.recaptcha.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://firebasestorage.googleapis.com; font-src 'self'; connect-src 'self' https://*.firebaseio.com wss://*.firebaseio.com https://us-central1-antibot2000-b6aae.cloudfunctions.net https://firebaseappcheck.googleapis.com https://content-firebaseappcheck.googleapis.com https://firebaseinstallations.googleapis.com https://www.google.com https://www.recaptcha.net; frame-src https://www.google.com https://www.recaptcha.net; worker-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
+<meta name="referrer" content="no-referrer">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Scan a whitelist · Anti Bot 2000</title>
+<style>
+  :root{
+    --bg:#dbd8d1; --bg-tint:#eae7e0;
+    --ink:#2b2926; --ink-2:#6b655c; --ink-3:#9c958a;
+    --glass:rgba(255,255,255,0.50); --glass-strong:rgba(255,255,255,0.74);
+    --glass-border:rgba(255,255,255,0.72); --hairline:rgba(43,41,38,0.10);
+    --accent:#4f7384; --accent-ink:#33525f; --ok:#2a9d3f; --no:#c0392b;
+    --shadow:0 12px 34px rgba(54,48,40,0.13), 0 2px 6px rgba(54,48,40,0.06);
+    --shadow-sm:0 4px 14px rgba(54,48,40,0.10);
+    --radius:16px; --spring:cubic-bezier(.2,.8,.25,1);
+    --serif:'Times New Roman',Times,Georgia,serif;
+    --sans:-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',system-ui,sans-serif;
+  }
+  [data-theme="dark"]{
+    --bg:#1b1b1d; --bg-tint:#2b2b2e;
+    --ink:#f1eee8; --ink-2:#a9a39a; --ink-3:#74706a;
+    --glass:rgba(58,58,62,0.55); --glass-strong:rgba(66,66,70,0.70);
+    --glass-border:rgba(255,255,255,0.10); --hairline:rgba(255,255,255,0.10);
+    --accent:#82abbc; --accent-ink:#bcd6e0; --ok:#5fd877; --no:#e8736e;
+    --shadow:0 16px 44px rgba(0,0,0,0.46), 0 2px 8px rgba(0,0,0,0.34);
+    --shadow-sm:0 6px 18px rgba(0,0,0,0.40);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{min-height:100vh; color:var(--ink); font-family:var(--sans);
+    -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility;
+    background:radial-gradient(900px 480px at 50% -12%, var(--bg-tint), transparent 62%), var(--bg);
+    transition:background .4s ease, color .4s ease; padding-bottom:env(safe-area-inset-bottom)}
+  svg{stroke:currentColor; fill:none}
+  .topbar{display:flex; align-items:center; gap:12px; padding:13px max(16px,env(safe-area-inset-right)) 13px max(16px,env(safe-area-inset-left))}
+  .circ{width:44px; height:44px; border-radius:50%; border:1px solid var(--hairline);
+    background:var(--glass-strong); color:var(--ink-2); cursor:pointer; text-decoration:none;
+    display:grid; place-items:center; transition:transform .2s var(--spring)}
+  .circ:active{transform:scale(.94)}
+  .wm{font:500 12.5px/1 var(--sans); color:var(--ink-3)} .topbar .sp{flex:1}
+
+  .wrap{max-width:640px; margin:8px auto 0; padding:0 16px}
+  .ptitle{font:500 24px/1.2 var(--sans); margin:14px 2px 2px}
+  .psub{font:400 14px/1.5 var(--sans); color:var(--ink-2); margin:0 2px 6px}
+
+  .glabel{font:500 12px/1 var(--sans); color:var(--ink-3); letter-spacing:.05em;
+    text-transform:uppercase; margin:22px 4px 9px}
+  .group{background:var(--glass); -webkit-backdrop-filter:blur(22px) saturate(1.5);
+    backdrop-filter:blur(22px) saturate(1.5); border:1px solid var(--glass-border);
+    border-radius:var(--radius); box-shadow:var(--shadow); padding:0 16px}
+  .field{padding:14px 0; border-bottom:1px solid var(--hairline)}
+  .field:last-child{border-bottom:none}
+  .flabel{font:500 14px/1.3 var(--sans); color:var(--ink); display:block}
+  .fhint{font:400 12px/1.4 var(--sans); color:var(--ink-3); margin-top:3px; display:block}
+  .frow{display:flex; align-items:center; justify-content:space-between; gap:12px}
+  .fin{margin-top:11px}
+
+  .in{width:100%; font:400 16px/1.3 var(--sans); padding:12px 14px; border-radius:10px;
+    border:1px solid var(--hairline); background:var(--glass-strong); color:var(--ink);
+    outline:none; transition:box-shadow .18s ease}
+  .in:focus{box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 26%, transparent)}
+  textarea.in{resize:vertical; min-height:72px; line-height:1.5; display:block}
+  .pair{display:flex; gap:10px} .pair>div{flex:1}
+  .pair .pl{font:400 12px/1.2 var(--sans); color:var(--ink-3); margin:0 0 6px 2px; display:block}
+  .pfx{display:flex; align-items:center; border:1px solid var(--hairline); border-radius:10px;
+    background:var(--glass-strong); overflow:hidden}
+  .pfx>span{padding-left:13px; color:var(--ink-3); font:400 15px/1 var(--sans); flex-shrink:1; min-width:0; overflow:hidden; white-space:nowrap; text-overflow:ellipsis}
+  .pfx>input{flex:1; min-width:0; border:none; background:none; padding:12px 13px; outline:none;
+    color:var(--ink); font:400 16px/1.3 var(--sans)}
+
+  .upl{position:relative; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    gap:6px; height:104px; border:1.5px dashed var(--hairline); border-radius:12px; color:var(--ink-3);
+    cursor:pointer; background:var(--glass-strong); background-size:cover; background-position:center;
+    text-align:center; overflow:hidden}
+  .upl input{position:absolute; inset:0; opacity:0; cursor:pointer}
+  .upl .uph{font:500 13px/1 var(--sans)} .upl .ups{font:400 12px/1 var(--sans)}
+  .upl.has .uph,.upl.has .ups{display:none}
+
+  .sw{position:relative; width:46px; height:28px; flex:none}
+  .sw input{position:absolute; inset:-8px; opacity:0; margin:0; cursor:pointer; z-index:2}
+  .sw .tr{position:absolute; inset:0; border-radius:999px; background:var(--hairline); transition:background .2s ease}
+  .sw .kn{position:absolute; top:3px; left:3px; width:22px; height:22px; border-radius:50%;
+    background:#fff; box-shadow:0 1px 3px rgba(0,0,0,.25); transition:transform .22s var(--spring)}
+  .sw input:checked ~ .tr{background:var(--ok)}
+  .sw input:checked ~ .kn{transform:translateX(18px)}
+  .reqd{font:600 10px/1 var(--sans); letter-spacing:.05em; text-transform:uppercase; color:var(--accent); background:color-mix(in srgb, var(--accent) 13%, transparent); padding:6px 10px; border-radius:999px; white-space:nowrap; flex:none; align-self:center}
+
+  .sub{display:none; margin-top:12px}
+  .sub.on{display:block}
+  .subnote{font:400 12.5px/1.5 var(--sans); color:var(--ink-2); margin:0 0 11px}
+  .subex{font:400 12px/1.45 var(--sans); color:var(--ink-3); margin:10px 0 0}
+
+  .btn{width:100%; min-height:50px; font:500 15px/1 var(--sans); padding:15px 24px; border-radius:999px;
+    cursor:pointer; border:1px solid transparent; transition:transform .18s var(--spring), box-shadow .18s ease}
+  .btn-primary{background:var(--ink); color:var(--bg); box-shadow:var(--shadow-sm)}
+  .btn:active{transform:scale(.985)}
+  .btn[disabled]{opacity:.6; cursor:default}
+  .cta{margin-top:24px}
+  .formerr{display:none; margin-top:13px; text-align:center; font:500 13px/1.45 var(--sans); color:var(--no)}
+  .formerr.on{display:block}
+
+  /* progress bar */
+  .pbar{height:8px; border-radius:999px; background:var(--hairline); overflow:hidden; margin-top:4px}
+  .pbar i{display:block; height:100%; width:0; background:var(--accent); border-radius:999px; transition:width .4s ease}
+  .prow{display:flex; justify-content:space-between; font:500 13px/1 var(--sans); color:var(--ink-2); margin-bottom:9px}
+  .prow b{font-weight:600; color:var(--ink)}
+
+  .success{display:none; margin-top:24px; background:var(--glass);
+    -webkit-backdrop-filter:blur(22px) saturate(1.5); backdrop-filter:blur(22px) saturate(1.5);
+    border:1px solid var(--glass-border); border-radius:var(--radius); box-shadow:var(--shadow); padding:20px 18px}
+  .success.show{display:block}
+  .shead{display:flex; align-items:center; gap:11px; margin-bottom:6px}
+  .shead .ic{width:30px; height:30px; border-radius:50%; flex:none; display:grid; place-items:center;
+    background:var(--accent); color:#fff}
+  .shead .ic.done{background:var(--ok)} .shead .ic.fail{background:var(--no)}
+  .shead b{font:500 17px/1.2 var(--sans); color:var(--ink)}
+  .ssub{font:400 13px/1.5 var(--sans); color:var(--ink-2); margin:0 0 14px}
+  .warn{display:flex; gap:8px; margin-top:9px; font:400 12px/1.45 var(--sans); color:var(--ink-2)}
+  .warn svg{flex:none; margin-top:1px; color:var(--accent-ink)}
+
+  .pgfoot{text-align:center; font:400 12.5px/1.7 var(--sans); color:var(--ink-3); margin:34px auto 44px; max-width:540px}
+
+  @media (min-width:560px){
+    .topbar{padding:15px max(22px,env(safe-area-inset-right)) 15px max(22px,env(safe-area-inset-left))}
+    .wrap{padding:0 22px}
+    .ptitle{font-size:27px}
+    .group{padding:0 20px}
+  }
+</style>
+</head>
+<body>
+  <div class="topbar">
+    <a class="circ" href="../" aria-label="Back">
+      <svg width="16" height="16" viewBox="0 0 24 24" stroke-width="2"><path d="M15 5l-7 7 7 7"/></svg>
+    </a>
+    <span class="wm">antibot · ubk.art</span>
+    <div class="sp"></div>
+    <button class="circ" id="tgl" aria-label="Toggle theme">
+      <svg width="15" height="15" viewBox="0 0 24 24" stroke-width="2"><path d="M12 3v2M12 19v2M5 5l1.5 1.5M17.5 17.5L19 19M3 12h2M19 12h2M5 19l1.5-1.5M17.5 6.5L19 5"/><circle cx="12" cy="12" r="3.4"/></svg>
+    </button>
+  </div>
+
+  <main class="wrap">
+    <h1 class="ptitle">Scan a whitelist</h1>
+    <p class="psub">Redeem your code, upload your wallet list, download the clean one.</p>
+
+    <div id="form">
+      <div class="glabel">Access</div>
+      <div class="group">
+        <div class="field"><label class="flabel" for="scancode">Scan code</label><span class="fhint">The single-use code you were given. It's spent once this scan starts.</span>
+          <div class="fin"><input class="in" id="scancode" type="text" placeholder="paste your code" autocapitalize="off" autocomplete="off" spellcheck="false"></div></div>
+      </div>
+
+      <div class="glabel">Collection</div>
+      <div class="group">
+        <div class="field"><label class="flabel" for="rname">Collection name</label>
+          <div class="fin"><input class="in" id="rname" type="text" maxlength="60" placeholder="Voxel Apes"></div></div>
+        <div class="field"><label class="flabel" for="rdesc">Description</label>
+          <div class="fin"><textarea class="in" id="rdesc" maxlength="500" placeholder="A short line about the collection."></textarea></div></div>
+        <div class="field"><span class="flabel">Banner</span><span class="fhint">Shown on your showcase card. Wide image works best. PNG or JPG, up to 2 MB.</span>
+          <div class="fin"><label class="upl" id="upl">
+            <input type="file" accept="image/png,image/jpeg" id="uplinput" aria-label="Upload banner">
+            <span class="uph">Add a banner</span><span class="ups">PNG or JPG</span>
+          </label></div></div>
+        <div class="field"><label class="flabel" for="tw">Twitter / X</label><span class="fhint">Optional.</span>
+          <div class="fin"><div class="pfx"><span>@</span><input id="tw" type="text" maxlength="15" placeholder="handle" autocapitalize="off" autocomplete="off" spellcheck="false"></div></div></div>
+        <div class="field"><label class="flabel" for="os">OpenSea collection</label><span class="fhint">Optional — adds a link on your showcase card.</span>
+          <div class="fin"><div class="pfx"><span>opensea.io/collection/</span><input id="os" type="text" maxlength="80" placeholder="slug" autocapitalize="off" autocomplete="off" spellcheck="false"></div></div></div>
+      </div>
+
+      <div class="glabel">Requirements</div>
+      <div class="group">
+        <div class="field">
+          <div class="frow"><div><span class="flabel">Minimum average hold</span><span class="fhint">Average real hold per recent collection — the core anti-flipper filter. Always on.</span></div>
+            <span class="reqd">Required</span></div>
+          <div class="sub on" id="s-hold">
+            <p class="subnote">We look at the last few collections the wallet minted from, measure how long it held each, and average across them. Each collection counts once, so dumping a pile of one mint can't game it.</p>
+            <div class="pair">
+              <div><span class="pl">min avg days</span><input class="in" id="in-holddays" type="number" min="1" max="3650" value="1" aria-label="Minimum average hold days"></div>
+              <div><span class="pl">over last N (max 5)</span><input class="in" id="in-holdn" type="number" min="1" max="5" value="5" aria-label="Over last N collections"></div>
+            </div>
+            <p class="subex" id="holdn-note" style="display:none">With <b>Paid mints only</b> on, this needs at least 2 — a single paid collection can't prove holding behavior.</p>
+          </div>
+        </div>
+        <div class="field">
+          <div class="frow"><div><span class="flabel">Minimum wallet age</span><span class="fhint">How long the wallet has existed.</span></div>
+            <label class="sw"><input type="checkbox" data-sub="s-age"><span class="tr"></span><span class="kn"></span></label></div>
+          <div class="sub" id="s-age"><input class="in" id="in-age" type="number" min="1" max="3650" value="90" aria-label="Minimum days"><span class="fhint">days</span></div>
+        </div>
+        <div class="field">
+          <div class="frow"><div><span class="flabel">Minimum mints</span><span class="fhint">NFTs minted from any collection.</span></div>
+            <label class="sw"><input type="checkbox" data-sub="s-mints"><span class="tr"></span><span class="kn"></span></label></div>
+          <div class="sub" id="s-mints"><input class="in" id="in-mints" type="number" min="1" max="1000" value="5" aria-label="Minimum mints"></div>
+        </div>
+        <div class="field">
+          <div class="frow"><div><span class="flabel">Minimum transactions</span><span class="fhint">Total transactions ever sent. Filters brand-new wallets.</span></div>
+            <label class="sw"><input type="checkbox" data-sub="s-tx"><span class="tr"></span><span class="kn"></span></label></div>
+          <div class="sub" id="s-tx"><input class="in" id="in-tx" type="number" min="1" max="100000" value="20" aria-label="Minimum transactions"><span class="fhint">txns</span></div>
+        </div>
+        <div class="field">
+          <div class="frow"><div><span class="flabel">Minimum distinct collections</span><span class="fhint">Different collections the wallet has minted from.</span></div>
+            <label class="sw"><input type="checkbox" data-sub="s-distinct"><span class="tr"></span><span class="kn"></span></label></div>
+          <div class="sub" id="s-distinct"><input class="in" id="in-distinct" type="number" min="2" max="1000" value="3" aria-label="Minimum distinct collections"><span class="fhint">collections (min 2)</span></div>
+        </div>
+        <div class="field">
+          <div class="frow"><div><span class="flabel">Active across months</span><span class="fhint">On-chain activity in N different calendar months — the hardest signal to fake.</span></div>
+            <label class="sw"><input type="checkbox" data-sub="s-spread"><span class="tr"></span><span class="kn"></span></label></div>
+          <div class="sub" id="s-spread"><input class="in" id="in-spread" type="number" min="2" max="120" value="3" aria-label="Active across N months"><span class="fhint">distinct months (min 2)</span></div>
+        </div>
+        <div class="field">
+          <div class="frow"><div><span class="flabel">Diamond hands</span><span class="fhint">Still holds a share of what it minted. Filters dumpers.</span></div>
+            <label class="sw"><input type="checkbox" data-sub="s-dh"><span class="tr"></span><span class="kn"></span></label></div>
+          <div class="sub" id="s-dh">
+            <div><span class="pl">min % still held</span><input class="in" id="in-diamond" type="number" min="1" max="100" value="50" aria-label="Minimum percent still held"></div>
+          </div>
+        </div>
+        <div class="field">
+          <div class="frow"><div><span class="flabel">Must hold a collection</span><span class="fhint">Holds a specific collection, optionally for a minimum time.</span></div>
+            <label class="sw"><input type="checkbox" data-sub="s-coll"><span class="tr"></span><span class="kn"></span></label></div>
+          <div class="sub" id="s-coll">
+            <div class="pair">
+              <div style="flex:2"><span class="pl">collection contract</span><input class="in" id="in-colladdr" type="text" maxlength="42" placeholder="0x…" autocapitalize="off" autocomplete="off" spellcheck="false" aria-label="Collection contract"></div>
+              <div><span class="pl">min balance</span><input class="in" id="in-collmin" type="number" min="1" max="10000" value="1" aria-label="Minimum balance"></div>
+            </div>
+            <div style="margin-top:10px"><span class="pl">held for at least (days · 0 = just now)</span><input class="in" id="in-colldays" type="number" min="0" max="3650" value="0" aria-label="Minimum hold days"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="glabel">Anti-farming filters</div>
+      <div class="group">
+        <div class="field">
+          <div class="frow"><div><span class="flabel">Paid mints only</span><span class="fhint">Count only NFTs the wallet actually paid for. Kills free-mint farming.</span></div>
+            <label class="sw"><input type="checkbox" data-sub="s-paid"><span class="tr"></span><span class="kn"></span></label></div>
+          <div class="sub" id="s-paid"><input class="in" id="in-paideth" type="number" min="0" max="10" step="0.001" value="0" aria-label="Minimum ETH paid per mint"><span class="fhint">ETH min / mint</span><p class="subex">Only mints where ETH actually left the wallet count. Applies to mints, distinct collections, average hold and diamond hands. With paid-only on, average hold and diamond hands need at least 2 paid collections.</p></div>
+        </div>
+        <div class="field">
+          <div class="frow"><div><span class="flabel">Ignore fresh activity</span><span class="fhint">Don't count mints or collections first seen in the last few days.</span></div>
+            <label class="sw"><input type="checkbox" data-sub="s-recency"><span class="tr"></span><span class="kn"></span></label></div>
+          <div class="sub" id="s-recency"><input class="in" id="in-recency" type="number" min="1" max="365" value="7" aria-label="Ignore activity newer than N days"><span class="fhint">days</span></div>
+        </div>
+      </div>
+
+      <div class="glabel">Whitelist CSV</div>
+      <div class="group">
+        <div class="field"><span class="flabel">Upload wallet list</span><span class="fhint">A .csv or .txt of wallet addresses — one per line, or comma-separated. Up to 5,000 wallets; invalid rows are ignored.</span>
+          <div class="fin"><label class="upl" id="csvupl">
+            <input type="file" accept=".csv,.txt,text/csv,text/plain" id="csvinput" aria-label="Upload wallet CSV">
+            <span class="uph">Add a CSV</span><span class="ups">.csv or .txt</span>
+          </label></div>
+          <p class="subex" id="csvcount" style="display:none"></p>
+        </div>
+      </div>
+
+      <button class="btn btn-primary cta" id="scan" style="margin-top:14px">Scan whitelist</button>
+      <div class="formerr" id="scanErr"></div>
+    </div>
+
+    <div class="success" id="progress">
+      <div class="shead"><span class="ic" id="progic"><svg width="15" height="15" viewBox="0 0 24 24" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7.5V12l3 2"/></svg></span><b id="progtitle">Scanning…</b></div>
+      <p class="ssub" id="progsub">This can take a while — you can leave this page and come back. Your clean list will be ready here.</p>
+      <div class="prow"><span id="progstat">Starting…</span><span id="progpass"></span></div>
+      <div class="pbar"><i id="progfill"></i></div>
+      <div id="progresult" style="display:none; margin-top:16px">
+        <button class="btn btn-primary" id="dlbtn">Download clean CSV</button>
+        <div class="warn"><svg width="15" height="15" viewBox="0 0 24 24" stroke-width="2"><path d="M12 9v4M12 17h.01M10.3 3.9l-8 14A2 2 0 004 21h16a2 2 0 001.7-3.1l-8-14a2 2 0 00-3.4 0z"/></svg><span>Your showcase is now live on the home page. The clean list is available here for 5 days — download it in time.</span></div>
+      </div>
+    </div>
+
+    <p class="pgfoot">The scan runs on-chain against every wallet in your list and keeps only the ones that pass your requirements.</p>
+  </main>
+
+  <script type="module" src="./scan.js"></script>
+</body>
+</html>
