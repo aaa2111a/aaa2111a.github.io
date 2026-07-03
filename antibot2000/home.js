@@ -2,7 +2,7 @@
 // homages), the live publicRooms grids (Featured + Recently created — rendered via
 // mk()/textContent, NEVER innerHTML with user data), and the creator-code re-entry
 // (lookupRoom → dashboard). ES module; imports the foundation from ./firebase.js.
-import { watchPublicRooms, watchShowcases, lookupRoom, txt, mk, bannerUrl, openSeaHref, errMsg, stashCode } from './firebase.js';
+import { watchPublicRooms, watchShowcases, mk, bannerUrl, openSeaHref } from './firebase.js';
 
 // ── theme toggle ──────────────────────────────────────────────────────────────
 const body = document.body, tglBtn = document.getElementById('tgl');
@@ -237,27 +237,8 @@ if (rf) rf.addEventListener('click', (e) => {
 // re-tick the live countdowns once a minute (cards are re-rendered cheaply).
 setInterval(() => { renderFeatured(); renderRecent(); }, 60000);
 
-// ── creator-code re-entry (lookupRoom → stash code → dashboard) ──────────────────
-const codeInput = document.getElementById('creatorCodeIn');
-const codeGo = document.getElementById('creatorCodeGo');
-const codeMsg = document.getElementById('creatorCodeMsg');
-async function reenter() {
-  const code = (codeInput && codeInput.value || '').trim();
-  if (!code) return;
-  if (codeMsg) txt(codeMsg, '');
-  if (codeGo) codeGo.disabled = true;
-  try {
-    const { roomId } = await lookupRoom(code);
-    stashCode(code);                          // one-shot hand-off; the dashboard pops+clears it
-    location.href = 'dashboard/?r=' + encodeURIComponent(roomId);   // roomId is public; the CODE is NOT in the URL
-  } catch (e) {
-    if (codeMsg) txt(codeMsg, errMsg(e));     // 'Wrong code.' etc.
-  } finally {
-    if (codeGo) codeGo.disabled = false;
-  }
-}
-if (codeGo) codeGo.addEventListener('click', reenter);
-if (codeInput) codeInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') reenter(); });
+// v1.2: the creator-code re-entry (lookupRoom → dashboard) MOVED to the /start/ chooser's "Manage a room"
+// panel. The homepage no longer has a code field — "Enter code" (hero) routes to /start/ for all 3 actions.
 
 // ── hero collection band — static pixel homages (no user data), hand-authored sprites ──
 const TRACK = document.getElementById('bandtrack');

@@ -5,7 +5,14 @@
 // the dashboard via the one-shot sessionStorage stash — NEVER put in a URL.
 // ES module; imports the foundation from ./firebase.js. No innerHTML with user data
 // (the only innerHTML is iconNode() with compile-time-constant SVGs).
-import { createRoom, stashCode, txt, errMsg } from '../firebase.js';
+import { createRoom, stashCode, txt, errMsg, popAccessCode } from '../firebase.js';
+
+// v1.2: creating is invite-only. The single-use creator access code arrives from the /start/ chooser via
+// the one-shot access stash. Pop it ONCE on load into a module let (held across a failed submit so a retry
+// needs no re-visit). No code → this page wasn't reached through /start/ → send them there. The code is
+// sent to createRoom, which does the authoritative single-use claim+burn (the peek was advisory).
+const _accessCode = popAccessCode();
+if (!_accessCode) location.replace('../start/');
 
 // ── mirrors of the CF gates (UX only; the CF is the authority) ────────────────
 const RX_HANDLE  = /^[A-Za-z0-9_]{1,15}$/;
@@ -160,7 +167,9 @@ async function onCreate() {
     recencyDays:   isOn('s-recency') ? int('in-recency') : 0,
   };
 
+  if (!_accessCode) { showErr('Your session expired — start again from the code page.'); return; }
   const payload = {
+    creatorAccessCode: _accessCode,               // v1.2 invite gate — createRoom claims+burns it (single-use)
     title, description, twitterHandle, openSeaSlug,
     visibility: pickVisibility(),
     requestFeatured: !!($('chk-featured') && $('chk-featured').checked),

@@ -72,6 +72,7 @@ const _adminDeleteShowcase   = httpsCallable(fns, 'adminDeleteShowcase',   LU);
 const _revokeScanCode        = httpsCallable(fns, 'revokeScanCode',        LU);
 const _adminUnrevokeScanCode = httpsCallable(fns, 'adminUnrevokeScanCode', LU);
 const _listAdminOverview     = httpsCallable(fns, 'listAdminOverview',     LU);
+const _peekCreatorCode       = httpsCallable(fns, 'peekCreatorCode',       LU);   // v1.2: non-consuming validity check for the /start/ chooser
 
 export async function createRoom(data)               { return (await _createRoom(data)).data; }
 export async function checkEligibility(roomId, wallet){ return (await _checkEligibility({ roomId, wallet })).data; }
@@ -92,6 +93,7 @@ export async function adminDeleteShowcase(masterCode, id)           { return (aw
 export async function revokeScanCode(masterCode, codeHash)          { return (await _revokeScanCode({ masterCode, codeHash })).data; }
 export async function adminUnrevokeScanCode(masterCode, codeHash)   { return (await _adminUnrevokeScanCode({ masterCode, codeHash })).data; }
 export async function listAdminOverview(masterCode)                 { return (await _listAdminOverview({ masterCode })).data; }
+export async function peekCreatorCode(code)                         { return (await _peekCreatorCode({ code })).data; }   // {valid} — advisory only; the action-time claim is the authority
 
 // joinRoom auto-retries the RETRYABLE 'aborted' code (a concurrent same-wallet commit
 // in flight — Brief #6b). Short backoff, ≤3 tries; any other error propagates.
@@ -222,6 +224,19 @@ export function popStashedCode() {
   try {
     const c = sessionStorage.getItem(STASH);
     if (c != null) sessionStorage.removeItem(STASH);
+    return c;
+  } catch (_) { return null; }
+}
+
+// v1.2 — the creator ACCESS code handoff (/start/ chooser → /create/ or /scan/). DISTINCT key from the
+// management-code stash above (no cross-flow clobber, reviewer D2); same one-shot pop+delete discipline;
+// NEVER a URL. The access code is single-use — held in memory after the pop; the action-time claim burns it.
+const ACCESS_STASH = 'abc_access_stash';
+export function stashAccessCode(c) { try { sessionStorage.setItem(ACCESS_STASH, c); } catch (_) { /* ignore */ } }
+export function popAccessCode() {
+  try {
+    const c = sessionStorage.getItem(ACCESS_STASH);
+    if (c != null) sessionStorage.removeItem(ACCESS_STASH);
     return c;
   } catch (_) { return null; }
 }
