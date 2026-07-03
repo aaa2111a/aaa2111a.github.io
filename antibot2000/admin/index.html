@@ -159,9 +159,9 @@
         <div class="tile"><div class="tl">Showcases</div><div class="tv" id="statShowcases">0</div></div>
       </div>
 
-      <div class="glabel">Mint a scan code</div>
+      <div class="glabel">Mint a creator code</div>
       <div class="group">
-        <div class="field"><label class="flabel" for="mcRows">Max rows</label><span class="fhint">Wallets this code can scan (1–5,000).</span>
+        <div class="field"><label class="flabel" for="mcRows">Max rows</label><span class="fhint">If used to scan a whitelist, the max wallets (1–5,000). Ignored when the code opens a room.</span>
           <div class="fin"><input class="in" id="mcRows" type="number" min="1" max="5000" value="5000"></div></div>
         <div class="field"><label class="flabel" for="mcLabel">Label</label><span class="fhint">For your own reference in the list below.</span>
           <div class="fin"><input class="in" id="mcLabel" type="text" maxlength="60" placeholder="e.g. Voxel Apes batch"></div></div>
@@ -170,7 +170,7 @@
 
       <div class="success" id="mcReveal">
         <div class="shead"><span class="ic"><svg width="16" height="16" viewBox="0 0 24 24" stroke-width="2.6"><path d="M5 12l5 5 9-11"/></svg></span><b>Code minted</b></div>
-        <div class="cplabel">Scan code</div>
+        <div class="cplabel">Creator code</div>
         <div class="cpf"><input id="mcCodeOut" type="text" readonly value=""><button class="cp" data-copy="mcCodeOut" aria-label="Copy code"><svg width="16" height="16" viewBox="0 0 24 24" stroke-width="2"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 012-2h10"/></svg></button></div>
         <div class="warn red"><svg width="15" height="15" viewBox="0 0 24 24" stroke-width="2"><path d="M12 9v4M12 17h.01M10.3 3.9l-8 14A2 2 0 004 21h16a2 2 0 001.7-3.1l-8-14a2 2 0 00-3.4 0z"/></svg><span>Shown once — copy it now and hand it to the creator. It won't be shown again.</span></div>
         <button class="btn btn-ghost full cta" id="mcDone">Done</button>

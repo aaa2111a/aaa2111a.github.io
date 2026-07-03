@@ -1,4 +1,4 @@
-// admin.js — Anti Bot 2000 owner panel. Master-code gate → mint single-use scan codes, revoke/
+// admin.js — Anti Bot 2000 owner panel. Master-code gate → mint single-use creator codes, revoke/
 // un-revoke them, feature/hide/restore rooms, feature/delete showcase cards. ES module; imports
 // ../firebase.js. Every admin op re-sends the master code (the CF is the authority on each call).
 //
@@ -60,7 +60,7 @@ if (lockBtn) lockBtn.addEventListener('click', () => {
   location.reload();
 });
 
-// ── mint a scan code ──
+// ── mint a creator code ──
 const mcGo = $('mcGo'), mcErr = $('mcErr'), mcReveal = $('mcReveal');
 async function mintCode() {
   txt(mcErr, ''); mcErr.classList.remove('on');
@@ -96,7 +96,13 @@ function renderCodes(codes) {
 function codeRow(c) {
   const info = mk('div', { class: 'ainfo' });
   info.appendChild(mk('div', { class: 'aname', text: String(c.codeHash || '').slice(0, 12) + '…' }));
-  info.appendChild(mk('div', { class: 'ameta', text: (c.label || 'untitled') + ' · ' + (c.status || '?') + ' · max ' + (c.maxRows || 0) }));
+  // v1.2: what a spent code was used for. The room path stamps action='room'; the scan path stamps
+  // jobId (not action) → derive 'scan' from jobId. null on an unspent/revoked-unspent code.
+  const act = c.action === 'room' ? 'room' : (c.jobId ? 'scan' : null);
+  const meta = [c.label || 'untitled', c.status || '?'];
+  if (act) meta.push(act);
+  if (act !== 'room') meta.push('max ' + (c.maxRows || 0));      // maxRows is meaningless once a code opened a room
+  info.appendChild(mk('div', { class: 'ameta', text: meta.join(' · ') }));
   const revoked = c.status === 'revoked';
   const btn = mk('button', { class: 'btn btn-sm ' + (revoked ? 'btn-ghost' : 'btn-danger'), text: revoked ? 'Un-revoke' : 'Revoke',
     attrs: { 'data-hash': String(c.codeHash || ''), 'data-act': revoked ? 'unrevoke' : 'revoke' } });
