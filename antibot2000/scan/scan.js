@@ -8,7 +8,7 @@
 //     It MUST survive in memory until the download (downloadCleanCsv re-sends it) — the whole flow
 //     (redeem → progress → download) happens on THIS one page load.
 //   - no innerHTML with any data — everything via txt()/textContent (constant SVGs already in the HTML).
-import { redeemScanCode, downloadCleanCsv, watchJobProgress, txt, errMsg } from '../firebase.js';
+import { redeemScanCode, downloadCleanCsv, watchJobProgress, txt, errMsg, popAccessCode } from '../firebase.js';
 
 // ── mirrors of the CF gates (UX only; the CF re-validates everything) ──
 const RX_HANDLE  = /^[A-Za-z0-9_]{1,15}$/;
@@ -22,6 +22,11 @@ const $ = (id) => document.getElementById(id);
 const val = (id) => { const e = $(id); return e ? e.value : ''; };
 const int = (id) => { const n = Math.floor(Number(val(id))); return Number.isFinite(n) ? n : 0; };
 const isOn = (sub) => { const cb = document.querySelector('.sw input[data-sub="' + sub + '"]'); return !!(cb && cb.checked); };
+
+// v1.2: if arrived from the /start/ chooser, prefill the code field from the one-shot access stash.
+// Single source of truth = the #scancode field (a direct /scan/ visit just leaves it empty to type).
+const _stashedAccess = popAccessCode();
+if (_stashedAccess) { const _sc = $('scancode'); if (_sc) _sc.value = _stashedAccess; }
 
 // ── theme toggle ──
 const body = document.body, tglBtn = $('tgl');
