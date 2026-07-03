@@ -139,17 +139,14 @@ function showcaseCard(s) {
   const chips = mk('div', { class: 'chips' });
   for (const c of reqChips(s.req)) chips.appendChild(mk('span', { class: 'chip', text: c }));
   bodyEl.appendChild(chips);
-  // passed stat (reuse the progress row + bar styling)
-  const total = Number(s.total) || 0, passed = Number(s.passCount) || 0;
-  const pct = total > 0 ? Math.min(100, Math.round(passed / total * 100)) : 0;
+  // scanned stat — just the count of wallets scanned (no pass-rate / no % bar, Le 2026-07-03)
+  const total = Number(s.total) || 0;
   const r1 = mk('div', { class: 'r' });
-  r1.appendChild(mk('span', { text: 'Passed' }));
+  r1.appendChild(mk('span', { text: 'Wallets scanned' }));
   const r1b = mk('span', {});
-  r1b.appendChild(mk('b', { text: String(passed) }));
-  r1b.appendChild(document.createTextNode(' / ' + total));
+  r1b.appendChild(mk('b', { text: String(total) }));
   r1.appendChild(r1b);
-  const barI = mk('i'); barI.style.width = pct + '%';
-  bodyEl.appendChild(mk('div', { class: 'prog', kids: [r1, mk('div', { class: 'bar', kids: [barI] })] }));
+  bodyEl.appendChild(mk('div', { class: 'prog', kids: [r1] }));
   // foot: optional OpenSea link + published-ago
   const foot = mk('div', { class: 'foot' });
   const os = openSeaHref(s.openSeaSlug);
