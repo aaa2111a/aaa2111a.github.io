@@ -116,7 +116,7 @@
       </div>
       <div class="block">
         <div class="bh">Scan a whitelist</div>
-        <p class="bp">Already have a list? Upload a CSV of wallets and get back only the ones that clear your requirements — the clean list, ready to download. A display-only <b>showcase</b> card also publishes on the home page with your collection and how many wallets passed.</p>
+        <p class="bp">Already have a list? Upload a CSV of wallets and get back only the ones that clear your requirements — the clean list, ready to download. A display-only <b>showcase</b> card also publishes on the home page with your collection and the number of wallets you scanned.</p>
       </div>
     </div>
 
@@ -162,6 +162,10 @@
         <p class="fa">A <b>room</b> is a live link people join with their own wallet, in real time. A <b>scan</b> takes a list you already have (a CSV) and hands back only the wallets that pass — no link, no waiting for people to join.</p>
       </details>
       <details>
+        <summary>What CSV format should I use?</summary>
+        <p class="fa">Any plain <b>.csv</b> or <b>.txt</b> file of Ethereum addresses (<b>0x…</b>, 40 hex characters). One per line, or separated by commas, semicolons or spaces — all work, and you can mix them. Headers and extra columns are ignored; only the wallet addresses are read, and duplicates are removed automatically. Up to <b>5,000</b> wallets, file up to 10 MB. ENS names aren't supported — use the 0x address.</p>
+      </details>
+      <details>
         <summary>Can bots fake the requirements?</summary>
         <p class="fa">Some are cheap to fake — a bot can self-deploy throwaway contracts and mint to itself. Others can't: "active across months" needs real time, "paid mints only" needs real ETH to have left the wallet. Stack a few and faking gets expensive fast. It's a strong filter, not a guarantee.</p>
       </details>
@@ -171,7 +175,7 @@
       </details>
       <details>
         <summary>What's a showcase?</summary>
-        <p class="fa">When a creator scans a CSV, a display-only card publishes on the home page — the collection name, banner, and how many wallets passed. It's not joinable; it's just a public record of the scan.</p>
+        <p class="fa">When a creator scans a CSV, a display-only card publishes on the home page — the collection name, banner, and the number of wallets scanned. It's not joinable; it's just a public record of the scan.</p>
       </details>
       <details>
         <summary>What does it cost?</summary>
