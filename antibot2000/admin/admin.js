@@ -9,7 +9,7 @@
 //     The only innerHTML is a compile-time-constant SVG (iconNode), same pattern as create/dashboard.
 //   - all list rows use ONE delegated listener per group (no per-row/per-render listener leak).
 import {
-  listAdminOverview, adminMintCode, revokeScanCode, adminUnrevokeScanCode,
+  listAdminOverview, adminMintCode, revokeScanCode, adminUnrevokeScanCode, adminDeleteCode,
   adminSetFeatured, adminDeleteRoom, adminUndeleteRoom, adminDeleteShowcase,
   watchPublicRooms, watchShowcases, txt, mk, errMsg,
 } from '../firebase.js';
@@ -74,7 +74,7 @@ async function mintCode() {
     $('mcLabel').value = '';
     await refreshCodes();
   } catch (e) { txt(mcErr, errMsg(e)); mcErr.classList.add('on'); }
-  finally { mcGo.textContent = old; mcGo.disabled = mcReveal.classList.contains('show'); }   // stay disabled while a code is revealed (don't overwrite an un-copied code)
+  finally { mcGo.textContent = old; mcGo.disabled = false; }   // always re-enable → mint one code after another (a new mint just replaces the revealed code; "Done" dismisses)
 }
 if (mcGo) mcGo.addEventListener('click', mintCode);
 const mcDone = $('mcDone');
@@ -106,11 +106,21 @@ function codeRow(c) {
   const revoked = c.status === 'revoked';
   const btn = mk('button', { class: 'btn btn-sm ' + (revoked ? 'btn-ghost' : 'btn-danger'), text: revoked ? 'Un-revoke' : 'Revoke',
     attrs: { 'data-hash': String(c.codeHash || ''), 'data-act': revoked ? 'unrevoke' : 'revoke' } });
-  return mk('div', { class: 'arow', kids: [info, mk('div', { class: 'aacts', kids: [btn] })] });
+  const acts = [btn];
+  if (revoked) acts.push(mk('button', { class: 'btn btn-sm btn-danger', text: 'Delete',      // remove a revoked code from the list (soft-delete)
+    attrs: { 'data-hash': String(c.codeHash || ''), 'data-act': 'delete' } }));
+  return mk('div', { class: 'arow', kids: [info, mk('div', { class: 'aacts', kids: acts })] });
 }
 $('codesGroup').addEventListener('click', async (e) => {
   const btn = e.target.closest('button[data-act]'); if (!btn) return;
   const hash = btn.getAttribute('data-hash'), act = btn.getAttribute('data-act');
+  if (act === 'delete') {                                   // two-tap confirm (reuses the shared arm state), then soft-delete a revoked code
+    if (_armed !== btn) { _disarm(); _armed = btn; _armedOrig = btn.textContent; btn.textContent = 'Tap again'; _armTimer = setTimeout(_disarm, 3000); return; }
+    _disarm(); btn.disabled = true;
+    try { await adminDeleteCode(_master, hash); await refreshCodes(); }
+    catch (e2) { btn.disabled = false; rowErr(btn, errMsg(e2)); }
+    return;
+  }
   btn.disabled = true;
   try {
     if (act === 'revoke') await revokeScanCode(_master, hash);
