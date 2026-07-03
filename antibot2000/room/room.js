@@ -117,7 +117,7 @@ function renderChips(req, meta) {
   if (f.paidOnly)
     elChips.appendChild(chip('Paid mints only', 'Only paid mints count toward the requirements — free mints are ignored.'));
   if (Number(f.recencyDays) > 0)
-    elChips.appendChild(chip('Recent activity', 'Only on-chain activity from the last ' + f.recencyDays + ' days counts.'));
+    elChips.appendChild(chip('Ignore fresh activity', 'Only on-chain activity older than ' + f.recencyDays + ' days counts — mints or collections first seen in the last ' + f.recencyDays + ' days are ignored.'));
   const alloc = Number(meta && meta.perWalletLimit) || 1;
   elChips.appendChild(chip(alloc + ' per wallet', alloc + ' whitelist spot' + (alloc === 1 ? '' : 's') + ' per wallet.'));
 }
