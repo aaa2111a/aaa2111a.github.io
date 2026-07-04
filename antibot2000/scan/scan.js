@@ -14,13 +14,13 @@ import { redeemScanCode, downloadCleanCsv, watchJobProgress, txt, errMsg, popAcc
 const RX_HANDLE  = /^[A-Za-z0-9_]{1,15}$/;
 const RX_OS_SLUG = /^[a-z0-9-]{1,80}$/;
 const RX_ADDR    = /^0x[0-9a-fA-F]{40}$/;
-// mirror the CF _validText charset so title/description show a SPECIFIC message instead of the server's
-// generic invalid-argument ("Something looks invalid"). The CF stays the authority; this is UX only.
-const RX_TEXT_ALLOW = /^[\p{L}\p{N}\p{P}\p{Z}]*$/u;   // Letters / Numbers / Punctuation / Spaces
-const RX_TEXT_DENY  = /[<>"'`]/;                      // quotes, apostrophe, backtick, < > (rare U+2028/9 line-seps -> left to the server)
+// Mirror ONLY the CF's hard DENY (UX -- the CF re-validates every field and is authority).
+// Quotes, apostrophes, symbols, emoji and newlines are all allowed now: the server accepts
+// them and every field renders via textContent (XSS-neutral). Byte-identical to the CF DENY.
+// Invisible code points are backslash-u escapes ON PURPOSE -- never paste the literal char.
+const RX_TEXT_DENY = /[<>\u2028\u2029\u202A-\u202E\u2066-\u2069]/;   // < >, JS line-seps, bidi controls
 function textErr(label, s) {
-  if (RX_TEXT_DENY.test(s))   return label + ' can\'t contain quotes, apostrophes or < >.';
-  if (!RX_TEXT_ALLOW.test(s)) return label + ' can\'t contain emoji or special symbols.';
+  if (RX_TEXT_DENY.test(s)) return label + ' can\'t contain < > or hidden control characters.';
   return '';
 }
 const MAX_BANNER    = 2 * 1024 * 1024;
