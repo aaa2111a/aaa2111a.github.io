@@ -18,6 +18,15 @@ if (!_accessCode) location.replace('../start/');
 const RX_HANDLE  = /^[A-Za-z0-9_]{1,15}$/;
 const RX_OS_SLUG = /^[a-z0-9-]{1,80}$/;
 const RX_ADDR    = /^0x[0-9a-fA-F]{40}$/;
+// mirror the CF _validText charset so title/description show a SPECIFIC message instead of the server's
+// generic invalid-argument ("Something looks invalid"). The CF stays the authority; this is UX only.
+const RX_TEXT_ALLOW = /^[\p{L}\p{N}\p{P}\p{Z}]*$/u;   // Letters / Numbers / Punctuation / Spaces
+const RX_TEXT_DENY  = /[<>"'`]/;          // quotes, apostrophe, backtick, < > (rare U+2028/9 line-seps → left to the server)
+function textErr(label, s) {
+  if (RX_TEXT_DENY.test(s))   return label + ' can\'t contain quotes, apostrophes or < >.';
+  if (!RX_TEXT_ALLOW.test(s)) return label + ' can\'t contain emoji or special symbols.';
+  return '';
+}
 const MIN_DUR = 15 * 60 * 1000;
 const MAX_DUR = 7 * 24 * 60 * 60 * 1000;
 const MAX_BANNER = 2 * 1024 * 1024;
@@ -124,8 +133,10 @@ async function onCreate() {
   const title = val('rname').trim();
   if (!title) return showErr('Add a room name.');
   if (title.length > 60) return showErr('Room name is too long (max 60 characters).');
+  const teName = textErr('Room name', title); if (teName) return showErr(teName);
   const description = val('rdesc').trim();
   if (description.length > 500) return showErr('Description is too long (max 500 characters).');
+  const teDesc = textErr('Description', description); if (teDesc) return showErr(teDesc);
 
   const twitterHandle = val('tw').trim();
   if (twitterHandle && !RX_HANDLE.test(twitterHandle)) return showErr('Twitter handle: letters, numbers and underscore only (max 15).');
