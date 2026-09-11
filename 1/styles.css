@@ -1784,6 +1784,15 @@ body {
   background: rgba(250, 247, 240, 0.92); border-top: 1px solid rgba(35, 32, 36, 0.1);
 }
 
+/* BURN revamp (Le 2026-09-11): mirror the docs shell EXACTLY — docs is the one page with ZERO compat
+   issues (works even in the X/Twitter in-app browser). ONE fixed header (.sub-card__head, flex:0) over ONE
+   scroll body (.sub-card__scroll = .docs-body, flex:1) that holds the connect/frogs + burn foot + checker
+   → they scroll as a single region. Kills the old frankenstein (body internal-scroll + pinned foot + pinned
+   checker) that contracted and trapped the checker input behind the soft keyboard. Burn-only: the base
+   .sub-card* model is untouched (docs uses .docs-shell; the not-shipped .sub-card pages keep the default). */
+.sub-card__scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; touch-action: pan-y; }
+.sub-card__scroll .sub-card__body { flex: none; overflow: visible; }
+
 .rf-status {
   font-family: "Space Mono", monospace; font-size: 3cqw; font-weight: 700; letter-spacing: 0.05em;
   text-transform: uppercase; padding: 2cqw 3.4cqw; border-radius: 999px; display: inline-block;

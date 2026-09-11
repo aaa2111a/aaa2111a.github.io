@@ -116,8 +116,8 @@
   }
 
   function connectPrompt() {
-    var b = R.el('button', { type: 'button', class: 'rf-btn', dataset: { action: 'connect' } }, 'Connect wallet');
-    return R.el('div', { class: 'rf-connect' }, [msg('Connect your wallet to see your Frog Heads and burn them for GTD.'), b]);
+    // single Connect entry point = the app-bar button (top right); no duplicate in-body button (Le 2026-09-11).
+    return R.el('div', { class: 'rf-connect' }, [msg('Tap Connect (top right) to see your Frog Heads and burn them for GTD.')]);
   }
 
   function frogRow(fr) {

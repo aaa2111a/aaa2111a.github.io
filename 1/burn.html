@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=4">
+  <link rel="stylesheet" href="styles.css?v=5">
 </head>
 <body class="page-sub">
   <main class="mobile-frame mobile-frame--card" aria-label="Burn Frog Heads for GTD">
@@ -37,12 +37,14 @@
           <div id="bn-burncount" class="burn-count" hidden></div>
           <div id="bn-status"></div>
         </header>
-        <div class="sub-card__body" id="bn-body"></div>
-        <footer class="sub-card__foot" id="bn-foot" hidden></footer>
-        <section class="chk-section" aria-label="Allowlist check">
-          <h2 class="chk-title">Already on the list?</h2>
-          <div id="bn-check"></div>
-        </section>
+        <div class="sub-card__scroll">
+          <div class="sub-card__body" id="bn-body"></div>
+          <footer class="sub-card__foot" id="bn-foot" hidden></footer>
+          <section class="chk-section" aria-label="Allowlist check">
+            <h2 class="chk-title">Already on the list?</h2>
+            <div id="bn-check"></div>
+          </section>
+        </div>
       </article>
     </section>
   </main>
@@ -64,7 +66,7 @@
   <script src="assets/tyb-acrylic-page-5.js"></script>
   <script src="assets/tyb-acrylic-page-6.js"></script>
   <script src="tyb-acrylic.js"></script>
-  <script src="burn.js"></script>
+  <script src="burn.js?v=1"></script>
   <script src="frhd-check.js"></script>
 </body>
 </html>
