@@ -139,11 +139,14 @@ body {
     user-select: auto;
   }
   /* the paste field: explicitly selectable + own gestures, so long-press → Paste works on a phone
-     (the global body user-select:none otherwise kills the iOS paste callout). */
+     (the global body user-select:none otherwise kills the iOS paste callout). font-size ≥ 16px stops
+     iOS from AUTO-ZOOMING on focus (it zooms any input under 16px) — done via font-size, NOT
+     user-scalable=no, so PINCH-ZOOM stays enabled. */
   .chk-input {
     -webkit-user-select: text;
     user-select: text;
     touch-action: auto;
+    font-size: 16px;
   }
 }
 
