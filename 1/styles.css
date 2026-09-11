@@ -139,14 +139,13 @@ body {
     user-select: auto;
   }
   /* the paste field: explicitly selectable + own gestures, so long-press → Paste works on a phone
-     (the global body user-select:none otherwise kills the iOS paste callout). font-size ≥ 16px stops
-     iOS from AUTO-ZOOMING on focus (it zooms any input under 16px) — done via font-size, NOT
-     user-scalable=no, so PINCH-ZOOM stays enabled. */
+     (the global body user-select:none otherwise kills the iOS paste callout). NOTE: the anti-auto-zoom
+     font-size ≥16px lives in a SEPARATE rule placed AFTER the base .chk-input (see below) — put here it
+     was overridden by that later base rule (font-size:3.4cqw), so iOS kept auto-zooming. */
   .chk-input {
     -webkit-user-select: text;
     user-select: text;
     touch-action: auto;
-    font-size: 16px;
   }
 }
 
@@ -1784,14 +1783,15 @@ body {
   background: rgba(250, 247, 240, 0.92); border-top: 1px solid rgba(35, 32, 36, 0.1);
 }
 
-/* BURN revamp (Le 2026-09-11): mirror the docs shell EXACTLY — docs is the one page with ZERO compat
-   issues (works even in the X/Twitter in-app browser). ONE fixed header (.sub-card__head, flex:0) over ONE
-   scroll body (.sub-card__scroll = .docs-body, flex:1) that holds the connect/frogs + burn foot + checker
-   → they scroll as a single region. Kills the old frankenstein (body internal-scroll + pinned foot + pinned
-   checker) that contracted and trapped the checker input behind the soft keyboard. Burn-only: the base
-   .sub-card* model is untouched (docs uses .docs-shell; the not-shipped .sub-card pages keep the default). */
-.sub-card__scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; touch-action: pan-y; }
-.sub-card__scroll .sub-card__body { flex: none; overflow: visible; }
+/* BURN revamp (Le 2026-09-11): the WHOLE card scrolls as ONE unit — the .subpage is the single scroll
+   container and the card is natural-height content that FILLS when short (flex:1 0 auto) and grows+scrolls
+   when tall. NO fixed header + flex:1 body: that "reserved scroll zone" was contracting under the header
+   when the soft keyboard opened and trapping the checker input (Le's exact symptom). With one scroll,
+   focusing the input scrolls it above the keyboard freely (belt: frhd-check.js scrollIntoView on focus).
+   Burn-only via .subpage--flow — docs keeps its own .docs-shell; base .sub-card* untouched. */
+.subpage--flow { display: flex; flex-direction: column; overflow-y: auto; -webkit-overflow-scrolling: touch; touch-action: pan-y; }
+.subpage--flow .sub-card { flex: 1 0 auto; }              /* fill when short, grow + scroll as one unit when tall */
+.subpage--flow .sub-card__body { flex: none; overflow: visible; }  /* no internal reserved scroll zone */
 
 .rf-status {
   font-family: "Space Mono", monospace; font-size: 3cqw; font-weight: 700; letter-spacing: 0.05em;
@@ -1835,6 +1835,11 @@ body {
 .chk-row { display: flex; gap: 2.5cqw; align-items: stretch; }
 .chk-input { flex: 1 1 auto; min-width: 0; padding: 3.5cqw; font-family: "Space Mono", ui-monospace, monospace; font-size: 3.4cqw; color: #12245a; background: #fff; border: 1.5px solid rgba(0,0,0,0.14); border-radius: 12px; }
 .chk-input:focus { outline: none; border-color: #1451ad; }
+/* iOS AUTO-ZOOM fix: ≥16px on phones so focusing the checker input doesn't zoom the page. Placed AFTER the
+   base .chk-input (font-size:3.4cqw ≈ 13px on a phone) so it WINS by source order (equal specificity) — in
+   the mobile block above it was defined earlier and this later base rule silently overrode it, which is why
+   iOS kept auto-zooming. Done via font-size (NOT user-scalable=no) so pinch-zoom stays enabled. */
+@media (max-width: 767px) { .chk-input { font-size: 16px; } }
 .chk-row .rf-btn { width: auto; flex: 0 0 auto; margin: 0; padding: 3.5cqw 5cqw; }
 .chk-err { color: #c02a2a; margin: 0; }
 .chk-banner { width: 100%; height: auto; display: block; border-radius: 14px; box-shadow: 0 6px 18px rgba(0,0,0,0.28); }

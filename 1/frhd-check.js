@@ -141,6 +141,9 @@
     }
     btn.addEventListener('click', submit);
     input.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); submit(); } });
+    // Keyboard belt: on focus, scroll the input clear of the soft keyboard. The card scrolls as one unit
+    // (.subpage--flow), so this lifts the input into view; the timeout lets the keyboard finish opening.
+    input.addEventListener('focus', function () { setTimeout(function () { try { input.scrollIntoView({ block: 'center' }); } catch (_) {} }, 300); });
     R.mount(host, R.el('div', { class: 'chk-form' }, [
       msg('Paste any wallet address to check if it is already on the GTD or FCFS list — no connection needed.'),
       R.el('div', { class: 'chk-row' }, [input, btn]),
