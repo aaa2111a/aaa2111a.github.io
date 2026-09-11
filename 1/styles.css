@@ -1,0 +1,1862 @@
+/* [hidden] must beat any author `display` (e.g. .app-btn{display:inline-flex} on the Back pill) —
+   an author-normal display declaration outranks the UA `[hidden]{display:none}` by cascade origin
+   regardless of specificity. Without !important, `el.hidden=true` is silently defeated. (FRHD #72 lesson.) */
+[hidden] { display: none !important; }
+
+/* .is-gated — launch-phase gate: an entry point for a flow NOT open this phase (mint / gacha / refund /
+   inventory / claim). This is the LOOK only; the behavioral block is the native `disabled` attribute set
+   by tyb-session.js (+ the router no-ops the action). NEVER key the gate off `:disabled` — that state is
+   already overloaded for in-flight "busy" on .rf-btn / .mint-step / .inv-act. grayscale (not just a fade)
+   because the brand IS colour, so desaturating reads as "not active". */
+.is-gated { filter: grayscale(1); opacity: 0.42; cursor: not-allowed; }
+/* The gated art/nav buttons each carry their OWN `filter` (drop-shadow) and `cursor: pointer` at
+   single-class specificity, so a bare `.is-gated` only TIES them and loses by source order (they are
+   defined later). Raise the gated rules to two classes so the desaturation, the not-allowed cursor, and
+   the killed hover-lift all win regardless of order — on hover too (Firefox applies :hover to a disabled
+   button; Chromium does not). The decorative drop-shadow is intentionally dropped on a disabled control. */
+.rev-btn.is-gated, .refund-btn.is-gated, .app-ibtn.is-gated { filter: grayscale(1); cursor: not-allowed; box-shadow: none; }
+.rev-btn.is-gated:hover, .rev-btn.is-gated:focus-visible,
+.refund-btn.is-gated:hover, .refund-btn.is-gated:focus-visible,
+.app-ibtn.is-gated:hover, .app-ibtn.is-gated:focus-visible { filter: grayscale(1); transform: none; box-shadow: none; }
+.is-gated:hover, .is-gated:focus-visible { transform: none; box-shadow: none; }
+/* App-bar nav icons for gated flows are HIDDEN in the launch phase (Le 2026-09-10): a greyed disabled icon
+   appearing when the wallet connects was clutter on the burn/GTD screen. Scoped to .app-ibtn ONLY — the page
+   CTAs keep their grey "soon" look. Strengthens the gate (hidden > greyed): is-gated + native disabled + the
+   router no-op all remain, so a gated action is strictly LESS reachable, never more. Compound selector wins
+   over the bare `.app-ibtn { display:inline-flex }` by specificity (0,2,0 > 0,1,0). */
+.app-ibtn.is-gated { display: none; }
+
+:root {
+  --page-offset: 0%;
+  --transition-duration: 720ms;
+  --transition-curve: cubic-bezier(.22, 1.06, .36, 1);
+  /* Scroll-bounce timing. The bounce starts at --scroll-bounce-delay (≈ mid-scroll)
+     so the blister only lags during the 2nd half of the page move, and its keyframe
+     peak (30% of the duration) lands right as you ARRIVE (~480ms ≈ delay + 30%×dur);
+     the rest of the duration is the smooth return to place. Two knobs to tune:
+     --scroll-bounce-delay = when it starts, and the 30% peak = when the drift maxes. */
+  --scroll-bounce-duration: 800ms;
+  --scroll-bounce-delay: 240ms;
+  /* TYB-MOTION (revert: delete these token lines) */
+  --tyb-ease-out: cubic-bezier(.16, 1, .3, 1);   /* content arriving / settle */
+  --tyb-ease-in: cubic-bezier(.55, 0, 1, .45);   /* leaving / accelerate */
+  --tyb-ease-back: cubic-bezier(.34, 1.56, .64, 1); /* card entrance overshoot */
+  --tyb-dur-sel: .24s;
+  --tyb-dur-swap: .32s;
+  --tyb-dur-rise: .46s;
+  --tyb-dur-page: .42s;
+  --tyb-dur-nav: .5s;
+  --tyb-stagger: 48ms;
+  /* /TYB-MOTION */
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  overscroll-behavior: none;
+  background: #1451ad;
+}
+
+body {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.mobile-frame {
+  position: relative;
+  width: min(100vw, 45.9954vh);
+  aspect-ratio: 402 / 874;
+  height: auto;
+  flex: 0 0 auto;
+  overflow: hidden;
+  border-radius: 4px;
+}
+
+/* Desktop paper and acrylics follow the cutting mat's interpolated transform.
+   The white paper base remains visible if WebGL cannot run. */
+.tyb-acrylic-canvas {
+  display: none;
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: -1;
+  pointer-events: none;
+}
+@media (min-width: 768px) {
+  body {
+    isolation: isolate;
+    background: #1451ad;
+  }
+
+  .tyb-acrylic-canvas.is-ready {
+    display: block;
+  }
+
+  .mobile-frame {
+    box-shadow: 5px 2px 7px rgb(42 25 12 / 28%),
+                14px 12px 32px rgb(42 25 12 / 24%);
+  }
+}
+
+/* ── MOBILE ONLY (≤767px) — complementary to the desktop @media (min-width:768px) above; the two ranges are
+   mutually exclusive, so DESKTOP IS BYTE-UNTOUCHED. Fix for the in-app-browser pillarbox: the base
+   `.mobile-frame` is contain-fit (min(100vw, 45.9954vh)), so a phone whose usable height is reduced by
+   persistent in-app toolbars shrinks the WIDTH to keep the 402:874 shape → blue mat bars on the sides.
+   The SUBPAGES (burn/docs, tagged .mobile-frame--card) are a reflowing card with no aspect to protect, so on
+   phones they fill the real width (100vw — chrome never reduces width) and the real visible height. We use
+   DVH (dynamic viewport height), not svh: dvh SHRINKS when the soft keyboard opens, so the frame contracts
+   to the space above the keyboard and the checker input (the last flex child of .sub-card) stays visible
+   just above it; 100vh is the pre-dvh fallback for iOS<15.4. The INDEX keeps its aspect-locked frame (its
+   art is %-composed; filling it would crop content) — it carries no --card class, so it is untouched here. */
+@media (max-width: 767px) {
+  .mobile-frame--card {
+    width: 100vw;
+    height: 100vh;   /* fallback: iOS < 15.4 (no dvh) */
+    height: 100dvh;  /* shrinks with the soft keyboard → the checker input stays above it */
+    aspect-ratio: auto;
+    border-radius: 0;
+  }
+  /* burn/docs (body.page-sub) are a normal card with NO swipe-nav (only the index loads script.js), so the
+     index's desktop-drag globals on <body> — touch-action:none / user-select:none — are pure side effects
+     here. Lift them ON THESE PAGES so PINCH-ZOOM works and text is selectable. Index <body> keeps them. */
+  body.page-sub {
+    touch-action: pan-x pan-y pinch-zoom;
+    -webkit-user-select: auto;
+    user-select: auto;
+  }
+  /* the paste field: explicitly selectable + own gestures, so long-press → Paste works on a phone
+     (the global body user-select:none otherwise kills the iOS paste callout). font-size ≥ 16px stops
+     iOS from AUTO-ZOOMING on focus (it zooms any input under 16px) — done via font-size, NOT
+     user-scalable=no, so PINCH-ZOOM stays enabled. */
+  .chk-input {
+    -webkit-user-select: text;
+    user-select: text;
+    touch-action: auto;
+    font-size: 16px;
+  }
+}
+
+.track {
+  position: absolute;
+  inset: 0 auto auto 0;
+  width: 100%;
+  height: 300%;
+  background-color: #1451ad; /* mat base as a fallback so .track is never transparent while the jpg decodes on
+                                load → no bg flash on the docs→index nav (.subpage already has this; .track didn't) */
+  background-image: url("assets/blue-cutting-mat-3-sections.jpg");
+  background-position: center top;
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
+  transform: translate3d(0, var(--page-offset), 0);
+  transition: transform var(--transition-duration) var(--transition-curve);
+  will-change: transform;
+}
+
+.page {
+  position: relative;
+  width: 100%;
+  height: calc(100% / 3);
+}
+
+/* scroll-lock page indicator — 3 dots, center-left; the active page's dot grows (script.js toggles .is-active).
+   Sized in min(vw, vh) to track the phone frame's own min(100vw, 45.9954vh) width WITHOUT needing a query
+   container (.mobile-frame is not one). The grow reuses --transition-duration/-curve so it syncs with the page
+   slide AND inherits the reduced-motion 180ms automatically. */
+.page-dots {
+  position: absolute; z-index: 12;
+  left: min(1.3vw, 0.6vh); top: 50%; transform: translateY(-50%);
+  display: flex; flex-direction: column; align-items: center;
+  gap: min(2.4vw, 1.1vh);
+  padding: min(2.4vw, 1.1vh) min(1.7vw, 0.78vh);
+  background: #151718;
+  border-radius: 999px;
+  pointer-events: none;
+}
+.page-dot {
+  width: min(1.8vw, 0.83vh); height: min(1.8vw, 0.83vh);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.55);
+  transition: transform var(--transition-duration) var(--transition-curve), background-color 220ms ease;
+  will-change: transform;
+}
+.page-dot.is-active {
+  transform: scale(1.9);
+  background: #fff;
+}
+
+.gear-pack {
+  position: absolute;
+  z-index: 1;
+  top: 50%;
+  left: 50%;
+  display: block;
+  width: auto;
+  height: auto;
+  max-width: 90%;
+  max-height: 82%;
+  transform: translate3d(-50%, -50%, 0);
+  pointer-events: none;
+  -webkit-user-drag: none;
+}
+
+/* denpaclub.app hover on the page-1 blister. It's a transparent PNG, so the shadow
+   is a drop-shadow (follows the silhouette) instead of a rectangular box-shadow; and
+   the lift uses the individual `translate` property so it COMPOSES with the centering
+   `transform` + the bounce keyframes rather than overwriting them. Same asymmetric
+   timing as the cards: quick lift-in (180ms), slow lingering return (720ms/120ms). */
+.page--first .gear-pack {
+  pointer-events: auto;
+  top: 48%; /* nudge the front blister up a touch so it doesn't crowd the mech-cards below, without touching the top bulletin (Le 2026-09-09) */
+  filter:
+    drop-shadow(0 10px 18px rgb(25 28 30 / 14%))
+    drop-shadow(0 3px 6px rgb(25 28 30 / 12%));
+  transition: filter 720ms ease, translate 720ms ease;
+  transition-delay: 120ms;
+}
+
+.page--first .gear-pack:hover {
+  translate: 0 -4px;
+  filter:
+    drop-shadow(0 20px 30px rgb(25 28 30 / 20%))
+    drop-shadow(0 5px 9px rgb(25 28 30 / 16%));
+  transition-duration: 180ms;
+  transition-delay: 0s;
+}
+
+/* Page-2 (reverse) blister mirrors the page-1 blister's position so the pack sits in the
+   same spot when you flip front→back (Le 2026-09-11). Its button overlay moves to match. */
+.page--second .gear-pack {
+  top: 48%;
+}
+
+.gear-pack.is-opening {
+  animation: gear-pack-opening-bounce 520ms cubic-bezier(.22, .78, .28, 1) both;
+  will-change: transform;
+}
+
+.gear-pack.is-scroll-bouncing-up {
+  animation: gear-pack-scroll-bounce-up var(--scroll-bounce-duration) linear var(--scroll-bounce-delay) both;
+  will-change: transform;
+}
+
+.gear-pack.is-scroll-bouncing-down {
+  animation: gear-pack-scroll-bounce-down var(--scroll-bounce-duration) linear var(--scroll-bounce-delay) both;
+  will-change: transform;
+}
+
+@keyframes gear-pack-opening-bounce {
+  0% {
+    transform: translate3d(-50%, -50%, 0) scale(1);
+  }
+
+  38% {
+    transform: translate3d(-50%, -51.1%, 0) scale(1.012);
+  }
+
+  68% {
+    transform: translate3d(-50%, -49.75%, 0) scale(.997);
+  }
+
+  84% {
+    transform: translate3d(-50%, -50.18%, 0) scale(1.002);
+  }
+
+  100% {
+    transform: translate3d(-50%, -50%, 0) scale(1);
+  }
+}
+
+@keyframes gear-pack-scroll-bounce-up {
+  0% {
+    transform: translate3d(-50%, -50%, 0);
+    animation-timing-function: cubic-bezier(.42, 0, .58, 1);
+  }
+
+  30% {
+    transform: translate3d(-50%, -51.6%, 0);
+    animation-timing-function: cubic-bezier(.22, 1, .36, 1);
+  }
+
+  100% {
+    transform: translate3d(-50%, -50%, 0);
+  }
+}
+
+@keyframes gear-pack-scroll-bounce-down {
+  0% {
+    transform: translate3d(-50%, -50%, 0);
+    animation-timing-function: cubic-bezier(.42, 0, .58, 1);
+  }
+
+  30% {
+    transform: translate3d(-50%, -48.4%, 0);
+    animation-timing-function: cubic-bezier(.22, 1, .36, 1);
+  }
+
+  100% {
+    transform: translate3d(-50%, -50%, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --transition-duration: 180ms;
+    --transition-curve: ease-out;
+  }
+
+  .gear-pack.is-opening,
+  .gear-pack.is-scroll-bouncing-up,
+  .gear-pack.is-scroll-bouncing-down,
+  .gear-pack--reverse.is-scroll-bouncing-up ~ .reverse-buttons,
+  .gear-pack--reverse.is-scroll-bouncing-down ~ .reverse-buttons,
+  .bul-dot {
+    animation: none;
+  }
+
+  /* TYB-MOTION (revert: delete this group) — kill the new motion under reduced-motion,
+     scoped to the new selectors (never a global *, which would stomp the tuned gear-pack values above) */
+  .deg-card,
+  .doc-socials__item,
+  .det-group:not([hidden]),
+  .sub-card,
+  .docs-shell { animation: none; }
+  .doc-switch__btn,
+  .doc-switch__thumb,
+  .doc-chip,
+  .bn-step__num,
+  .bn-step__label { transition: none; }
+  .tyb-navout { display: none !important; }
+  /* /TYB-MOTION */
+}
+
+/* ---- "How it works" panels — page 2, in the space under the blister ---- */
+/* Purely additive: lives inside .page--second, does NOT touch the scroll model.
+   Sized in cqw (container = .mech-panels) so the trio scales with the blister
+   frame at every resolution, exactly like the pack does. */
+.mech-panels {
+  position: absolute;
+  left: 4.5%;
+  right: 4.5%;
+  bottom: 1.6%;
+  z-index: 2;
+  display: flex;
+  gap: 2.6%;
+  container-type: inline-size;
+  font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+}
+
+.mech-card {
+  position: relative;
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  text-decoration: none; /* now an <a> to docs.html — kill the link underline */
+  color: inherit;
+  cursor: pointer;
+  padding: 2.9cqw 2.8cqw;
+  background: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.85);
+  border-radius: 3cqw;
+  /* denpaclub.app card hover — resting shadow + asymmetric transition:
+     the base 720ms only slows the hover-OUT (lingering return); each :hover
+     resets duration/delay so the lift-IN stays quick (same spec as denpa). */
+  box-shadow:
+    0 17px 28px rgb(25 28 30 / 16%),
+    0 3px 6px rgb(25 28 30 / 14%);
+  transition: box-shadow 720ms ease, transform 720ms ease;
+  transition-delay: 120ms;
+}
+
+.gtd-live {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 34%;
+  transform: translate(35%, -35%);
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  z-index: 3;
+  pointer-events: none;
+  filter: drop-shadow(0 2px 2px rgb(0 0 0 / 20%));
+}
+.gtd-live__star {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  animation: gtd-live-spin 12s linear infinite;
+}
+.gtd-live__text {
+  position: relative;
+  color: #151718;
+  font-size: min(2.8vw, 1.288vh);
+  font-family: "Plus Jakarta Sans", sans-serif;
+  font-weight: 800;
+  letter-spacing: -.06em;
+}
+@keyframes gtd-live-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .gtd-live__star { animation: none; }
+}
+.mech-card:hover {
+  transform: translateY(-3px);
+  box-shadow:
+    0 21px 34px rgb(25 28 30 / 20%),
+    0 4px 8px rgb(25 28 30 / 15%);
+  transition-duration: 180ms;
+  transition-delay: 0s;
+}
+
+.mech-card__head {
+  display: flex;
+  align-items: center;
+  gap: 2cqw;
+  margin-bottom: 1.8cqw;
+}
+
+.mech-icon {
+  flex: 0 0 auto;
+  width: 6.8cqw;
+  height: 6.8cqw;
+  border-radius: 2cqw;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 3.6cqw;
+}
+
+.mech-card h3 {
+  margin: 0;
+  font-size: 3.1cqw;
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+  color: #232024;
+}
+
+.mech-card p {
+  margin: 0;
+  font-size: 2.5cqw;
+  line-height: 1.3;
+  font-weight: 500;
+  color: #5b5760;
+}
+
+.mech-tag {
+  align-self: flex-start;
+  margin-top: 2cqw;
+  padding: 1.1cqw 2cqw;
+  border-radius: 999px;
+  font-family: "Space Mono", "SFMono-Regular", Consolas, Menlo, monospace;
+  font-size: 2.2cqw;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
+
+.mech-icon.icon-a { background: rgba(255, 90, 77, 0.15); }
+.mech-icon.icon-b { background: rgba(43, 182, 163, 0.17); }
+.mech-icon.icon-c { background: rgba(58, 123, 213, 0.16); }
+.mech-tag.tag-a { background: rgba(255, 90, 77, 0.13); color: #c8402f; }
+.mech-tag.tag-b { background: rgba(43, 182, 163, 0.15); color: #1c7d70; }
+.mech-tag.tag-c { background: rgba(58, 123, 213, 0.14); color: #2857a0; }
+
+/* ---- Page-1 intro card (single rectangular card where the 3 mech-cards used to sit; Le 2026-09-11) ---- */
+.intro-panels {
+  position: absolute;
+  left: 4.5%;
+  right: 4.5%;
+  bottom: 3.308%; /* Match the resting JOIN GTD-to-blister gap above. */
+  z-index: 2;
+  container-type: inline-size;
+  font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+}
+
+.intro-card {
+  background: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.85);
+  border-radius: 3cqw;
+  padding: 4.4cqw 5cqw;
+  box-shadow:
+    0 17px 28px rgb(25 28 30 / 16%),
+    0 3px 6px rgb(25 28 30 / 14%);
+  transition: box-shadow 720ms ease, transform 720ms ease;
+  transition-delay: 120ms;
+}
+
+.intro-card:hover {
+  transform: translateY(-3px);
+  box-shadow:
+    0 21px 34px rgb(25 28 30 / 20%),
+    0 4px 8px rgb(25 28 30 / 15%);
+  transition-duration: 180ms;
+  transition-delay: 0s;
+}
+
+.intro-card__text {
+  margin: 0;
+  font-size: 3.3cqw;
+  line-height: 1.35;
+  font-weight: 600;
+  color: #5b5760;
+  text-align: center;
+}
+
+.intro-card__text b { color: #232024; font-weight: 800; }
+
+.intro-card__mascot {
+  position: relative;
+  width: 20cqw;
+  margin: 2cqw auto 0;
+}
+.intro-card__blast {
+  position: absolute;
+  width: 45.5%;
+  height: auto;
+  left: -15%;
+  bottom: 0;
+  animation: intro-bomb-blast 2.051282s steps(1, end) infinite;
+}
+.intro-card__bomb {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: auto;
+  transform-origin: center;
+  animation: intro-bomb-rock 2.051282s steps(1, end) infinite;
+}
+
+@keyframes intro-bomb-rock {
+  0%, 100% { transform: rotate(-10deg); }
+  50% { transform: rotate(10deg); }
+}
+@keyframes intro-bomb-blast {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .intro-card__bomb { animation: none; }
+  .intro-card__blast { animation: none; opacity: 0; }
+}
+
+/* ---- Decorative yellow sparkles ringing the blister (pages 1 & 2) ---- */
+/* One layer per page (scrolls with it). JS spawns short-lived SVG stars into the
+   ACTIVE page's layer; each is born tiny, grows, drifts up, then shrinks away and
+   removes itself. pointer-events:none so it never blocks the buttons underneath. */
+.sparkles {
+  position: absolute;
+  inset: 0;
+  z-index: 6; /* above the blister/buttons/cards (z1–2) so sparkles are never overlapped (Le); below the app-bar (z10) + page-dots (z12) */
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.spk {
+  position: absolute;
+  width: var(--sz, 16px);
+  height: var(--sz, 16px);
+  margin-top: calc(var(--sz, 16px) / -2);
+  margin-left: calc(var(--sz, 16px) / -2);
+  fill: var(--col, #ffe14d);
+  filter: drop-shadow(0 1px 1.2px rgba(150, 110, 0, 0.28));
+  opacity: 0;
+  will-change: translate, scale, opacity;
+  /* Two independent animations on separate transform properties so they compose:
+     the FLOAT is LINEAR (constant velocity — the drift never decelerates or
+     freezes), while the grow→shrink + fade stay smooth (ease-in-out). */
+  animation:
+    spk-float var(--dur, 2s) linear both,
+    spk-pop var(--dur, 2s) ease-in-out both;
+}
+
+@keyframes spk-float {
+  from { translate: 0 0; }
+  to { translate: var(--dx, 0px) var(--dy, -30px); }
+}
+
+@keyframes spk-pop {
+  0% { opacity: 0; scale: 0.14; rotate: var(--r0, 0deg); }
+  18% { opacity: 1; }
+  50% { scale: 1; rotate: calc((var(--r0, 0deg) + var(--r1, 40deg)) / 2); }
+  82% { opacity: 1; }
+  100% { opacity: 0; scale: 0.12; rotate: var(--r1, 40deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spk { display: none; }
+}
+
+/* ---- Page 2 action buttons (GTD / MINT / GACHA) over the blister reverse ---- */
+/* The overlay matches the reverse image's rendered box exactly (same sizing rules),
+   so each button's % position lands on its card. The pack image keeps its own
+   arrival bounce; the overlay mirrors it via the sibling rules below (no JS change). */
+.reverse-buttons {
+  position: absolute;
+  top: 48%; /* matches the reverse blister (moved to 48% to mirror page-1) so the buttons stay on it */
+  left: 50%;
+  width: 90%;
+  aspect-ratio: 1691 / 2622;
+  max-height: 82%;
+  transform: translate3d(-50%, -50%, 0);
+  z-index: 2;
+  pointer-events: none;
+}
+
+.rev-btn {
+  position: absolute;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  pointer-events: auto;
+  /* drop-shadow follows the crop's actual silhouette (rounded corners, transparent
+     outside) — unlike box-shadow, which would trace the rectangular button box and
+     leave a light notch at the corners. No border-radius on the image either: the
+     crop already carries its exact rounded shape, so any CSS rounding just over-clips. */
+  filter: drop-shadow(0 13px 20px rgb(25 28 30 / 20%)) drop-shadow(0 3px 6px rgb(25 28 30 / 16%));
+  transition: filter 720ms ease, transform 720ms ease;
+  transition-delay: 120ms;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Keep the GTD badge above sibling button filter/transform stacking contexts. */
+.rev-btn[data-action="gtd"] {
+  z-index: 1;
+  overflow: visible;
+}
+
+.rev-btn img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  -webkit-user-drag: none;
+}
+
+.rev-btn:hover,
+.rev-btn:focus-visible {
+  transform: translateY(-3px);
+  filter: drop-shadow(0 19px 28px rgb(25 28 30 / 24%)) drop-shadow(0 5px 9px rgb(25 28 30 / 18%));
+  transition-duration: 180ms;
+  transition-delay: 0s;
+  outline: none;
+}
+
+/* mirror the pack's arrival bounce onto the button overlay (class is toggled on the img by JS) */
+.gear-pack--reverse.is-scroll-bouncing-up ~ .reverse-buttons {
+  animation: gear-pack-scroll-bounce-up var(--scroll-bounce-duration) linear var(--scroll-bounce-delay) both;
+}
+
+.gear-pack--reverse.is-scroll-bouncing-down ~ .reverse-buttons {
+  animation: gear-pack-scroll-bounce-down var(--scroll-bounce-duration) linear var(--scroll-bounce-delay) both;
+}
+
+/* ---- Refund entry — a rectangle button at the bottom of page 3 ---- */
+.refund-slot {
+  position: absolute;
+  left: 6%;
+  right: 6%;
+  top: 50%; /* Conditions card above the refund button on page 3. */
+  transform: translateY(-50%);
+  z-index: 2;
+  container-type: inline-size;
+  display: flex;
+  flex-direction: column;
+  gap: 4cqw; /* Details card followed by the button. */
+}
+
+.refund-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center; /* center the content group (icon + text + arrow) horizontally (Le 2026-09-09) */
+  gap: 3cqw;
+  text-align: left;
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.07);
+  border-radius: 3.5cqw; /* rectangle with soft corners, not a pill */
+  padding: 3.6cqw 4cqw;
+  cursor: pointer;
+  box-shadow:
+    0 6px 18px rgb(25 28 30 / 16%),
+    0 2px 5px rgb(25 28 30 / 12%);
+  transition: transform 180ms ease, box-shadow 180ms ease;
+  font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.refund-btn:hover,
+.refund-btn:focus-visible {
+  transform: translateY(-2px);
+  box-shadow:
+    0 12px 26px rgb(25 28 30 / 20%),
+    0 4px 8px rgb(25 28 30 / 14%);
+  outline: none;
+}
+
+.refund-ic {
+  flex: 0 0 auto;
+  width: 9cqw;
+  height: 9cqw;
+  border-radius: 2.6cqw;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 5cqw;
+  background: rgba(58, 123, 213, 0.14);
+  color: #2857a0;
+}
+
+.refund-tx {
+  flex: 0 1 auto; /* was 1 1 auto (grew and pushed the arrow to the far edge → left-weighted); shrink so the group centers */
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+}
+
+.refund-tx b {
+  font-size: 4.2cqw;
+  font-weight: 800;
+  color: #151718;
+}
+
+.refund-tx small {
+  font-size: 2.9cqw;
+  font-weight: 500;
+  color: #5b5760;
+}
+
+.refund-go {
+  flex: 0 0 auto;
+  font-size: 5cqw;
+  font-weight: 800;
+  color: #151718;
+}
+
+/* ---- Refund conditions card (below the button on page 3, Le 2026-09-11) ---- */
+.refund-card {
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.07);
+  border-radius: 3.5cqw;
+  padding: 4.2cqw 4.4cqw;
+  text-align: left;
+  box-shadow:
+    0 10px 24px rgb(25 28 30 / 15%),
+    0 2px 5px rgb(25 28 30 / 12%);
+  font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+}
+
+.refund-card__head {
+  display: flex;
+  align-items: center;
+  gap: 2.6cqw;
+  margin-bottom: 2.6cqw;
+}
+
+.refund-card__ic {
+  flex: 0 0 auto;
+  width: 8cqw;
+  height: 8cqw;
+  border-radius: 2.4cqw;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 4.4cqw;
+  background: rgba(58, 123, 213, 0.14);
+  color: #2857a0;
+}
+
+.refund-card__head h3 {
+  margin: 0;
+  font-size: 4cqw;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: #151718;
+}
+
+.refund-card__lead {
+  margin: 0 0 2.8cqw;
+  font-size: 2.9cqw;
+  line-height: 1.35;
+  font-weight: 500;
+  color: #5b5760;
+}
+
+.refund-card__lead b { color: #232024; font-weight: 800; }
+
+.refund-card__list {
+  margin: 0;
+  padding-left: 4.4cqw;
+  display: flex;
+  flex-direction: column;
+  gap: 1.9cqw;
+}
+
+.refund-card__list li {
+  font-size: 2.7cqw;
+  line-height: 1.35;
+  font-weight: 500;
+  color: #5b5760;
+}
+
+.refund-card__list li b { color: #232024; font-weight: 800; }
+
+/* ---- Denpa button (below the refund card, page 3, Le 2026-09-11) ----
+   Bold stretched DENPA wordmark, optically centered inside a rounded rectangle
+   with a dark outline — wrapped in the
+   site's card format (white fill + shadow + hover lift). Links to denpaclub.app. */
+/* Outer card — white fill + padding so the black rounded-rect floats INSIDE with a margin
+   (Le: the black line must NOT be the button's edge). Same card format as the page's cards. */
+/* Reserve the former button row so the refund content does not move. */
+.refund-slot::after {
+  content: "";
+  height: calc(16.78cqw + 2px);
+}
+.denpa-footer {
+  position: absolute;
+  left: 6%;
+  right: 6%;
+  bottom: 0;
+  padding-bottom: 3.6%; /* Same width-relative inset as .app-top. */
+  container-type: inline-size;
+  display: flex;
+  justify-content: center;
+  z-index: 2;
+}
+.denpa-btn {
+  align-self: center;
+  display: flex;
+  align-items: center;    /* center the black box vertically → equal top/bottom margin */
+  justify-content: center; /* center it horizontally → equal left/right margin */
+  width: 55.7cqw; /* sized so the side margin equals the top/bottom margin around the black box (Le) */
+  box-sizing: border-box;
+  padding: 3.06cqw 1.6cqw; /* vertical tuned so all 4 margins around the black box are equal (~2cqw, Le) */
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.07);
+  border-radius: 3.6cqw;
+  box-shadow:
+    0 10px 24px rgb(25 28 30 / 15%),
+    0 2px 5px rgb(25 28 30 / 12%);
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 180ms ease, box-shadow 180ms ease;
+}
+
+.denpa-btn:hover,
+.denpa-btn:focus-visible {
+  transform: translateY(-2px);
+  box-shadow:
+    0 16px 30px rgb(25 28 30 / 20%),
+    0 4px 8px rgb(25 28 30 / 14%);
+  outline: none;
+}
+
+/* h1 analog — carries the font size, the horizontal stretch, and the black rounded-rect box.
+   All box geometry is em/%-based, copied 1:1 from the denpaclub.app title, so the proportions
+   (border weight, corner radius, insets, stretch) match the original at this smaller size. */
+.denpa-btn__h {
+  position: relative;
+  display: inline-block;
+  font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  font-size: 13cqw;
+  font-weight: 900;
+  letter-spacing: -0.09em;
+  line-height: 0.82;
+  color: #151718;
+  transform: scaleX(1.21); /* the title's horizontal stretch */
+  transform-origin: center;
+  white-space: nowrap;
+}
+
+.denpa-btn__h::after {
+  content: "";
+  position: absolute;
+  top: -10%;
+  right: -5%;
+  bottom: -10%;
+  left: -5%;
+  box-sizing: border-box;
+  border: 0.065em solid currentColor; /* the bold outline, font-relative like the original */
+  border-radius: 0.105em / 0.126em;   /* two-value cancels scaleX so the corners stay round */
+  background: #fff;                    /* fill behind the letters */
+  pointer-events: none;
+}
+
+.denpa-btn__title {
+  position: relative;
+  z-index: 1; /* letters above the box's white fill */
+  display: inline-block;
+  transform: translate(-0.063em, -0.04em); /* Optical ink centering: compensate tracking horizontally and lift the capitals inside the outline. */
+}
+
+.denpa-btn__word {
+  display: inline-block;
+}
+
+/* ---- Floating app chrome: Docs + Connect Wallet pills, plus the bulletin ---- */
+/* Fixed to the frame (sibling of .track), so it stays put while the pages snap-scroll.
+   container-type lets the pills + bulletin scale with the frame in cqw. */
+.app-top {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  padding: 3.6% 4% 0;
+  pointer-events: none;
+  container-type: inline-size;
+}
+
+.app-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.app-btn {
+  pointer-events: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 1.8cqw;
+  font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-weight: 700;
+  font-size: 3.5cqw;
+  line-height: 1;
+  color: #151718;
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.07);
+  border-radius: 999px;
+  padding: 2.5cqw 3.7cqw;
+  cursor: pointer;
+  text-decoration: none;
+  white-space: nowrap;
+  box-shadow: 0 3px 12px rgb(0 0 0 / 20%);
+  transition: transform 180ms ease, box-shadow 180ms ease;
+}
+
+.app-btn:hover,
+.app-btn:focus-visible {
+  transform: translateY(-1.5px);
+  box-shadow: 0 6px 16px rgb(0 0 0 / 26%);
+  outline: none;
+}
+
+.app-btn svg {
+  width: 4.2cqw;
+  height: 4.2cqw;
+}
+
+/* Verified-badge X link — the seal IS the button (no pill chrome): transparent, no border/shadow, just the
+   blue rounded-point seal beside Docs. .app-vbadge .app-vbadge__seal (0,2,0) overrides `.app-btn svg` (0,1,1). */
+.app-btn--x.app-vbadge {
+  padding: 0;
+  background: none;
+  border: none;
+  box-shadow: none;
+}
+.app-vbadge .app-vbadge__seal {
+  width: 8.2cqw;
+  height: 8.2cqw;
+  display: block;
+  filter: drop-shadow(0 2px 6px rgb(0 0 0 / 26%));
+}
+.app-btn--x.app-vbadge:hover,
+.app-btn--x.app-vbadge:focus-visible {
+  transform: translateY(-1.5px);
+  box-shadow: none;
+}
+
+/* left cluster of the bar: Back (sub-pages only) + Docs */
+.app-left {
+  display: inline-flex;
+  align-items: center;
+  gap: 2cqw;
+}
+
+/* live-wiring watermark (real mode only; tyb-session paintLive): "N/M live · degraded (public RPC)" */
+.app-live {
+  font-size: 2.6cqw;
+  color: #5b6166;
+  white-space: nowrap;
+}
+
+/* "Back to the pack" pill — hidden on the home page (buildBar sets [hidden]) */
+.app-btn--back svg {
+  width: 3.8cqw;
+  height: 3.8cqw;
+}
+
+/* compact "Connect" pill (smaller than the other pills, on purpose) */
+.app-btn--connect {
+  background: #151718;
+  color: #fff;
+  border-color: transparent;
+  font-size: 3.1cqw;
+  padding: 2cqw 3.8cqw;
+}
+
+/* wallet zone: holds either the Connect pill or the connected action row */
+.app-wallet {
+  display: inline-flex;
+  align-items: center;
+}
+
+.app-actions {
+  display: none;
+  align-items: center;
+  gap: 2cqw;
+}
+
+.app-top.is-connected .app-btn--connect {
+  display: none;
+}
+
+.app-top.is-connected .app-actions {
+  display: inline-flex;
+}
+
+/* icon-only round action buttons (Inventory / Gacha / Claim) */
+.app-ibtn {
+  pointer-events: auto;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 11cqw;
+  height: 11cqw;
+  padding: 0;
+  color: #151718;
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.07);
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: 0 3px 12px rgb(0 0 0 / 20%);
+  transition: transform 180ms ease, box-shadow 180ms ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.app-ibtn:hover,
+.app-ibtn:focus-visible {
+  transform: translateY(-1.5px);
+  box-shadow: 0 6px 16px rgb(0 0 0 / 26%);
+  outline: none;
+}
+
+.app-ibtn svg {
+  width: 5cqw;
+  height: 5cqw;
+}
+
+/* compact connected-account chip (address + live dot); tap to disconnect */
+.app-btn--account {
+  background: #151718;
+  color: #fff;
+  border-color: transparent;
+  gap: 1.6cqw;
+  font-size: 3cqw;
+  padding: 2cqw 3cqw;
+}
+
+.app-addr {
+  font-family: "Space Mono", "SFMono-Regular", Consolas, Menlo, monospace;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.app-dot {
+  flex: 0 0 auto;
+  width: 2cqw;
+  height: 2cqw;
+  border-radius: 50%;
+  background: #2bb6a3;
+  box-shadow: 0 0 0 0.8cqw rgba(43, 182, 163, 0.28);
+}
+
+/* bulletin — lives INSIDE page 1 (scrolls away with the page), centered in the
+   gap between the pills and the top of the pack. The slot is the query container. */
+.bulletin-slot {
+  position: absolute;
+  top: 9%;
+  left: 4%;
+  right: 4%;
+  z-index: 3;
+  pointer-events: none;
+  container-type: inline-size;
+}
+
+.app-bulletin {
+  pointer-events: auto;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 2.6cqw;
+  width: 100%;
+  text-align: left;
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.07);
+  border-radius: 16px;
+  padding: 2.9cqw 3.4cqw;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgb(0 0 0 / 18%);
+  font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  transition: transform 180ms ease, box-shadow 180ms ease;
+}
+
+.app-bulletin:hover,
+.app-bulletin:focus-visible {
+  transform: translateY(-1.5px);
+  box-shadow: 0 7px 18px rgb(0 0 0 / 24%);
+  outline: none;
+}
+
+.bul-tag {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 1.8cqw;
+  font-family: "Space Mono", monospace;
+  font-size: 2.9cqw;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: #1c7d70;
+  background: rgba(43, 182, 163, 0.15);
+  border-radius: 999px;
+  padding: 1.5cqw 2.6cqw;
+}
+
+.bul-dot {
+  width: 2cqw;
+  height: 2cqw;
+  border-radius: 50%;
+  background: #2bb6a3;
+  box-shadow: 0 0 0 0.6cqw rgba(43, 182, 163, 0.35);
+  animation: bul-pulse 1.7s ease-in-out infinite;
+}
+
+@keyframes bul-pulse {
+  0%, 100% { box-shadow: 0 0 0 0.6cqw rgba(43, 182, 163, 0.35); }
+  50% { box-shadow: 0 0 0 1.7cqw rgba(43, 182, 163, 0); }
+}
+
+/* page-2 announcement variant: static (no click/lift), centered, amber MINT tag */
+.app-bulletin--info {
+  cursor: default;
+  justify-content: center;
+}
+
+.app-bulletin--info:hover,
+.app-bulletin--info:focus-visible {
+  transform: none;
+  box-shadow: 0 4px 14px rgb(0 0 0 / 18%);
+}
+
+.app-bulletin--info .bul-msg {
+  flex: 0 0 auto;
+}
+
+.bul-tag--mint {
+  color: #9a5a12;
+  background: rgba(255, 190, 60, 0.22);
+}
+
+.bul-msg {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 3.5cqw;
+  font-weight: 600;
+  color: #151718;
+}
+
+.bul-msg b { font-weight: 800; }
+
+.bul-go {
+  flex: 0 0 auto;
+  font-size: 4.6cqw;
+  font-weight: 800;
+  color: #151718;
+  line-height: 1;
+}
+
+/* ── wallet picker + mobile-webview banner (tyb-session.js) ───────────────── */
+.tyb-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(10, 20, 45, 0.55);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+}
+.tyb-modal {
+  width: min(92vw, 360px);
+  max-height: 80vh;   /* fallback: iOS < 15.4 */
+  max-height: 80svh;  /* svh = visible-with-bars, so the modal never runs behind a mobile toolbar; == vh on desktop */
+  overflow: auto;
+  background: #fff;
+  color: #232024;
+  border-radius: 18px;
+  padding: 20px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.4);
+  font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+}
+.tyb-modal__title {
+  margin: 0 0 14px;
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+.tyb-wallet-row {
+  display: block;
+  width: 100%;
+  text-align: left;
+  margin: 0 0 8px;
+  padding: 13px 15px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #232024;
+  background: #f4f2ec;
+  border: 1px solid rgba(35, 32, 36, 0.1);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: transform 140ms ease, box-shadow 140ms ease, background 140ms ease;
+}
+.tyb-wallet-row:hover {
+  transform: translateY(-1px);
+  background: #fff;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
+}
+.tyb-modal__empty {
+  margin: 0 0 10px;
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: #5b5760;
+}
+.tyb-modal__url {
+  display: block;
+  margin-top: 10px;
+  padding: 10px 12px;
+  font-family: "Space Mono", monospace;
+  font-size: 12px;
+  word-break: break-all;
+  color: #1451ad;
+  background: #f4f2ec;
+  border-radius: 10px;
+}
+/* modal header: title + a ✕ close button (Le: every window needs a visible way out) */
+.tyb-modal__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.tyb-modal__head .tyb-modal__title { margin: 0; }
+.tyb-modal__close {
+  flex: 0 0 auto;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  line-height: 1;
+  color: #232024;
+  background: #f4f2ec;
+  border: 1px solid rgba(35, 32, 36, 0.1);
+  border-radius: 50%;
+  cursor: pointer;
+  transition: transform 140ms ease, box-shadow 140ms ease, background 140ms ease;
+}
+.tyb-modal__close:hover,
+.tyb-modal__close:focus-visible {
+  background: #fff;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.14);
+  outline: none;
+}
+.tyb-modal__body { display: block; }
+
+/* mint modal — reuses .rf-btn / .rf-msg / .rf-warn / .rf-total / .rf-status from the sub-page shell */
+.tyb-modal .rf-connect { text-align: center; }
+.tyb-modal .rf-btn {
+  display: block;
+  width: 100%;
+  margin-top: 10px;
+  padding: 13px 15px;
+  font-size: 14px;
+  font-weight: 800;
+  color: #fff;
+  background: #151718;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: transform 160ms ease, box-shadow 160ms ease, opacity 160ms ease;
+}
+.tyb-modal .rf-btn:hover:not(:disabled) { transform: translateY(-1.5px); box-shadow: 0 6px 16px rgba(0, 0, 0, 0.24); }
+.tyb-modal .rf-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.tyb-modal .rf-btn--ghost {
+  color: #232024;
+  background: #f4f2ec;
+  border: 1px solid rgba(35, 32, 36, 0.1);
+}
+.tyb-modal a.rf-btn { text-align: center; text-decoration: none; }
+.tyb-modal .rf-msg { font-size: 13.5px; line-height: 1.55; color: #5b5760; margin: 0 0 12px; }
+.tyb-modal .rf-warn { font-size: 11.5px; line-height: 1.5; color: #9a3b12; margin: 12px 0 0; font-weight: 600; }
+.tyb-modal .rf-total { display: flex; justify-content: space-between; font-size: 15px; font-weight: 800; margin: 14px 0 4px; }
+.tyb-modal .rf-status { display: inline-block; font-size: 11px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; padding: 4px 9px; border-radius: 999px; }
+.tyb-modal .rf-status--open { color: #1c7a3e; background: rgba(46, 160, 80, 0.15); }
+.tyb-modal .rf-status--closed { color: #9a3b12; background: rgba(214, 90, 40, 0.15); }
+.mint-head { margin-bottom: 10px; }
+.mint-stepper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  margin: 8px 0 4px;
+}
+.mint-step {
+  width: 40px;
+  height: 40px;
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1;
+  color: #151718;
+  background: #f4f2ec;
+  border: 1px solid rgba(35, 32, 36, 0.12);
+  border-radius: 50%;
+  cursor: pointer;
+  transition: transform 140ms ease, box-shadow 140ms ease, background 140ms ease;
+}
+.mint-step:hover:not(:disabled),
+.mint-step:focus-visible { background: #fff; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.14); outline: none; }
+.mint-step:disabled { opacity: 0.35; cursor: not-allowed; }
+.mint-qty {
+  min-width: 44px;
+  text-align: center;
+  font-family: "Space Mono", monospace;
+  font-size: 24px;
+  font-weight: 700;
+}
+
+/* gacha number chips (in the sub-card body — container-query units) */
+.gc-nums { display: flex; flex-wrap: wrap; align-items: center; gap: 1.6cqw; margin: 0 0 3.8cqw; }
+.gc-nums__h { flex: 0 0 100%; margin: 0 0 1.6cqw; font-size: 3.1cqw; font-weight: 700; letter-spacing: 0.02em; text-transform: uppercase; color: #5b5760; }
+.gc-num {
+  font-family: "Space Mono", "SFMono-Regular", Consolas, Menlo, monospace;
+  font-size: 3.4cqw; font-weight: 700; color: #232024;
+  background: #efeadf; border: 1px solid rgba(35, 32, 36, 0.1); border-radius: 999px; padding: 1.4cqw 2.8cqw;
+}
+.gc-num--win { color: #1c7a3e; background: rgba(46, 160, 80, 0.16); border-color: rgba(46, 160, 80, 0.3); }
+.gc-num--target { color: #9a5a12; background: rgba(255, 190, 60, 0.2); border-color: rgba(255, 190, 60, 0.4); }
+
+/* claim balance figure */
+.cl-amount { text-align: center; font-size: 9.5cqw; font-weight: 700; letter-spacing: -0.01em; color: #151718; margin: 1cqw 0 4cqw; }
+
+/* earned power-ups on the Claim page (chunk 8) — a claim row per in-play gacha purchase */
+.cl-pusec { margin: 4cqw 0 0; padding: 3.6cqw 0 0; border-top: 1px solid rgba(35, 32, 36, 0.1); }
+.cl-pusec__h { margin: 0 0 2.4cqw; font-size: 3.1cqw; font-weight: 700; letter-spacing: 0.02em; text-transform: uppercase; color: #5b5760; }
+.cl-pu {
+  display: flex; align-items: center; gap: 3cqw; padding: 3cqw; margin-bottom: 2.2cqw;
+  border: 1px solid rgba(35, 32, 36, 0.12); border-radius: 12px; background: #fff;
+}
+.cl-pu__t { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; line-height: 1.25; }
+.cl-pu__t b { font-size: 3.7cqw; font-weight: 800; color: #151718; }
+.cl-pu__sub { font-size: 2.8cqw; font-weight: 500; color: #5b5760; }
+/* .cl-pu .cl-pu__btn (2 classes) beats the later `.rf-btn { width:100% }` (1 class) so the claim button
+   sits auto-width on the right instead of swallowing the label. */
+.cl-pu .cl-pu__btn { flex: 0 0 auto; width: auto; display: inline-block; margin: 0; padding: 2.4cqw 4cqw; font-size: 3.2cqw; }
+
+/* ── inventory + evolve (chunk 8) — container-query units, inside the sub-card ── */
+/* power-ups panel */
+.inv-panel { margin: 0 0 4cqw; padding: 3.6cqw; border: 1px solid rgba(35, 32, 36, 0.1); border-radius: 14px; background: #fff; }
+.inv-panel__h { margin: 0 0 2.4cqw; font-size: 3.1cqw; font-weight: 700; letter-spacing: 0.02em; text-transform: uppercase; color: #5b5760; }
+.inv-pus { display: flex; flex-wrap: wrap; gap: 1.8cqw; }
+.inv-pu {
+  display: inline-flex; align-items: center; gap: 1.6cqw; padding: 1.6cqw 2.8cqw;
+  border: 1px solid rgba(35, 32, 36, 0.12); border-radius: 999px; background: #f4f2ec;
+  font-size: 3cqw; font-weight: 600; color: #5b5760;
+}
+.inv-pu b { font-weight: 700; color: #232024; }
+.inv-pu--has { background: rgba(58, 123, 213, 0.12); border-color: rgba(58, 123, 213, 0.28); color: #2857a0; }
+.inv-pu--has b { color: #2857a0; }
+.inv-pu__n { font-size: 3.2cqw; font-weight: 700; }
+.inv-hint { margin: 2.6cqw 0 0; }
+/* pointer to the Claim page when earned power-ups are waiting */
+.inv-claimhint {
+  display: block; margin: 0 0 4cqw; padding: 3cqw 3.4cqw; border-radius: 12px; text-decoration: none;
+  font-size: 3.2cqw; font-weight: 700; line-height: 1.45; color: #9a5a12;
+  background: rgba(255, 190, 60, 0.18); border: 1px solid rgba(255, 190, 60, 0.4);
+  transition: transform 160ms ease, box-shadow 160ms ease;
+}
+.inv-claimhint:hover, .inv-claimhint:focus-visible { transform: translateY(-1px); box-shadow: 0 5px 13px rgba(0, 0, 0, 0.1); outline: none; }
+
+/* per-token card */
+.inv-card { margin: 0 0 3.2cqw; border: 1px solid rgba(35, 32, 36, 0.1); border-radius: 14px; background: #fff; overflow: hidden; }
+.inv-card__head {
+  display: flex; align-items: center; justify-content: space-between; gap: 2cqw;
+  padding: 3cqw 3.6cqw; background: rgba(250, 247, 240, 0.9); border-bottom: 1px solid rgba(35, 32, 36, 0.08);
+}
+.inv-card__id { font-size: 4.4cqw; font-weight: 700; color: #151718; }
+.inv-card__tag {
+  font-family: "Space Mono", monospace; font-size: 2.6cqw; font-weight: 700; letter-spacing: 0.08em;
+  color: #c8402f; background: rgba(255, 90, 77, 0.13); border-radius: 999px; padding: 1cqw 2.4cqw;
+}
+.inv-card__body { padding: 1.6cqw 3.6cqw 2.6cqw; }
+.inv-row { display: flex; align-items: center; gap: 2.4cqw; padding: 2.4cqw 0; border-bottom: 1px solid rgba(35, 32, 36, 0.07); }
+.inv-row:last-child { border-bottom: none; }
+.inv-cat { flex: 1 1 auto; min-width: 0; font-size: 3.3cqw; font-weight: 600; color: #232024; }
+.inv-tier {
+  flex: 0 0 auto; font-family: "Space Mono", monospace; font-size: 2.9cqw; font-weight: 700;
+  color: #2857a0; background: rgba(58, 123, 213, 0.12); border: 1px solid rgba(58, 123, 213, 0.24);
+  border-radius: 999px; padding: 1.2cqw 2.6cqw;
+}
+.inv-tier--max { color: #1c7a3e; background: rgba(46, 160, 80, 0.14); border-color: rgba(46, 160, 80, 0.3); }
+.inv-act {
+  flex: 0 0 auto; font-family: inherit; font-size: 3cqw; font-weight: 800; color: #fff;
+  background: #151718; border: none; border-radius: 999px; padding: 2cqw 3.4cqw; cursor: pointer;
+  transition: transform 160ms ease, box-shadow 160ms ease, opacity 160ms ease;
+}
+.inv-act:hover:not(:disabled), .inv-act:focus-visible { transform: translateY(-1px); box-shadow: 0 5px 13px rgba(0, 0, 0, 0.22); outline: none; }
+.inv-act:disabled { opacity: 0.4; cursor: not-allowed; }
+.inv-act--ghost { color: #232024; background: #f4f2ec; border: 1px solid rgba(35, 32, 36, 0.12); }
+.inv-note { flex: 0 0 auto; font-size: 2.9cqw; font-weight: 700; color: #5b5760; }
+.inv-note--dim { color: #9a938c; font-weight: 600; }
+
+/* ── inventory REDESIGN (2026-09-08, Le): horizontal icon power-ups · NFT cards · detail + confirm pop-up ── */
+.inv-pus2 { display: flex; flex-wrap: nowrap; gap: 2cqw; overflow-x: auto; padding-bottom: 1cqw; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+.inv-pus2::-webkit-scrollbar { display: none; }
+.inv-pu2 {
+  flex: 1 0 17%; min-width: 17%; display: flex; flex-direction: column; align-items: center; gap: 0.8cqw;
+  padding: 2.4cqw 1cqw; border: 1px solid rgba(35, 32, 36, 0.1); border-radius: 12px; background: #f4f2ec; color: #9a938c;
+  cursor: default; user-select: none;
+}
+.inv-pu2--has { background: rgba(58, 123, 213, 0.12); border-color: rgba(58, 123, 213, 0.28); color: #2857a0; }
+.inv-pu2__ico { font-size: 6cqw; line-height: 1; width: 7cqw; height: 7cqw; display: inline-flex; align-items: center; justify-content: center; object-fit: contain; }
+.inv-pu2__n { font-size: 3.4cqw; font-weight: 700; }
+.inv-pu2__l { font-size: 2.3cqw; font-weight: 600; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.inv-nfts__h { margin-top: 4cqw; }
+.inv-nfts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 3cqw; }
+.inv-nft {
+  display: flex; flex-direction: column; padding: 0; text-align: left; font: inherit; color: inherit;
+  background: #fff; border: 1px solid rgba(35, 32, 36, 0.1); border-radius: 14px; overflow: hidden; cursor: pointer;
+  transition: transform 140ms ease, box-shadow 140ms ease;
+}
+.inv-nft:hover, .inv-nft:focus-visible { transform: translateY(-1.5px); box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12); outline: none; }
+.inv-nft__art, .inv-detail__art { display: block; width: 100%; aspect-ratio: 1 / 1; object-fit: cover; background: #e9e6df; }
+.inv-art--none { display: flex; align-items: center; justify-content: center; font-family: "Space Mono", monospace; font-weight: 700; font-size: 5cqw; letter-spacing: 0.1em; color: #9a938c; }
+.inv-nft__meta { padding: 2.2cqw 2.6cqw 2.6cqw; }
+.inv-nft__row { display: flex; align-items: center; justify-content: space-between; gap: 1.6cqw; }
+.inv-nft__id { font-size: 3.8cqw; font-weight: 700; color: #151718; }
+.inv-nft__badge { font-size: 2.3cqw; font-weight: 700; color: #5b5760; background: #f4f2ec; border-radius: 999px; padding: 0.6cqw 1.8cqw; white-space: nowrap; }
+.inv-nft__badge--go { color: #1c7a3e; background: rgba(46, 160, 80, 0.14); }
+.inv-nft__strip { display: flex; gap: 1cqw; margin-top: 1.6cqw; }
+.inv-nft__t { display: inline-flex; align-items: center; gap: 0.5cqw; font-size: 2.6cqw; font-weight: 700; color: #5b5760; background: #f4f2ec; border-radius: 999px; padding: 0.5cqw 1.4cqw; }
+.inv-nft__t--max { color: #1c7a3e; background: rgba(46, 160, 80, 0.14); }
+.inv-nft__ico, .inv-cat__ico { font-size: 2.8cqw; line-height: 1; width: 3.2cqw; height: 3.2cqw; display: inline-flex; align-items: center; justify-content: center; object-fit: contain; }
+.inv-cat { display: inline-flex; align-items: center; gap: 1.6cqw; }
+.inv-cat__ico { font-size: 3.6cqw; width: 4.2cqw; height: 4.2cqw; color: #2857a0; }
+.inv-detail { display: block; }
+.inv-detail__art { border-radius: 14px; margin: 0 0 3cqw; }
+.inv-back {
+  display: inline-block; margin: 0 0 3cqw; padding: 1.8cqw 3.2cqw; font: inherit; font-size: 3.2cqw; font-weight: 700; color: #232024;
+  background: #f4f2ec; border: 1px solid rgba(35, 32, 36, 0.12); border-radius: 999px; cursor: pointer;
+}
+.inv-back:hover, .inv-back:focus-visible { background: #fff; outline: none; }
+.inv-confirm__odds { display: flex; align-items: center; gap: 10px; margin: 0 0 12px; font-size: 15px; color: #151718; }
+.inv-confirm__ico { font-size: 22px; line-height: 1; width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; color: #2857a0; object-fit: contain; }
+.inv-confirm__h { margin: 0 0 3cqw; font-size: 4.4cqw; }
+
+/* ── docs page (chunk 9) — long-form content inside the sub-card body (container-query units) ── */
+.doc-toc { display: flex; flex-wrap: wrap; gap: 1.6cqw; margin: 0 0 5cqw; }
+.doc-toc a {
+  font-family: "Space Mono", "SFMono-Regular", Consolas, Menlo, monospace; font-size: 2.9cqw; font-weight: 700;
+  letter-spacing: 0.03em; text-decoration: none; color: #5b5760;
+  background: #fff; border: 1px solid rgba(35, 32, 36, 0.1); border-radius: 999px; padding: 1.4cqw 2.8cqw;
+}
+.doc-toc a:hover, .doc-toc a:focus-visible { color: #232024; border-color: rgba(35, 32, 36, 0.24); outline: none; }
+.doc { padding: 5cqw 0; border-top: 1px solid rgba(35, 32, 36, 0.1); scroll-margin-top: 3cqw; }
+.doc:first-of-type { border-top: 0; padding-top: 1cqw; }
+.doc-kick {
+  display: inline-flex; align-items: center; gap: 2cqw; margin-bottom: 2.6cqw;
+  font-family: "Space Mono", monospace; font-size: 2.9cqw; letter-spacing: 0.14em; text-transform: uppercase; color: #5b5760;
+}
+.doc-kick i { width: 4.6cqw; height: 4.6cqw; border-radius: 1.6cqw; display: inline-block; }
+.dk-red { background: #ff5a4d; } .dk-blue { background: #3a7bd5; } .dk-teal { background: #2bb6a3; } .dk-yellow { background: #ffe14d; }
+.doc h2 { font-size: 5.6cqw; font-weight: 800; letter-spacing: -0.01em; margin: 0 0 2.6cqw; color: #232024; }
+.doc h3 { font-size: 3.9cqw; font-weight: 800; margin: 4.2cqw 0 1.4cqw; color: #232024; }
+.doc p { font-size: 3.6cqw; line-height: 1.58; color: #5b5760; margin: 0 0 2.8cqw; }
+.doc p b, .doc li b { color: #232024; font-weight: 700; }
+.doc ul { margin: 0 0 2.8cqw; padding-left: 5cqw; }
+.doc li { font-size: 3.6cqw; line-height: 1.55; color: #5b5760; margin-bottom: 1.6cqw; }
+.doc-link { color: #1451ad; font-weight: 700; text-decoration: none; }
+.doc .doc-nodev { color: #c62828; } /* "(not the dev)" emphasis — beats `.doc p b` #232024 (0,2,0 > 0,1,2) */
+.doc-link:hover, .doc-link:focus-visible { text-decoration: underline; outline: none; }
+.doc-val {
+  font-family: "Space Mono", monospace; font-size: 3.3cqw; color: #232024;
+  background: rgba(35, 32, 36, 0.06); padding: 0.4cqw 1.6cqw; border-radius: 6px;
+}
+.doc-tbd {
+  font-family: "Space Mono", monospace; font-size: 2.8cqw; font-weight: 700; letter-spacing: 0.04em;
+  color: #9a5a12; background: rgba(255, 190, 60, 0.22); padding: 0.6cqw 2cqw; border-radius: 999px;
+}
+/* live contract address in a doc list item — monospace, breaks so a 42-char address never overflows the frame */
+.doc-addr {
+  display: inline-block; margin-top: 1cqw;
+  font-family: "Space Mono", "SFMono-Regular", Consolas, Menlo, monospace;
+  font-size: 2.7cqw; font-weight: 700; color: #4a4650; word-break: break-all;
+  background: rgba(35, 32, 36, 0.06); padding: 0.6cqw 2cqw; border-radius: 6px;
+}
+.doc-facts { display: grid; grid-template-columns: repeat(2, 1fr); gap: 2.2cqw; margin: 3.2cqw 0 1cqw; }
+.doc-fact { background: #fff; border: 1px solid rgba(35, 32, 36, 0.1); border-radius: 12px; padding: 3cqw 3.2cqw; }
+.doc-fact .dl { font-size: 2.8cqw; text-transform: uppercase; letter-spacing: 0.08em; color: #5b5760; font-weight: 600; }
+.doc-fact .dv { font-family: "Space Mono", monospace; font-size: 4cqw; font-weight: 700; color: #232024; margin-top: 0.8cqw; }
+.doc-fact .dv-note { font-size: 2.5cqw; font-weight: 600; color: #5b5760; letter-spacing: 0.01em; }
+.doc-callout {
+  display: flex; gap: 2.6cqw; align-items: flex-start; margin: 3.6cqw 0 1cqw; padding: 3.2cqw 3.4cqw;
+  background: rgba(255, 186, 48, 0.15); border: 1px solid rgba(230, 150, 20, 0.38); border-radius: 12px;
+}
+.doc-callout .dci { flex: 0 0 auto; font-size: 4.4cqw; line-height: 1.3; }
+.doc-callout p { margin: 0; font-size: 3.4cqw; line-height: 1.5; color: #7a5312; }
+.doc-callout p b { color: #4a3208; font-weight: 800; }
+/* Socials apartado — one row of X-badge links (Denpa Club / ubk / vndv), shown in both Degen and Detail. */
+.doc-socials { margin-top: 5.5cqw; padding-top: 3.6cqw; border-top: 1px solid rgba(35, 32, 36, 0.1); }
+.doc-socials__head { font-size: 2.7cqw; letter-spacing: 0.14em; text-transform: uppercase; color: #8a8590; font-weight: 800; margin: 0 0 2.8cqw; }
+.doc-socials__list { display: flex; flex-wrap: wrap; gap: 2.4cqw; }
+.doc-socials__item {
+  display: inline-flex; align-items: center; gap: 2cqw; text-decoration: none;
+  padding: 2.4cqw 3.4cqw; border: 1px solid rgba(35, 32, 36, 0.12); border-radius: 999px;
+  background: #fff; transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+}
+.doc-socials__item:hover, .doc-socials__item:focus-visible {
+  transform: translateY(-1.5px); border-color: #4f8df7; box-shadow: 0 4px 12px rgb(0 0 0 / 12%); outline: none;
+}
+.doc-socials__x { width: 3.6cqw; height: 3.6cqw; flex: 0 0 auto; color: #151718; }
+.doc-socials__name { font-size: 3.3cqw; font-weight: 700; color: #232024; }
+.doc-socials__tag { font-size: 3cqw; color: #5b5760; }
+
+.doc-foot { margin-top: 5.5cqw; padding-top: 3.6cqw; border-top: 1px solid rgba(35, 32, 36, 0.1); }
+.doc-foot p { font-size: 2.9cqw; color: #5b5760; margin: 0; }
+
+/* ── docs redesign (launch 2026-09-09): category panel + Degen/Detail views ──────────────────────────
+   Reuses the proven .subpage shell (clears the fixed app-bar). .docs-shell is the paper card (like
+   .sub-card, incl. container-type so the .doc prose keeps its cqw scale) = a fixed header (title +
+   Degen/Detail switch + sticky horizontal category chips) over a scrolling body. Same phone frame on all
+   sizes (Le's "arriba" panel option); a desktop left-rail breakout can be layered on later if wanted. */
+.docs-shell {
+  flex: 1 1 auto; display: flex; flex-direction: column; min-height: 0;
+  background: #faf7f0; border-radius: 20px; overflow: hidden;
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.34);
+  container-type: inline-size;
+  font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  color: #232024;
+}
+.docs-head { flex: 0 0 auto; padding: 5cqw 5cqw 2.6cqw; background: rgba(250, 247, 240, 0.96); border-bottom: 1px solid rgba(35, 32, 36, 0.1); }
+.docs-head__top { display: flex; align-items: center; justify-content: space-between; gap: 3cqw; margin-bottom: 3.4cqw; }
+.docs-title { margin: 0; font-size: 5.8cqw; font-weight: 800; letter-spacing: -0.01em; }
+
+/* "Mode" label + the Degen/Detail switch, grouped so they sit together at the right of the header (Le 2026-09-10) */
+.doc-modewrap { display: flex; align-items: center; gap: 2.4cqw; flex: 0 0 auto; }
+.doc-modewrap__label { font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-weight: 700; font-size: 3cqw; line-height: 1; color: #5b5760; letter-spacing: 0.02em; white-space: nowrap; }
+
+/* Degen / Detail segmented switch */
+.doc-switch { position: relative; display: inline-flex; flex: 0 0 auto; background: #eceae3; border-radius: 999px; padding: 0.7cqw; }
+/* the sliding black "cerrojo" thumb — ONE bar that slides between the two equal-width tabs (Le 2026-09-09).
+   The tabs are transparent; this thumb is the moving black background. Slight overshoot = a latch snap. */
+.doc-switch__thumb {
+  position: absolute; z-index: 0; top: 0.7cqw; bottom: 0.7cqw; left: 0.7cqw;
+  width: calc((100% - 1.4cqw) / 2); background: #151718; border-radius: 999px;
+  transition: transform 0.28s cubic-bezier(.34, 1.45, .5, 1);
+}
+.doc-switch.is-detail .doc-switch__thumb { transform: translateX(100%); }
+.doc-switch__btn { flex: 1 1 0; position: relative; z-index: 1; appearance: none; -webkit-appearance: none; border: 0; background: transparent; cursor: pointer; font-family: "Plus Jakarta Sans", sans-serif; font-weight: 700; font-size: 3cqw; line-height: 1; color: #5b5760; padding: 1.8cqw 3.6cqw; border-radius: 999px; text-align: center; transition: color 0.22s ease; }
+.doc-switch__btn.is-on { color: #fff; }
+.doc-switch__btn:focus-visible { outline: 2px solid #1451ad; outline-offset: 1px; }
+
+/* category panel: horizontal scroll-chips (sticky in the fixed header) */
+.doc-panel {
+  display: flex; gap: 1.8cqw; overflow-x: auto; -webkit-overflow-scrolling: touch; touch-action: pan-x;
+  padding-bottom: 1.4cqw; scrollbar-width: none;
+  /* edge-fade — docs.js sets --fade-l/--fade-r per scroll position (0 when there's nothing more that way). */
+  --fade-l: 0px; --fade-r: 8cqw;
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 var(--fade-l), #000 calc(100% - var(--fade-r)), transparent);
+          mask-image: linear-gradient(to right, transparent, #000 var(--fade-l), #000 calc(100% - var(--fade-r)), transparent);
+}
+.doc-panel::-webkit-scrollbar { display: none; }
+.doc-panel { cursor: grab; }
+.doc-panel.is-dragging { cursor: grabbing; user-select: none; -webkit-user-select: none; }
+.doc-chip { flex: 0 0 auto; appearance: none; -webkit-appearance: none; cursor: pointer; display: inline-flex; align-items: center; gap: 1.6cqw; background: #f4f2ec; border: 1px solid rgba(35, 32, 36, 0.12); border-radius: 999px; padding: 1.8cqw 3.6cqw; font-family: "Plus Jakarta Sans", sans-serif; font-weight: 600; font-size: 3cqw; color: #5b5760; white-space: nowrap; }
+.doc-chip__dot { width: 2.4cqw; height: 2.4cqw; border-radius: 999px; display: inline-block; flex: 0 0 auto; }
+.doc-chip.is-active { background: #151718; color: #fff; border-color: #151718; }
+.doc-chip:focus-visible { outline: 2px solid #1451ad; outline-offset: 1px; }
+
+.docs-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; touch-action: pan-y; padding: 4.5cqw 5.5cqw 6cqw; }
+/* scroll TRACK painted the card's bone/cream so it blends in; the THUMB stays neutral (Le 2026-09-10). */
+.docs-body { scrollbar-color: rgba(21, 23, 24, 0.35) #faf7f0; }
+.docs-body::-webkit-scrollbar { width: 2.2cqw; }
+.docs-body::-webkit-scrollbar-track { background: #faf7f0; }
+.docs-body::-webkit-scrollbar-thumb { background: rgba(21, 23, 24, 0.35); border-radius: 999px; }
+.docs-lede { font-size: 3.4cqw; line-height: 1.5; color: #5b5760; margin: 0 0 4.5cqw; }
+
+/* DEGEN view — quick cards, one per category */
+.deg-group { display: flex; flex-direction: column; gap: 3.2cqw; }
+.deg-card { background: #fff; border: 1px solid rgba(35, 32, 36, 0.1); border-radius: 16px; padding: 4.4cqw 4.6cqw; scroll-margin-top: 5cqw; }
+.deg-card__kick { display: inline-flex; align-items: center; gap: 1.6cqw; font-family: "Space Mono", monospace; font-weight: 700; font-size: 2.8cqw; text-transform: uppercase; letter-spacing: 0.06em; color: #5b5760; }
+.deg-card__kick i { width: 3.4cqw; height: 3.4cqw; border-radius: 1.2cqw; display: inline-block; }
+.deg-card__stat { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2cqw; margin: 2cqw 0 0; font-family: "Space Mono", monospace; font-weight: 700; font-size: 8.4cqw; line-height: 1.04; color: #232024; }
+.deg-card__sub { font-family: "Plus Jakarta Sans", sans-serif; font-weight: 600; font-size: 3.2cqw; color: #5b5760; }
+.deg-card__line { font-size: 3.5cqw; line-height: 1.5; color: #5b5760; margin: 2.6cqw 0 0; }
+.det-group .doc:first-of-type { border-top: 0; padding-top: 1cqw; }
+.doc-faq-h { margin-top: 6cqw; }
+
+/* "To be announced" teaser — blur the info + a centered pill (evolution degen card + evolution detail section) */
+.doc-tba { position: relative; }
+.doc-tba__blur { filter: blur(5px); opacity: 0.5; user-select: none; pointer-events: none; }
+.doc-tba__blur > :first-child { margin-top: 0; }
+.doc-tba__badge { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
+.doc-tba__pill { background: #151718; color: #fff; font-family: "Space Mono", monospace; font-weight: 700; font-size: 3cqw; letter-spacing: 0.06em; text-transform: uppercase; padding: 1.8cqw 4cqw; border-radius: 999px; white-space: nowrap; }
+/* announce Evolution → docs.js adds .doc-tba--revealed: un-blur the teaser + drop the pill */
+.doc-tba--revealed .doc-tba__blur { filter: none; opacity: 1; user-select: auto; pointer-events: auto; }
+.doc-tba--revealed .doc-tba__badge { display: none; }
+
+/* ── real sub-page shell: mobile-frame + app-bar + a paper card (chunk 3+) ── */
+.subpage {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background: url("assets/blue-cutting-mat-3-sections.jpg") center top / cover no-repeat, #1451ad;
+  padding: 15% 4% 5%; /* top clears the fixed app-bar */
+  display: flex;
+}
+.sub-card {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: #faf7f0;
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.34);
+  container-type: inline-size;
+  font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  color: #232024;
+}
+.sub-card__head {
+  flex: 0 0 auto;
+  padding: 5.5cqw 5.5cqw 4cqw;
+  background: rgba(250, 247, 240, 0.92);
+  border-bottom: 1px solid rgba(35, 32, 36, 0.1);
+}
+.sub-card__title { margin: 0; font-size: 6.4cqw; font-weight: 800; letter-spacing: -0.01em; }
+/* title row: page title + an icon-only link-out to the burn helper contract on Etherscan (burn.html).
+   The icon is the official two-tone Etherscan logomark; the pill is a white circle so it reads as a button. */
+.sub-card__titlerow { display: flex; align-items: center; justify-content: space-between; gap: 3cqw; }
+.burn-etherscan {
+  flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center; text-decoration: none;
+  background: #fff; border: 1px solid rgba(35, 32, 36, 0.12); border-radius: 999px; padding: 2.4cqw;
+  transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease;
+}
+.burn-etherscan:hover, .burn-etherscan:focus-visible {
+  transform: translateY(-1.5px); border-color: rgba(33, 50, 91, 0.55); box-shadow: 0 4px 12px rgb(0 0 0 / 14%); outline: none;
+}
+.burn-etherscan .etherscan-logo { display: block; width: 5cqw; height: 5cqw; }
+
+/* ==== TYB-MOTION LAYER =======================================================================================
+   Revert: delete this whole block + the TYB-MOTION fences in :root and in the reduced-motion @media; delete
+   tyb-motion.js + its <script> tags; restore the one router line in tyb-session.js. (No nested comment markers
+   here — CSS comments do not nest, an inner close would truncate this block and drop the next rule.)
+   NO-BLANK FLOOR: resting opacity is always 1 — 0 lives ONLY in @keyframes from{}, so an un-run / unsupported /
+   reduced-motion animation renders the element at its authored (visible) opacity. ============================ */
+
+/* (P2/P selection) active state fades instead of snapping */
+.doc-switch__btn,
+.doc-chip {
+  transition: background-color var(--tyb-dur-sel) var(--tyb-ease-out),
+              color var(--tyb-dur-sel) var(--tyb-ease-out),
+              border-color var(--tyb-dur-sel) var(--tyb-ease-out);
+}
+.bn-step__num,
+.bn-step__label {
+  transition: background-color var(--tyb-dur-sel) var(--tyb-ease-out),
+              color var(--tyb-dur-sel) var(--tyb-ease-out),
+              box-shadow var(--tyb-dur-sel) var(--tyb-ease-out);
+}
+
+/* (P3) Degen<->Detail crossfade — applyMode()'s `hidden` toggle (display:none->block) replays this for free */
+@keyframes tyb-swap { from { opacity: 0; transform: translateY(6px); } }
+.det-group:not([hidden]) { animation: tyb-swap var(--tyb-dur-swap) var(--tyb-ease-out) both; }
+
+/* (P4) staggered reveal — Degen cards + socials cascade in. `backwards` fill holds opacity:0 ONLY during the
+   stagger delay, then RELEASES transform after (so the socials hover-lift keeps working); no forwards override.
+   nth-child ranges match CATEGORIES(7) / SOCIALS(3); an item beyond the range animates at delay 0 (harmless). */
+@keyframes tyb-rise { from { opacity: 0; transform: translateY(10px); } }
+.deg-card,
+.doc-socials__item { animation: tyb-rise var(--tyb-dur-rise) var(--tyb-ease-back) backwards; }
+.deg-group > .deg-card:nth-child(1) { animation-delay: 0s; }
+.deg-group > .deg-card:nth-child(2) { animation-delay: calc(1 * var(--tyb-stagger)); }
+.deg-group > .deg-card:nth-child(3) { animation-delay: calc(2 * var(--tyb-stagger)); }
+.deg-group > .deg-card:nth-child(4) { animation-delay: calc(3 * var(--tyb-stagger)); }
+.deg-group > .deg-card:nth-child(5) { animation-delay: calc(4 * var(--tyb-stagger)); }
+.deg-group > .deg-card:nth-child(6) { animation-delay: calc(5 * var(--tyb-stagger)); }
+.deg-group > .deg-card:nth-child(7) { animation-delay: calc(6 * var(--tyb-stagger)); }
+.doc-socials__list > .doc-socials__item:nth-child(1) { animation-delay: 0s; }
+.doc-socials__list > .doc-socials__item:nth-child(2) { animation-delay: calc(1 * var(--tyb-stagger)); }
+.doc-socials__list > .doc-socials__item:nth-child(3) { animation-delay: calc(2 * var(--tyb-stagger)); }
+
+/* (P5) page fade-in on load — fades the paper CARD over the blue cutting-mat, NOT the frame. The mat is the
+   backdrop of .subpage / .track (both INSIDE .mobile-frame); fading the frame faded the mat too, so it blinked
+   away during the transition (Le 2026-09-09). Fade only .sub-card / .docs-shell → the mat stays put. Index has
+   no page-in — its gear-pack opening bounce is the entrance, and the mat (on .track) never fades. opacity-only;
+   `both` is safe (no hover transform on the card). */
+@keyframes tyb-page { from { opacity: 0; } }
+.sub-card,
+.docs-shell { animation: tyb-page var(--tyb-dur-page) var(--tyb-ease-out) both; }
+
+/* (P6) navigate-out overlay — tyb-motion.js creates the <div> and toggles .is-on. It carries the SAME blue
+   cutting-mat as .subpage so the mat never disappears during a nav (Le 2026-09-09): the mat is the constant
+   stage, only the content fades under it. */
+.tyb-navout {
+  position: absolute; inset: 0; z-index: 9999;   /* inside .mobile-frame (position:relative, overflow:hidden)
+                                                     → the wipe stays within the phone frame, not the whole
+                                                     desktop viewport (Le 2026-09-09); frame clips + rounds it */
+  background: url("assets/blue-cutting-mat-3-sections.jpg") center top / cover no-repeat, #1451ad;
+  opacity: 0; pointer-events: none;
+  transition: opacity var(--tyb-dur-nav) var(--tyb-ease-in);
+}
+.tyb-navout.is-on { opacity: 1; pointer-events: auto; }
+/* ==== /TYB-MOTION LAYER ==== */
+.sub-card__sub { margin: 1.8cqw 0 3cqw; font-size: 3.4cqw; line-height: 1.5; color: #5b5760; }
+.sub-card__note { margin: 0 0 3cqw; padding-left: 2.8cqw; border-left: 2px solid rgba(255, 210, 31, 0.65); font-size: 2.9cqw; line-height: 1.45; color: #6b6570; }
+/* "Need Frogs?" on-ramp row (burn.html): a prompt + a pill linking out to the Frog Heads collection. */
+.burn-onramp { display: flex; align-items: center; flex-wrap: wrap; gap: 2.6cqw; margin: 0 0 3.4cqw; }
+.burn-onramp__q { font-size: 3.3cqw; font-weight: 700; color: #232024; }
+.burn-onramp__pill {
+  display: inline-flex; align-items: center; gap: 1.4cqw;
+  font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-weight: 700; font-size: 3cqw; line-height: 1; color: #2f9e44; text-decoration: none; white-space: nowrap;
+  background: #f8fefa; border: 1px solid rgba(47, 158, 68, 0.45); border-radius: 999px; padding: 2cqw 3.4cqw;
+  transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease;
+}
+.burn-onramp__pill:hover, .burn-onramp__pill:focus-visible {
+  transform: translateY(-1.5px); border-color: #2f9e44; box-shadow: 0 4px 12px rgb(47 158 68 / 22%); outline: none;
+}
+/* connect-free campaign burn counter (burn.html): a progress bar "<burned> / 1000 burned" on the blue theme. */
+.burn-count { margin: 0 0 3.4cqw; }
+.burn-count__label {
+  font-family: "Space Mono", monospace; font-size: 3cqw; font-weight: 700; letter-spacing: 0.04em;
+  color: #232024; margin: 0 0 1.6cqw;
+}
+.burn-count__track {
+  position: relative; height: 2.6cqw; border-radius: 999px; overflow: hidden;
+  background: rgba(20, 81, 173, 0.14);
+}
+.burn-count__fill {
+  height: 100%; border-radius: 999px; background: #1451ad; min-width: 0;
+  transition: width var(--tyb-dur-page, 0.46s) var(--tyb-ease-out, cubic-bezier(.16, 1, .3, 1));
+}
+.sub-card__body { flex: 1 1 auto; overflow-y: auto; -webkit-overflow-scrolling: touch; touch-action: pan-y; padding: 4.5cqw 5.5cqw; }
+.sub-card__foot {
+  flex: 0 0 auto; padding: 4cqw 5.5cqw 5cqw;
+  background: rgba(250, 247, 240, 0.92); border-top: 1px solid rgba(35, 32, 36, 0.1);
+}
+
+.rf-status {
+  font-family: "Space Mono", monospace; font-size: 3cqw; font-weight: 700; letter-spacing: 0.05em;
+  text-transform: uppercase; padding: 2cqw 3.4cqw; border-radius: 999px; display: inline-block;
+}
+.rf-status--open { color: #1c7a3e; background: rgba(46, 160, 80, 0.15); }
+.rf-status--closed { color: #9a3b12; background: rgba(214, 90, 40, 0.15); }
+.rf-msg { font-size: 3.7cqw; line-height: 1.55; color: #5b5760; margin: 0 0 3.5cqw; }
+.rf-connect { text-align: center; padding: 6cqw 0; }
+.rf-token {
+  display: flex; align-items: center; gap: 3cqw; padding: 3.2cqw; margin-bottom: 2.2cqw;
+  border: 1px solid rgba(35, 32, 36, 0.12); border-radius: 12px; background: #fff; cursor: pointer;
+  transition: border-color 140ms ease, box-shadow 140ms ease;
+}
+.rf-token[aria-disabled="true"] { opacity: 0.5; cursor: not-allowed; background: #f4f2ec; }
+.rf-token.is-sel { border-color: #1451ad; box-shadow: 0 0 0 2px rgba(20, 81, 173, 0.25); }
+.rf-token__id { font-family: "Space Mono", monospace; font-weight: 700; font-size: 4.2cqw; flex: 1 1 auto; }
+.rf-token__why {
+  font-size: 2.8cqw; font-weight: 700; color: #9a5a12; text-transform: uppercase; letter-spacing: 0.04em;
+  background: rgba(255, 190, 60, 0.22); border-radius: 999px; padding: 1.4cqw 2.6cqw;
+}
+.rf-check {
+  width: 5.4cqw; height: 5.4cqw; border-radius: 7px; border: 2px solid rgba(35, 32, 36, 0.3);
+  flex: 0 0 auto; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 3.4cqw;
+}
+.rf-token.is-sel .rf-check { background: #1451ad; border-color: #1451ad; }
+.rf-warn { font-size: 2.95cqw; line-height: 1.5; color: #9a3b12; margin: 0 0 3cqw; font-weight: 600; }
+.rf-total { display: flex; justify-content: space-between; font-size: 3.8cqw; font-weight: 700; margin-bottom: 3cqw; }
+.rf-btn {
+  display: block; width: 100%; padding: 4cqw; font-size: 4cqw; font-weight: 800; color: #fff;
+  background: #151718; border: none; border-radius: 14px; cursor: pointer;
+  font-family: inherit; transition: transform 160ms ease, box-shadow 160ms ease;
+}
+.rf-btn:hover:not(:disabled) { transform: translateY(-1.5px); box-shadow: 0 6px 16px rgba(0, 0, 0, 0.24); }
+.rf-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* GTD/FCFS eligibility checker + shareable badge (frhd-check.js) */
+.chk-section { border-top: 1px solid rgba(0, 0, 0, 0.08); margin: 0; padding: 4.5cqw 5.5cqw; }
+.chk-title { font-size: 4cqw; font-weight: 800; color: #12245a; margin: 0 0 3cqw; }
+.chk-connect, .chk-hit, .chk-none, .chk-form { display: flex; flex-direction: column; gap: 3cqw; }
+.chk-row { display: flex; gap: 2.5cqw; align-items: stretch; }
+.chk-input { flex: 1 1 auto; min-width: 0; padding: 3.5cqw; font-family: "Space Mono", ui-monospace, monospace; font-size: 3.4cqw; color: #12245a; background: #fff; border: 1.5px solid rgba(0,0,0,0.14); border-radius: 12px; }
+.chk-input:focus { outline: none; border-color: #1451ad; }
+.chk-row .rf-btn { width: auto; flex: 0 0 auto; margin: 0; padding: 3.5cqw 5cqw; }
+.chk-err { color: #c02a2a; margin: 0; }
+.chk-banner { width: 100%; height: auto; display: block; border-radius: 14px; box-shadow: 0 6px 18px rgba(0,0,0,0.28); }
+.chk-actions { display: flex; gap: 3cqw; }
+.chk-actions .rf-btn { width: auto; flex: 1 1 0; margin: 0; text-align: center; text-decoration: none; }
+.rf-btn--ghost { background: transparent; color: #1451ad; border: 2px solid #1451ad; }
+.chk-ok { font-weight: 800; color: #12245a; margin: 0; }
+.chk-fine { font-size: 3cqw; color: #8a8790; margin: 0; }
+
+/* burn progress stepper (Le UX: ① Approve the burn contract -> ② Accept the burn) */
+.bn-steps { display: flex; flex-direction: column; margin: 0 0 4.5cqw; }
+.bn-step { position: relative; display: flex; align-items: flex-start; gap: 3cqw; padding: 0 0 4.5cqw; }
+.bn-step:last-child { padding-bottom: 0; }
+/* connector = a column of mini dots (lunares) between the circles */
+.bn-step:not(:last-child)::before { content: ''; position: absolute; left: 4cqw; transform: translateX(-50%); top: 8.9cqw; bottom: -0.2cqw; width: 1.5cqw; background-image: radial-gradient(circle, rgba(0, 0, 0, 0.24) 0 42%, transparent 46%); background-size: 1.5cqw 1.9cqw; background-repeat: repeat-y; background-position: top center; }
+.bn-step.is-done:not(:last-child)::before { background-image: radial-gradient(circle, #1c7a3e 0 42%, transparent 46%); }
+.bn-step__num { flex: 0 0 auto; width: 8cqw; height: 8cqw; border-radius: 999px; display: flex; align-items: center; justify-content: center; font-size: 3.6cqw; font-weight: 800; z-index: 1; background: #eceaf0; color: #8a8790; }
+.bn-step.is-active .bn-step__num { background: #1451ad; color: #fff; box-shadow: 0 0 0 4px rgba(20, 81, 173, 0.18); }
+.bn-step.is-done .bn-step__num { background: #1c7a3e; color: #fff; }
+.bn-step__label { font-size: 3.7cqw; line-height: 8cqw; font-weight: 700; color: #8a8790; }
+.bn-step.is-active .bn-step__label { color: #12245a; }
+.bn-step.is-done .bn-step__label { color: #1c7a3e; }
+
+/* success = a big green circular checkmark (Le UX; replaces the "Back to Frog Heads" button on a done burn) */
+.bn-done-wrap { display: flex; flex-direction: column; align-items: center; gap: 4cqw; text-align: center; padding: 2cqw 0 0; }
+.bn-done { width: 18cqw; height: 18cqw; border-radius: 999px; border: none; cursor: pointer; background: #1c7a3e; color: #fff; font-size: 9cqw; font-weight: 900; line-height: 1; display: flex; align-items: center; justify-content: center; box-shadow: 0 8px 22px rgba(28, 122, 62, 0.35); transition: transform .12s ease, box-shadow .12s ease; }
+.bn-done:hover { transform: translateY(-2px) scale(1.04); box-shadow: 0 12px 28px rgba(28, 122, 62, 0.42); }
+.bn-done:active { transform: scale(0.97); }
+.bn-done-wrap .rf-msg { margin: 0; }
+/* desktop: the frame is min(100vw, 45.9954vh) so a tall desktop window enlarges it ~24% → the success check
+   reads too big there. Shrink it 20% on desktop only (mobile keeps 18cqw). (Le UX) */
+@media (min-width: 768px) {
+  .bn-done { width: 14.4cqw; height: 14.4cqw; font-size: 7.2cqw; }
+}
