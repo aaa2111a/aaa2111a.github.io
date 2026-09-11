@@ -116,18 +116,34 @@ body {
    mutually exclusive, so DESKTOP IS BYTE-UNTOUCHED. Fix for the in-app-browser pillarbox: the base
    `.mobile-frame` is contain-fit (min(100vw, 45.9954vh)), so a phone whose usable height is reduced by
    persistent in-app toolbars shrinks the WIDTH to keep the 402:874 shape → blue mat bars on the sides.
-   The SUBPAGES (burn/docs, tagged .mobile-frame--card) are a reflowing scrollable card with no aspect to
-   protect, so on phones they fill the real width (100vw — chrome never reduces width) and the real visible
-   height (svh = "toolbar-visible" height the browser computes per device; static, no relayout thrash, never
-   clips; 100vh is the pre-svh fallback for iOS<15.4). The INDEX keeps its aspect-locked frame (its art is
-   %-composed; filling it would crop content) — it carries no --card class, so it is untouched here. */
+   The SUBPAGES (burn/docs, tagged .mobile-frame--card) are a reflowing card with no aspect to protect, so on
+   phones they fill the real width (100vw — chrome never reduces width) and the real visible height. We use
+   DVH (dynamic viewport height), not svh: dvh SHRINKS when the soft keyboard opens, so the frame contracts
+   to the space above the keyboard and the checker input (the last flex child of .sub-card) stays visible
+   just above it; 100vh is the pre-dvh fallback for iOS<15.4. The INDEX keeps its aspect-locked frame (its
+   art is %-composed; filling it would crop content) — it carries no --card class, so it is untouched here. */
 @media (max-width: 767px) {
   .mobile-frame--card {
     width: 100vw;
-    height: 100vh;   /* fallback: iOS < 15.4 (no svh) */
-    height: 100svh;
+    height: 100vh;   /* fallback: iOS < 15.4 (no dvh) */
+    height: 100dvh;  /* shrinks with the soft keyboard → the checker input stays above it */
     aspect-ratio: auto;
     border-radius: 0;
+  }
+  /* burn/docs (body.page-sub) are a normal card with NO swipe-nav (only the index loads script.js), so the
+     index's desktop-drag globals on <body> — touch-action:none / user-select:none — are pure side effects
+     here. Lift them ON THESE PAGES so PINCH-ZOOM works and text is selectable. Index <body> keeps them. */
+  body.page-sub {
+    touch-action: pan-x pan-y pinch-zoom;
+    -webkit-user-select: auto;
+    user-select: auto;
+  }
+  /* the paste field: explicitly selectable + own gestures, so long-press → Paste works on a phone
+     (the global body user-select:none otherwise kills the iOS paste callout). */
+  .chk-input {
+    -webkit-user-select: text;
+    user-select: text;
+    touch-action: auto;
   }
 }
 
