@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#1451ad">
+  <!-- LAUNCH BUILD: docs is static (docs.js reads only the frozen config, no chain) -> connect-src 'self'.
+       Staging/testnet origins dropped - they were dead here and disclosed internal infra on a public page.
+       The redesign renders every dynamic node via the XSS-safe builder (tyb-render.js) and adds no new origin. -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; img-src 'self' data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; script-src 'self'; connect-src 'self'">
+  <title>Tokyo Youth Battle — Docs</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="mobile-frame mobile-frame--card" aria-label="Docs">
+    <!-- app-bar mount: tyb-session.js injects the ONE shared bar here (same on all pages). -->
+    <div class="app-top"></div>
+    <section class="subpage">
+      <!-- the docs paper card. A fixed header (title + Degen/Detail switch + sticky horizontal category chips)
+           over a scrolling body. The switch (#doc-switch), the category panel (#doc-panel) and the Degen cards
+           (#deg-group) are BUILT by docs.js via the XSS-safe R.el builder; the Detail sections are static trusted
+           prose (numbers filled from onchain-config via [data-cfg], so the two views can never show different facts). -->
+      <article class="docs-shell">
+        <header class="docs-head">
+          <div class="docs-head__top">
+            <h1 class="docs-title">TYB Docs</h1>
+            <div class="doc-modewrap">
+              <span class="doc-modewrap__label">Mode</span>
+              <div id="doc-switch" class="doc-switch" role="tablist" aria-label="Detail level"></div>
+            </div>
+          </div>
+          <nav id="doc-panel" class="doc-panel" aria-label="Sections"></nav>
+        </header>
+
+        <div class="docs-body">
+          <p class="docs-lede">Everything about the drop — the collection, how to get in, the gacha, trait evolution,
+            refunds and the on-chain details. A <b>living document</b>, updated as mechanics are finalized.</p>
+
+          <!-- DEGEN view: quick cards, one per category. Built by docs.js from CAT_DEGEN + docFacts numbers. -->
+          <div id="deg-group" class="deg-group" aria-label="Quick overview"></div>
+
+          <!-- DETAIL view: the full reference. Static trusted prose; numbers via [data-cfg]. -->
+          <div id="det-group" class="det-group" hidden>
+
+            <section class="doc det" data-cat="overview" id="det-overview">
+              <span class="doc-kick"><i class="dk-red"></i> Overview</span>
+              <h2>What is TYB</h2>
+              <p>Tokyo Youth Battle is a <b><span data-cfg="supply">4,444</span>-piece collection</b> on Robinhood Chain. It isn't just a mint — every piece is also a ticket in a live <b>gacha</b> with on-chain payouts, its traits can <b>evolve</b>, there's a friendlier <b>guaranteed</b> way in for Frog Heads holders, and a <b>refund window</b> if you change your mind.</p>
+            </section>
+
+            <section class="doc det" data-cat="collection" id="det-collection">
+              <span class="doc-kick"><i class="dk-blue"></i> Collection &amp; price</span>
+              <h2>The collection</h2>
+              <div class="doc-facts">
+                <div class="doc-fact"><div class="dl">Supply</div><div class="dv" data-cfg="supply">4,444</div></div>
+                <div class="doc-fact"><div class="dl">Standard</div><div class="dv">ERC-721</div></div>
+                <div class="doc-fact"><div class="dl">Chain</div><div class="dv" data-cfg="chainName">Robinhood</div></div>
+                <div class="doc-fact"><div class="dl">Token IDs</div><div class="dv" data-cfg="idRange">1 – 4,444</div></div>
+              </div>
+              <p>Metadata and art are pinned on <b>IPFS</b> and stay hidden until the <b>reveal</b>, which happens after the refund window closes. Each piece keeps a permanent number (its token ID) — that number is also its ticket for the gacha.</p>
+              <h3>Price &amp; limits</h3>
+              <div class="doc-facts">
+                <div class="doc-fact"><div class="dl">Price</div><div class="dv" data-cfg="price">0.002 ETH</div></div>
+                <div class="doc-fact"><div class="dl">Max / wallet</div><div class="dv"><span data-cfg="maxPerWallet">2</span> <span class="dv-note">(Frenzy up to <span data-cfg="frenzyCap">6</span>)</span></div></div>
+                <div class="doc-fact"><div class="dl">Per tx</div><div class="dv" data-cfg="maxPerWalletTx">up to 2</div></div>
+                <div class="doc-fact"><div class="dl">Royalty</div><div class="dv" data-cfg="royaltyPct">5%</div></div>
+              </div>
+              <p>Your per-wallet limit is <b><span data-cfg="maxPerWallet">2</span></b> across GTD and FCFS combined, rising to <b>up to <span data-cfg="frenzyCap">6</span></b> in the Frenzy phase (and Public). Minting then refunding does <b>not</b> reset your allowance.</p>
+            </section>
+
+            <section class="doc det" data-cat="ways-in" id="det-ways-in">
+              <span class="doc-kick"><i class="dk-teal"></i> Ways in</span>
+              <h2>Four ways in</h2>
+              <p>The mint opens in phases, in this order: <b>GTD → FCFS → Frenzy → Public</b>. Each phase is one-way — once it moves on, it doesn't go back. GTD and FCFS share a <b><span data-cfg="maxPerWallet">2</span></b> per-wallet cap; from <b>Frenzy</b> on it rises to <b><span data-cfg="frenzyCap">6</span></b>.</p>
+              <h3>1 · GTD — guaranteed</h3>
+              <p>Burn a <b>Frog Heads</b> NFT before mint to lock a <b>guaranteed allowlist spot</b> — no gas wars, no gatekeeping. Mint up to <b><span data-cfg="maxPerWallet">2</span></b> here (shared with FCFS).</p>
+              <h3>2 · FCFS — allowlist</h3>
+              <p>A first-come, first-served allowlist. If you're on the list you can mint before it opens to everyone — within the same <b><span data-cfg="maxPerWallet">2</span></b> per-wallet cap as GTD.</p>
+              <h3>3 · Frenzy</h3>
+              <p>The cap opens up: your per-wallet limit rises to <b><span data-cfg="frenzyCap">6</span></b>. If you already minted <span data-cfg="maxPerWallet">2</span> in GTD/FCFS, you can mint <b><span data-cfg="frenzyExtra">4</span> more</b> here.</p>
+              <h3>4 · Public</h3>
+              <p>Open to anyone, up to <b><span data-cfg="frenzyCap">6</span></b> per wallet, while supply lasts.</p>
+              <h3>GTD via Frog Heads burn</h3>
+              <p>Holding <b>Frog Heads</b> earns you a guaranteed spot. Before mint opens you <b>burn</b> a Frog Heads NFT (on Ethereum); the burn is recorded on-chain, snapshotted, and turned into the guaranteed allowlist. When the GTD phase opens, burners mint their guaranteed pieces.</p>
+              <ul>
+                <li>The burn is <b>irreversible</b> — once burned, that Frog Heads is gone.</li>
+                <li>Up to <b><span data-cfg="maxPerWallet">2</span></b> Frog Heads per wallet count toward GTD (one guaranteed mint each).</li>
+                <li>Burn window and the exact snapshot cutoff are announced before mint. <span class="doc-tbd">dates TBD</span></li>
+              </ul>
+            </section>
+
+            <section class="doc det" data-cat="gacha" id="det-gacha">
+              <span class="doc-kick"><i class="dk-red"></i> The gacha</span>
+              <h2>The gacha mechanic</h2>
+              <p>Every TYB is a numbered <b>ticket</b> (its token ID). Each round opens with its <b>winning numbers public</b>. Buy a ticket (<b data-cfg="ticketUsd">$0.50</b> each, up to <b data-cfg="maxTicketsPerTx">20</b> per transaction) and your number shows <b>instantly</b> — <b>every ticket pays straight to the holder</b> <b class="doc-nodev">(not the dev)</b> of the number it draws, and the <b>first ticket to hit a winning number takes the prize</b>. <b>The dev takes no cut of the payouts</b> — every cent of every ticket flows to holders, and the entire prize goes to the winner. The round runs on a committed random seed, revealed at close so <b>anyone can verify everything on-chain</b>, including that <b>nothing is skimmed</b>.</p>
+              <div class="doc-callout">
+                <span class="dci" aria-hidden="true">⚠️</span>
+                <p><b>When the gacha starts depends on the mint.</b> Part of the mint proceeds seed the gacha prize pool — so the first round begins once the mint has performed well enough to fund it.</p>
+              </div>
+              <div class="doc-callout">
+                <span class="dci" aria-hidden="true">⚠️</span>
+                <p><b>Hold to earn.</b> Each ticket's payout goes to whoever <b>holds the drawn number's NFT when the round settles</b> — not the ticket buyer, and not an earlier holder. <b>Sell your TYB before a round settles and the new owner receives that payout.</b> TYB rewards holders: hold through the round to receive what your number earns.</p>
+              </div>
+              <ul>
+                <li><b>Beyond the chance at the prize, every ticket also earns you a power-up</b> — an on-chain item you keep for a future use. <span class="doc-tbd">to be announced</span></li>
+                <li>Prizes, per-ticket payouts and any refunds are <b>pooled into one balance</b> you claim on the Claim page.</li>
+                <li>Round price, cadence and prize details are published per round. <span class="doc-tbd">round params TBD</span></li>
+              </ul>
+            </section>
+
+            <section class="doc det" data-cat="evolution" id="det-evolution">
+              <span class="doc-kick"><i class="dk-teal"></i> Evolution</span>
+              <h2>Trait evolution</h2>
+              <div class="doc-tba">
+                <div class="doc-tba__blur" aria-hidden="true">
+                  <p>Every gacha ticket also earns you a <b>power-up</b> — one of <b data-cfg="evoCategories">5</b> trait categories, at random. Power-ups are their own on-chain items; you claim them next to your ETH on the Claim page. Burn one to try to <b>evolve</b> that trait on one of your TYB, from the Inventory.</p>
+                  <ul>
+                    <li>Traits have three tiers. Evolving <b>Tier 1 → Tier 2</b> succeeds <b data-cfg="evoOdds1">1/10</b> of the time; <b>Tier 2 → Tier 3</b> is <b data-cfg="evoOdds2">1/20</b>. Tier <b data-cfg="evoMaxTier">3</b> is the top.</li>
+                    <li>The power-up is <b>spent whether the roll passes or fails</b> — the odds are the odds.</li>
+                    <li>Each trait's level lives <b>on-chain</b> (anyone can verify it), and the roll <b>can't be predicted or gamed</b> when you commit. On a pass, your piece's art and metadata update.</li>
+                  </ul>
+                </div>
+                <span class="doc-tba__badge"><b class="doc-tba__pill">To be announced</b></span>
+              </div>
+            </section>
+
+            <section class="doc det" data-cat="refund" id="det-refund">
+              <span class="doc-kick"><i class="dk-blue"></i> Refund &amp; royalties</span>
+              <h2><span data-cfg="refundPct">85%</span> refund window</h2>
+              <p>Changed your mind? <b>During the refund window after mint</b> you can burn your TYB and reclaim <b><span data-cfg="refundPct">85%</span> of the mint price</b> back to your wallet — no questions.</p>
+              <ul>
+                <li>Only the <b>original minter</b> who still holds the piece can refund. If it was sold or transferred, the refund is disabled.</li>
+                <li>It's a <b>blind</b> refund — it happens before the art reveal.</li>
+                <li>Refund returns <span class="doc-val" data-cfg="refundPerToken">0.0017 ETH</span> per piece (<span data-cfg="refundPct">85%</span> of <span data-cfg="price">0.002 ETH</span>).</li>
+              </ul>
+              <h3>Royalties</h3>
+              <p>Secondary sales carry a <b data-cfg="royaltyPct">5%</b> royalty (ERC-2981), enforced on-chain (ERC721-C) and honored by marketplaces like OpenSea.</p>
+            </section>
+
+            <section class="doc det" data-cat="onchain" id="det-onchain">
+              <span class="doc-kick"><i class="dk-yellow"></i> On-chain</span>
+              <h2>Chain &amp; contracts</h2>
+              <div class="doc-facts">
+                <div class="doc-fact"><div class="dl">Network</div><div class="dv" data-cfg="chainName">Robinhood</div></div>
+                <div class="doc-fact"><div class="dl">Chain ID</div><div class="dv" data-cfg="chainId">4663</div></div>
+                <div class="doc-fact"><div class="dl">Type</div><div class="dv">L2 · Orbit</div></div>
+                <div class="doc-fact"><div class="dl">Marketplace</div><div class="dv">OpenSea</div></div>
+              </div>
+              <p>Robinhood Chain is an Arbitrum Orbit L2. Contract addresses are published here once deployed and verified on the block explorer.</p>
+              <ul>
+                <li><b>Frog Heads burn helper</b> — the FRHD burn contract on <b>Ethereum</b>, live and
+                  <a class="doc-link" href="https://etherscan.io/address/0x404d5B637F96Ff6F707F372b73224606E0B16D73#code" target="_blank" rel="noopener noreferrer">verified on Etherscan</a>.
+                  <span class="doc-addr">0x404d5B637F96Ff6F707F372b73224606E0B16D73</span></li>
+                <li>Collection contract — <span class="doc-tbd">address TBD</span></li>
+                <li>Gacha contract — <span class="doc-tbd">address TBD</span></li>
+                <li>Power-ups &amp; evolution — <span class="doc-tbd">address TBD</span></li>
+              </ul>
+            </section>
+
+            <section class="doc det" data-cat="schedule" id="det-schedule">
+              <span class="doc-kick"><i class="dk-blue"></i> Schedule</span>
+              <h2>Project schedule</h2>
+              <ul>
+                <li><b>Friday 18</b> — Mint</li>
+                <li><b>Saturday 19</b> — Refund window opens</li>
+                <li><b>Monday 21</b> — Reveal</li>
+                <li><b>Tuesday 22</b> — First gacha round <span class="doc-tbd">if the mint raises enough</span></li>
+                <li><b>Evolution</b> — <span class="doc-tbd">TBA</span></li>
+              </ul>
+            </section>
+            <section class="doc det" data-cat="faq" id="det-faq">
+              <span class="doc-kick"><i class="dk-red"></i> FAQ</span>
+              <h2>Frequently asked</h2>
+              <h3>Why don't Frog Heads holders get a free mint?</h3>
+              <p>Frog Heads was itself a <b>free mint</b> — a second free mint on top would just dilute what holders already earned. Instead, a holder converts a Frog Head into a <b>guaranteed (GTD) spot</b> by burning it, which also removes Frog Heads supply. It's a trade, not a giveaway.</p>
+              <h3>What's the point of burning Frog Heads and dropping a new collection?</h3>
+              <p>Two things: it <b>brings new people into the ecosystem</b>, and it <b>adds value to Frog Heads by burning supply</b> — every burn permanently removes one, making the rest scarcer.</p>
+              <h3>Do I need Frog Heads to mint?</h3>
+              <p>No. Frog Heads gives you a <b>guaranteed</b> spot via the burn, but FCFS and public phases are open to others.</p>
+              <h3>Is the gacha "pay to win"?</h3>
+              <p>The prize is funded by the house, and every ticket's value flows to holders — a holder-first mechanic, verifiable on-chain after each round's reveal. Bought after a round was already won? You get a full refund.</p>
+              <div class="evo-only" hidden>
+                <h3>Can I max out a trait?</h3>
+                <p>You can try. Power-ups drop at random and the roll is honest odds, so maxing a specific trait takes a bit of luck — life isn't fair, and that's part of it.</p>
+              </div>
+              <h3>What if I don't like my piece?</h3>
+              <p>Burn it during the refund window for an <span data-cfg="refundPct">85%</span> refund (original minter only) — the window is <b>before the reveal</b>, so it's a blind refund while every piece still shows the placeholder.</p>
+              <h3>When does the art reveal?</h3>
+              <p>After the refund window closes. Until then every piece shows the placeholder.</p>
+              <h3>Any plans for the royalties?</h3>
+              <p>Yes. With Frog Heads we've put the ETH from royalties into <b>buybacks and burns</b> — over <b>600</b> NFTs burned that way so far. We want to do the same with TYB, <b>add more prizes</b> and go further: using the royalties to <b>expand the TYB IP</b> if the project does well.</p>
+            </section>
+
+          </div>
+
+          <!-- Socials: built XSS-safe by docs.js from a single SOCIALS source; sits OUTSIDE the deg/det
+               toggle groups so it shows in both views. -->
+          <section id="doc-socials" class="doc-socials" aria-label="Socials"></section>
+          <div class="doc-foot" id="doc-version"></div>
+        </div>
+      </article>
+    </section>
+  </main>
+
+  <!-- load order: config → fixtures → seam → render → session → page controller. -->
+  <script src="assets/ethers-6.17.0.umd.min.js?v=1" integrity="sha384-lApM4ELRuFNT7NgNqnXB2zFWgSDdhVvmnOHov2DPJz/2zuNpZImXBeklFr18ilvi"></script>
+  <script src="tyb-abi.js"></script>
+  <script src="onchain-config.js"></script>
+  <script src="tyb-mock-fixtures.js"></script>
+  <script src="tyb-chain.js"></script>
+  <script src="tyb-render.js"></script>
+  <script src="tyb-session.js"></script>
+  <script src="tyb-motion.js"></script>
+  <script src="assets/tyb-acrylic-page-1.js"></script>
+  <script src="assets/tyb-acrylic-page-2.js"></script>
+  <script src="assets/tyb-acrylic-page-3.js"></script>
+  <script src="assets/tyb-acrylic-page-4.js"></script>
+  <script src="assets/tyb-acrylic-page-5.js"></script>
+  <script src="assets/tyb-acrylic-page-6.js"></script>
+  <script src="tyb-acrylic.js"></script>
+  <script src="docs.js"></script>
+</body>
+</html>
